@@ -26,7 +26,6 @@ class RotateKeysResponse(BaseModel):
     role: str
     token: str
 
-
 @router.post("/rotate-keys", response_model=RotateKeysResponse, dependencies=[Depends(require_admin)])
 def rotate_keys(payload: RotateKeysRequest, db: Session = Depends(get_db)):
     """Rotate a role's API token (admin only). Only the hash is stored; the
@@ -48,6 +47,24 @@ def rotate_keys(payload: RotateKeysRequest, db: Session = Depends(get_db)):
     )
     db.commit()
     return RotateKeysResponse(role=payload.role, token=token)
+
+
+@router.get("/export-training", dependencies=[Depends(require_write)])
+def export_training(limit: int = 1000, db: Session = Depends(get_db)):
+    """Export instruction-tuning JSONL for the AI flywheel (Phase 5.1).
+
+    One record per line: human-approved approvals first (highest value),
+    then synthetic bootstrap pairs distilled from the heuristic rules.
+    Each record carries a deterministic train/val split in `meta`.
+    """
+    import json
+
+    from fastapi.responses import PlainTextResponse
+
+    from app.core.training import iter_training_records
+
+    lines = [json.dumps(record) for record in iter_training_records(db, limit=max(1, min(limit, 10000)))]
+    return PlainTextResponse("\n".join(lines) + ("\n" if lines else ""), media_type="application/x-ndjson")
 
 
 @router.get("/export", response_model=ExportPayload)

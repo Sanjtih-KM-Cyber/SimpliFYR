@@ -18,7 +18,7 @@ def test_migrations_reach_head_with_phase10_schema(tmp_path):
     try:
         with engine.connect() as conn:
             head = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
-        assert head == "f8a9b0c3d4e5", f"expected head f8a9b0c3d4e5, got {head!r}"
+        assert head == "a1b2c3d4e5f7", f"expected head a1b2c3d4e5f7, got {head!r}"
 
         cols = {c["name"] for c in inspect(engine).get_columns("events")}
         for required in ("processing_ms", "raw_hash", "environment", "raw_ref", "provenance"):
@@ -30,5 +30,8 @@ def test_migrations_reach_head_with_phase10_schema(tmp_path):
 
         indexes = {i["name"] for i in inspect(engine).get_indexes("events")}
         assert "ix_events_status_received_at" in indexes
+
+        ob_cols = {c["name"] for c in inspect(engine).get_columns("onboardings")}
+        assert "proposal" in ob_cols, "onboardings.proposal missing after migrations"
     finally:
         engine.dispose()

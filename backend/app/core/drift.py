@@ -197,10 +197,9 @@ def _analyze_and_decide(db: Session, drift: DriftRecord) -> str:
     automatically process; medium confidence -> process and flag for review; low
     confidence -> wait for human input. Returns the decision outcome.
     """
-    from app.core.ai.provider import get_ai_provider
+    from app.core.ai.provider import analyze_drift_safe
 
-    provider = get_ai_provider()
-    proposal = provider.analyze_drift(
+    proposal = analyze_drift_safe(
         source=drift.source,
         new_fields=set(drift.new_fields),
         missing_fields=set(drift.missing_fields),

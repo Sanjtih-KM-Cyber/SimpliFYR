@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.ai.provider import get_ai_provider
+from app.core.ai.provider import propose_mapping_safe
 from app.core.audit import log_action
 from app.core.database import get_db
 from app.core.engine import ProcessingEngine
@@ -126,10 +126,13 @@ def analyze_onboarding_by_id(onboarding_id: int, db: Session = Depends(get_db)):
 
         src = db.get(Source, onboarding.source_id)
         source_name = src.name if src else None
-    proposal = get_ai_provider().propose_mapping(source=source_name, field_map=field_map, sample=raw)
+    proposal = propose_mapping_safe(source=source_name, field_map=field_map, sample=raw)
+
+    from app.core.training import suggestion_dicts
 
     onboarding.detected_format = detection.format
     onboarding.confidence = proposal.confidence
+    onboarding.proposal = {"suggestions": suggestion_dicts(proposal.new_field_suggestions)}
     onboarding.status = OnboardingStatus.REVIEW
     db.commit()
 
@@ -187,7 +190,7 @@ def approve_onboarding(
             parsed = None
         if parsed is None:
             raise HTTPException(status_code=422, detail="Could not parse the sample")
-        proposal = get_ai_provider().propose_mapping(
+        proposal = propose_mapping_safe(
             source=source_name, field_map=extract_fields(parsed, detection.format), sample=raw
         )
         fields = [(s.input_field, s.semantic_field) for s in proposal.new_field_suggestions if s.semantic_field]
@@ -230,12 +233,20 @@ def approve_onboarding(
     db.add(
         Approval(entity_type="onboarding", entity_id=onboarding.id, status=ApprovalStatus.APPROVED, actor="system", comment=f"approved -> mapping {mapping.name}")
     )
+    from app.core.training import fields_dict, suggestion_dicts
+
     log_action(
         db,
         action="approve",
         entity_type="onboarding",
         entity_id=onboarding.id,
-        after={"source_id": source.id, "mapping_id": mapping.id, "recipe_id": recipe.id},
+        before={"proposed": suggestion_dicts((onboarding.proposal or {}).get("suggestions", []))},
+        after={
+            "source_id": source.id,
+            "mapping_id": mapping.id,
+            "recipe_id": recipe.id,
+            "final": fields_dict(mapping),
+        },
     )
     db.commit()
     db.refresh(mapping)
@@ -316,7 +327,7 @@ def analyze_onboarding(
         raise HTTPException(status_code=422, detail="Could not parse the sample")
 
     field_map = extract_fields(parsed, detection.format)
-    proposal = get_ai_provider().propose_mapping(
+    proposal = propose_mapping_safe(
         source=source, field_map=field_map, sample=raw
     )
 

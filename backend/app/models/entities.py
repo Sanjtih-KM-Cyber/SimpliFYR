@@ -196,6 +196,7 @@ class Onboarding(Base):
     detected_vendor: Mapped[str | None] = mapped_column(String(255), nullable=True)
     detected_product: Mapped[str | None] = mapped_column(String(255), nullable=True)
     confidence: Mapped[float] = mapped_column(Float, default=0.0)
+    proposal: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     environment: Mapped[Environment] = relationship(back_populates="onboardings")

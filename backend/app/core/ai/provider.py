@@ -28,3 +28,38 @@ def get_ai_provider():
     _provider = HeuristicAIProvider()
     logger.info("AI provider: heuristic")
     return _provider
+
+
+def reset_provider() -> None:
+    """Drop the cached provider (used by tests for isolation)."""
+    global _provider
+    _provider = None
+
+
+def _heuristic():
+    return HeuristicAIProvider()
+
+
+def analyze_drift_safe(**kwargs):
+    """Analyze drift, falling back to the heuristic provider per call.
+
+    Construction-time fallback (above) only covers startup misconfiguration.
+    A running Ollama can still fail per request (timeout, malformed JSON);
+    callers use this so one bad model response never breaks the workflow.
+    """
+    provider = get_ai_provider()
+    try:
+        return provider.analyze_drift(**kwargs)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("AI analyze_drift failed (%s); heuristic fallback", exc)
+        return _heuristic().analyze_drift(**kwargs)
+
+
+def propose_mapping_safe(**kwargs):
+    """Propose a mapping, falling back to the heuristic provider per call."""
+    provider = get_ai_provider()
+    try:
+        return provider.propose_mapping(**kwargs)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("AI propose_mapping failed (%s); heuristic fallback", exc)
+        return _heuristic().propose_mapping(**kwargs)

@@ -364,3 +364,20 @@ Open <http://localhost:5173>. The Vite dev server proxies `/api` to the backend 
 - **Raw cap:** `GET /events/{id}/raw` returns 413 over `MAX_RAW_BYTES`
   (default 1 MB, aligned with ingest); larger payloads go through export.
 - 228 tests passing; frontend `tsc -b && vite build` + `oxlint` clean.
+
+## Phase 5.1 — AI flywheel (data + provider repair, all-local)
+
+- **Proposal→correction pairs:** drift approve/correct and onboarding approve
+  audit `before` (what the AI proposed) vs `after` (what the human
+  published). Onboarding rows gained a `proposal` column (migration
+  `a1b2c3d4e5f7`) so approve needs no extra model call.
+- **`GET /api/v1/system/export-training`:** instruction-tuning JSONL —
+  approvals first, then synthetic bootstrap pairs distilled from the
+  heuristic rules. Deterministic 80/20 train/val split in `meta`; `?limit`
+  capped. The supervision target is always the human-approved mapping.
+- **Provider repair:** `OllamaAIProvider.propose_mapping` is a real method
+  (was stranded module-level, never called); responses retried (3x backoff)
+  and strictly schema-validated; per-call heuristic fallback
+  (`analyze_drift_safe`/`propose_mapping_safe`) so one bad model response
+  never breaks analysis. AI stays off the per-event hot path.
+- 236 tests passing.

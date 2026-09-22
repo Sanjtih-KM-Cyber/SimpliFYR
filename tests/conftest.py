@@ -58,6 +58,10 @@ def client(request, tmp_path_factory):
     import app.core.kafka_pipeline as kafka_mod
 
     ai_provider_mod._provider = None
+    try:
+        ai_provider_mod.reset_provider()
+    except AttributeError:
+        pass
     delivery_mod.set_delivery_service(None)
     dest_delivery_mod.invalidate_destination_sinks()
     kafka_mod.reset_shared_producer()

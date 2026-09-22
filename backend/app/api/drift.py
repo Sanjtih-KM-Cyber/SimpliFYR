@@ -8,7 +8,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.ai.base import AIDriftProposal, FieldSuggestion
-from app.core.ai.provider import get_ai_provider
 from app.core.audit import log_action
 from app.core.database import get_db
 from app.core.drift import _analyze_and_decide, apply_corrections, apply_drift, reprocess_quarantined
@@ -167,8 +166,9 @@ def approve_drift(drift_id: int, db: Session = Depends(get_db)):
 
     if not drift.proposal:
         # No prior analysis -> run the intelligence layer first.
-        provider = get_ai_provider()
-        proposal = provider.analyze_drift(
+        from app.core.ai.provider import analyze_drift_safe
+
+        proposal = analyze_drift_safe(
             source=drift.source,
             new_fields=set(drift.new_fields),
             missing_fields=set(drift.missing_fields),
@@ -186,15 +186,19 @@ def approve_drift(drift_id: int, db: Session = Depends(get_db)):
     drift.resolved_at = datetime.now(timezone.utc)
     db.commit()
     _record_approval(db, drift.id, ApprovalStatus.APPROVED, f"approve -> mapping v{new_mapping.version}")
+    from app.core.training import fields_dict, suggestion_dicts
+
     log_action(
         db,
         action="approve",
         entity_type="drift",
         entity_id=drift.id,
+        before={"proposed": suggestion_dicts(proposal.new_field_suggestions)},
         after={
             "new_mapping_id": new_mapping.id,
             "new_mapping_version": new_mapping.version,
             "reprocessed_events": reprocessed,
+            "final": fields_dict(new_mapping),
         },
     )
     db.commit()
@@ -253,6 +257,11 @@ def correct_drift(drift_id: int, payload: CorrectPayload, db: Session = Depends(
     new_mapping = apply_corrections(db, drift, corrections)
     reprocessed = reprocess_quarantined(db, drift.source)
 
+    # Capture the AI proposal BEFORE the backfill below (training honesty:
+    # `before` must be what the model said, not the human correction).
+    from app.core.training import fields_dict, suggestion_dicts
+
+    original_proposal = suggestion_dicts((drift.proposal or {}).get("new_field_suggestions", []))
     if not drift.proposal:
         drift.proposal = _proposal_to_dict(
             AIDriftProposal(
@@ -270,11 +279,13 @@ def correct_drift(drift_id: int, payload: CorrectPayload, db: Session = Depends(
         action="correct",
         entity_type="drift",
         entity_id=drift.id,
+        before={"proposed": original_proposal},
         after={
             "new_mapping_id": new_mapping.id,
             "new_mapping_version": new_mapping.version,
             "reprocessed_events": reprocessed,
             "fields": {f.input_field: f.semantic_field for f in fields},
+            "final": fields_dict(new_mapping),
         },
     )
     db.commit()
