@@ -119,7 +119,7 @@ def main() -> None:
         eval_dataset=val_ds,
         data_collator=DataCollatorForLanguageModeling(tokenizer, mlm=False),
     )
-    trainer.train()
+    trainer.train(resume_from_checkpoint=True)
     print("training done; merging", flush=True)
 
     merged = model.merge_and_unload()
