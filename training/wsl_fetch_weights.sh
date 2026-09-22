@@ -9,6 +9,5 @@ export PATH="$HOME/.local/bin:$PATH"
 python3 -m pip install --user --progress-bar=off "huggingface-hub[cli]" 2>&1 | tail -1
 python3 -c "import huggingface_hub; print('hub ok')"
 hf download Qwen/Qwen2.5-1.5B-Instruct \
-  --local-dir ~/hf-models/Qwen2.5-1.5B-Instruct \
-  --local-dir-use-symlinks False
+  --local-dir ~/hf-models/Qwen2.5-1.5B-Instruct
 echo "WEIGHTS READY"
