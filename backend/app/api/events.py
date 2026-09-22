@@ -8,6 +8,7 @@ from app.core.engine import ProcessingEngine
 from app.core.environment import get_environment
 from app.core.raw_store import get_raw_store
 from app.core.security import require_auth, require_write
+from app.core.config import settings
 from app.models import Event, EventStatus
 from app.schemas.event import EventDetail, EventSummary, EventViews
 
@@ -80,7 +81,13 @@ def get_event_raw(event_id: int, db: Session = Depends(get_db)):
     event = db.get(Event, event_id)
     if event is None:
         raise HTTPException(status_code=404, detail="Event not found")
-    return _load_raw(event)
+    raw = _load_raw(event)
+    if len(raw.encode("utf-8")) > settings.max_raw_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Raw payload exceeds {settings.max_raw_bytes} bytes; use export with filters",
+        )
+    return PlainTextResponse(raw)
 
 
 _RETRYABLE = (EventStatus.DLQ, EventStatus.QUARANTINED)

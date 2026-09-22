@@ -18,7 +18,13 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://simplifyr:simplifyr@postgres:5432/simplifyr
       RAW_STORAGE_DIR: /data/raw
-      AUTH_ENABLED: "false"
+      # Production posture in compose: auth on, ingest rate-limited, proxy
+      # headers trusted (only the bundled nginx sits in front of the API).
+      # Demo tokens — rotate immediately via POST /api/v1/system/rotate-keys.
+      AUTH_ENABLED: "true"
+      API_KEYS: '{"admin":"simplifyr-admin-demo","operator":"simplifyr-operator-demo","analyst":"simplifyr-analyst-demo"}'
+      RATE_LIMIT_PER_MINUTE: "600"
+      TRUST_PROXY_HEADERS: "true"
       AI_PROVIDER: ollama
       OLLAMA_URL: http://ollama:11434
       OLLAMA_MODEL: qwen2.5:0.5b

@@ -346,3 +346,21 @@ Open <http://localhost:5173>. The Vite dev server proxies `/api` to the backend 
   target needs Postgres + parallel workers + Kafka — the path is built, the
   number is not claimed on SQLite.
 - 221+ tests passing; frontend `tsc -b && vite build` + `oxlint` clean.
+
+## Phase 4 — Security hardening
+
+- **Token hashing (§39):** API tokens live only as SHA-256 hashes after load;
+  `POST /api/v1/system/rotate-keys` (admin) rotates a role and returns the
+  secret once, audited without persisting it. Dev default stays open
+  (`AUTH_ENABLED=false`); **compose ships locked** (`AUTH_ENABLED=true`,
+  600/min ingest limit, demo tokens documented for rotation).
+- **OIDC-ready:** `AUTH_BACKEND=oidc` verifies bearer JWTs via JWKS
+  (issuer/audience enforced, unsigned tokens never accepted); 503 with a
+  clear message when PyJWT is absent.
+- **Rate limiting (§39):** `X-Forwarded-For` honored only with
+  `TRUST_PROXY_HEADERS=true` (nginx sends it; spoofed headers ignored
+  otherwise); cache failures fail open with a warning; Redis-backed when
+  configured.
+- **Raw cap:** `GET /events/{id}/raw` returns 413 over `MAX_RAW_BYTES`
+  (default 1 MB, aligned with ingest); larger payloads go through export.
+- 228 tests passing; frontend `tsc -b && vite build` + `oxlint` clean.

@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import require_auth, require_write
+from app.core.security import require_admin, require_auth, require_write
 from app.models import Environment, Mapping, OutputProfile
 
 router = APIRouter(prefix="/system", tags=["system"], dependencies=[Depends(require_auth)])
@@ -16,6 +16,38 @@ class ExportPayload(BaseModel):
     environments: list[dict]
     mappings: list[dict]
     output_profiles: list[dict]
+
+
+class RotateKeysRequest(BaseModel):
+    role: str
+
+
+class RotateKeysResponse(BaseModel):
+    role: str
+    token: str
+
+
+@router.post("/rotate-keys", response_model=RotateKeysResponse, dependencies=[Depends(require_admin)])
+def rotate_keys(payload: RotateKeysRequest, db: Session = Depends(get_db)):
+    """Rotate a role's API token (admin only). Only the hash is stored; the
+    plaintext is returned once and must be saved by the caller."""
+    from app.core.audit import log_action
+    from app.core.security import READ_ROLES, rotate_token
+
+    if payload.role not in READ_ROLES:
+        raise HTTPException(status_code=422, detail=f"Unknown role {payload.role!r}")
+    token = rotate_token(payload.role)
+    # Audit the rotation without ever persisting the secret itself.
+    # Roles have no table; entity_id is the stable role index (documented).
+    log_action(
+        db,
+        action="rotate_key",
+        entity_type="role",
+        entity_id=list(READ_ROLES).index(payload.role),
+        after={"role": payload.role},
+    )
+    db.commit()
+    return RotateKeysResponse(role=payload.role, token=token)
 
 
 @router.get("/export", response_model=ExportPayload)

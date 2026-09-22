@@ -79,8 +79,15 @@ class Settings(BaseSettings):
 
     # --- Security ---
     auth_enabled: bool = False
-    api_keys: dict[str, str] = {}  # role -> token (e.g. {"admin": "...", "operator": "..."})
+    api_keys: dict[str, str] = {}  # role -> token (hashed in memory at load; see security.py)
+    auth_backend: str = "tokens"  # "tokens" | "oidc"
+    oidc_issuer: str | None = None
+    oidc_audience: str | None = None
+    oidc_jwks_url: str | None = None  # defaults to {issuer}/.well-known/jwks.json
+    oidc_role_claim: str = "roles"
     rate_limit_per_minute: int = 0  # 0 = unlimited (applies to ingest)
+    trust_proxy_headers: bool = False  # honor X-Forwarded-For only behind a known proxy
+    max_raw_bytes: int = 1_000_000  # cap for GET /events/{id}/raw responses
 
     # --- Retention (0 = disabled; tiers per §59, recommended 30/90/365) ---
     retention_days: int = 0  # legacy: full event delete window (overrides normalized tier if > 0)
