@@ -5,9 +5,10 @@
 # Run inside WSL2 Ubuntu:  bash training/wsl_fetch_weights.sh
 set -e
 export PIP_BREAK_SYSTEM_PACKAGES=1
+export PATH="$HOME/.local/bin:$PATH"
 python3 -m pip install --user --progress-bar=off "huggingface-hub[cli]" 2>&1 | tail -1
 python3 -c "import huggingface_hub; print('hub ok')"
-python3 -m hf download Qwen/Qwen2.5-1.5B-Instruct \
+huggingface-cli download Qwen/Qwen2.5-1.5B-Instruct \
   --local-dir ~/hf-models/Qwen2.5-1.5B-Instruct \
   --local-dir-use-symlinks False
 echo "WEIGHTS READY"
