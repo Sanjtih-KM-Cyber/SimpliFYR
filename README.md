@@ -395,3 +395,22 @@ Open <http://localhost:5173>. The Vite dev server proxies `/api` to the backend 
   1.0, abstention 1.0 — with honest headroom (port confusions) for the
   fine-tune to claim. Gate test fails any provider change scoring below it.
 - 239 tests passing.
+
+## Phase 5.3 — Local training setup + generic-model measurement (all-local)
+
+- **Reality check first:** RTX 3050 4GB + CUDA in WSL2 confirmed; torch
+  cu121 + transformers/peft/bitsandbytes installed user-space (Unsloth
+  needs torch ≥ 2.8 — documented fallback `train_hf.py` uses the vanilla
+  stack that works today).
+- **Data ready:** `training/combine_data.py` merged export-training +
+  `augment.py` output → **2435 records** (train 2188), deterministic.
+- **Measured, not assumed:** generic `qwen2.5:1.5b` (Ollama, local) scores
+  **F1 0.0** on the gate — it invents `source.srcip`-style fields, never
+  having seen our catalog. This is precisely the gap the fine-tune closes.
+- **Shippable remainder:** `training/Modelfile-simplifyr` (catalog-pinned
+  system prompt, 4GB-tuned `num_gpu`), `wsl_fetch_weights.sh`
+  (resume-capable HF fetch — the CDN is KB/s here, run overnight),
+  `train_hf.py`, `wsl_convert.sh`, full runbook in `training/README.md`.
+  Binaries/data gitignored; scripts committed. Fine-tune itself pending
+  weights — one overnight command away.
+- 243 tests passing.

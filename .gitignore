@@ -15,6 +15,13 @@ data/
 *_raw/
 *.raw
 
+# Phase 5.3 training artifacts (binaries + reproducible data; scripts committed)
+*.gguf
+training/out/
+training/data/
+training/tools/
+unsloth_compiled_cache/
+
 # Node / frontend
 node_modules/
 dist/
