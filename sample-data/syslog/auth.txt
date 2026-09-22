@@ -1,0 +1,2 @@
+<132>Sep 15 10:33:00 fw01 user=admin srcip=192.168.10.2 action=login result=success
+<132>Sep 15 10:33:04 fw01 user=admin srcip=192.168.10.2 action=login result=failed reason=bad_password

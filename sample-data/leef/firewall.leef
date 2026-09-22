@@ -1,0 +1,2 @@
+LEEF:1.0|VendorX|FirewallY|6.5|traffic|src=10.1.1.5 dst=8.8.8.8 proto=tcp action=deny
+LEEF:1.0|VendorX|FirewallY|6.5|traffic|src=192.168.10.20 dst=93.184.216.34 proto=udp action=allow

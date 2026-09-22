@@ -1,0 +1,9 @@
+{
+  "sensor": "ids-01",
+  "event_type": "intrusion_detection",
+  "signature": "ET MALWARE Possible Meterpreter",
+  "source_ip": "10.0.0.9",
+  "destination_ip": "198.51.100.7",
+  "severity": 3,
+  "protocol": "TCP"
+}

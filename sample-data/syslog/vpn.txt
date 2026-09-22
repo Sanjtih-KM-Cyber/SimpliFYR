@@ -1,0 +1,2 @@
+<134>Sep 15 10:32:10 vpngw01 user=tjones srcip=10.1.1.55 dstip=203.0.113.10 proto=esp action=established
+<132>Sep 15 10:32:12 vpngw01 user=tjones srcip=10.1.1.55 dstip=203.0.113.10 action=teardown reason=idle-timeout

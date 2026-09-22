@@ -1,0 +1,6 @@
+# Optional dependencies for scale backends. Not required for the default in-process
+# operation. Install only when using the corresponding production backend:
+#   pip install -r backend/requirements-scale.txt
+kafka-python>=2.0.2
+boto3>=1.34.0
+redis>=5.0.0

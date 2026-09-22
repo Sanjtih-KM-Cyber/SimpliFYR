@@ -1,0 +1,2 @@
+<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 dstip=8.8.8.8 proto=tcp action=deny
+<132>Sep 15 10:31:46 fw01 srcip=192.168.10.20 dstip=93.184.216.34 proto=udp action=allow

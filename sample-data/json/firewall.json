@@ -1,0 +1,9 @@
+{
+  "sourceAddress": "10.1.1.5",
+  "destinationAddress": "8.8.8.8",
+  "sourcePort": 43122,
+  "destinationPort": 443,
+  "protocol": "TCP",
+  "action": "DENY",
+  "timestamp": "2026-09-15T10:31:44Z"
+}
