@@ -1,0 +1,11 @@
+{
+  "provider": "heuristic",
+  "format_detection": 1.0,
+  "field_precision": 0.9333,
+  "field_recall": 0.9333,
+  "field_f1": 0.9333,
+  "drift_rename_recall": 1.0,
+  "abstention": 1.0,
+  "records": 9,
+  "drift_pairs": 2
+}

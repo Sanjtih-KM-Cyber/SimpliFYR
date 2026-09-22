@@ -1,0 +1,33 @@
+[
+  {
+    "id": "fw-syslog-v1-to-v2-rename",
+    "source": "VendorX FirewallY",
+    "known": {
+      "srcip": "source.ip",
+      "dstip": "destination.ip",
+      "action": "network.action"
+    },
+    "new_fields": ["source", "destination", "decision"],
+    "missing_fields": ["srcip", "dstip", "action"],
+    "sample": "source=10.1.1.5 destination=8.8.8.8 decision=drop",
+    "expected": {
+      "source": "source.ip",
+      "destination": "destination.ip",
+      "decision": "network.action"
+    }
+  },
+  {
+    "id": "fw-json-new-enum-value",
+    "source": "VendorY JSON-FW",
+    "known": {
+      "sourceAddress": "source.ip",
+      "action": "network.action"
+    },
+    "new_fields": ["severity"],
+    "missing_fields": [],
+    "sample": "{\"sourceAddress\": \"10.1.1.5\", \"action\": \"DENY\", \"severity\": \"critical\"}",
+    "expected": {
+      "severity": "event.severity"
+    }
+  }
+]

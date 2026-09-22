@@ -381,3 +381,17 @@ Open <http://localhost:5173>. The Vite dev server proxies `/api` to the backend 
   (`analyze_drift_safe`/`propose_mapping_safe`) so one bad model response
   never breaks analysis. AI stays off the per-event hot path.
 - 236 tests passing.
+
+## Phase 5.2 — AI eval harness (the ship gate, all-local)
+
+- **Golden corpus** (`tests/golden/records.json`, `drift_pairs.json`): 9
+  records across syslog/json/xml/csv/cef/leef/raw + unknown-vendor
+  abstention cases, 2 drift pairs (field rename, new enum value).
+  Expectations authored from real parser output.
+- **Runner** (`backend/app/core/eval.py::run_eval`): format detection,
+  field-mapping micro P/R/F1, drift-rename recall, no-hallucination
+  abstention. META keys excluded exactly like drift detection.
+- **Baseline** (`tests/golden/baseline.json`, heuristic): F1 0.9333, drift
+  1.0, abstention 1.0 — with honest headroom (port confusions) for the
+  fine-tune to claim. Gate test fails any provider change scoring below it.
+- 239 tests passing.

@@ -1,0 +1,120 @@
+[
+  {
+    "id": "fw-syslog-v1",
+    "source": "VendorX FirewallY",
+    "format": "syslog",
+    "version": "v1",
+    "event_family": "network_traffic",
+    "raw": "<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 dstip=8.8.8.8 proto=tcp action=deny",
+    "expected_semantic": {
+      "srcip": "source.ip",
+      "dstip": "destination.ip",
+      "proto": "network.protocol",
+      "action": "network.action"
+    }
+  },
+  {
+    "id": "fw-json-v1",
+    "source": "VendorY JSON-FW",
+    "format": "json",
+    "version": "v1",
+    "event_family": "network_traffic",
+    "raw": "{\"sourceAddress\": \"10.1.1.5\", \"destinationAddress\": \"8.8.8.8\", \"sourcePort\": 43122, \"destinationPort\": 443, \"protocol\": \"TCP\", \"action\": \"DENY\", \"timestamp\": \"2026-09-15T10:31:44Z\"}",
+    "expected_semantic": {
+      "sourceAddress": "source.ip",
+      "destinationAddress": "destination.ip",
+      "sourcePort": "source.port",
+      "destinationPort": "destination.port",
+      "protocol": "network.protocol",
+      "action": "network.action"
+    }
+  },
+  {
+    "id": "fw-xml-v1",
+    "source": "VendorY XML-FW",
+    "format": "xml",
+    "version": "v1",
+    "event_family": "network_traffic",
+    "raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><event><sourceAddress>10.1.1.5</sourceAddress><destinationAddress>8.8.8.8</destinationAddress><protocol>TCP</protocol><action>DENY</action><severity>high</severity></event>",
+    "expected_semantic": {
+      "sourceAddress": "source.ip",
+      "destinationAddress": "destination.ip",
+      "protocol": "network.protocol",
+      "action": "network.action",
+      "severity": "event.severity"
+    }
+  },
+  {
+    "id": "fw-csv-v1",
+    "source": "VendorZ CSV-FW",
+    "format": "csv",
+    "version": "v1",
+    "event_family": "network_traffic",
+    "raw": "timestamp,source_address,destination_address,protocol,action\n2026-09-15T10:31:44Z,10.1.1.5,8.8.8.8,TCP,DENY",
+    "expected_semantic": {
+      "source_address": "source.ip",
+      "destination_address": "destination.ip",
+      "protocol": "network.protocol",
+      "action": "network.action"
+    }
+  },
+  {
+    "id": "fw-cef-v1",
+    "source": "VendorX FirewallY",
+    "format": "cef",
+    "version": "v1",
+    "event_family": "network_traffic",
+    "raw": "CEF:0|VendorX|FirewallY|6.5|1001|Firewall Deny|5|src=10.1.1.5 dst=8.8.8.8 proto=tcp act=deny",
+    "expected_semantic": {
+      "src": "source.ip",
+      "dst": "destination.ip",
+      "proto": "network.protocol",
+      "act": "network.action"
+    }
+  },
+  {
+    "id": "fw-leef-v1",
+    "source": "VendorX FirewallY",
+    "format": "leef",
+    "version": "v1",
+    "event_family": "network_traffic",
+    "raw": "LEEF:1.0|VendorX|FirewallY|6.5|traffic|src=10.1.1.5 dst=8.8.8.8 proto=tcp action=deny",
+    "expected_semantic": {
+      "src": "source.ip",
+      "dst": "destination.ip",
+      "proto": "network.protocol",
+      "action": "network.action"
+    }
+  },
+  {
+    "id": "fw-raw-proprietary",
+    "source": "Unknown Box",
+    "format": "raw",
+    "version": "v1",
+    "event_family": "network_traffic",
+    "raw": "FW-01: denied TCP 10.1.1.5:43122 -> 8.8.8.8:443 (drop reason: policy)",
+    "expected_semantic": {}
+  },
+  {
+    "id": "unknown-vendor-generic",
+    "source": "Unknown",
+    "format": "syslog",
+    "version": "v1",
+    "event_family": "unknown",
+    "raw": "<134>Sep 15 10:31:44 mysterybox foo=1 bar=2",
+    "expected_semantic": {}
+  },
+  {
+    "id": "vpn-syslog-v1",
+    "source": "VendorX VPN",
+    "format": "syslog",
+    "version": "v1",
+    "event_family": "vpn",
+    "raw": "<134>Sep 15 10:33:01 vpn01 username=jdoe action=login outcome=success",
+    "expected_semantic": {
+      "username": "identity.user",
+      "action": "network.action",
+      "outcome": "event.outcome"
+    }
+  }
+]
