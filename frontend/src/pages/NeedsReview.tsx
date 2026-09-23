@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   analyzeDrift,
   approveDrift,
@@ -19,6 +19,7 @@ import { Spinner } from '../components/Spinner'
 import { ErrorBanner } from '../components/Status'
 import { EmptyState, Modal, PageHeader, useToast } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
+import { useLive } from '../hooks/useLive'
 
 const STATUS_LABELS: Record<string, string> = {
   detected: 'needs review',
@@ -285,6 +286,21 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
     [sourceFilter],
   )
 
+  function reloadAll() {
+    drifts.reload()
+    quarantined.reload()
+  }
+
+  // Stay fresh: drift approvals elsewhere (or reprocessing) change both
+  // lists. Live events trigger a reload; polling covers missed frames.
+  useLive({ source: sourceFilter || undefined, onEvent: () => reloadAll() })
+
+  useEffect(() => {
+    const timer = setInterval(() => reloadAll(), 15000)
+    return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceFilter])
+
   const rows = (drifts.data ?? []).filter(
     (d) => !sourceFilter || d.source === sourceFilter,
   )
@@ -313,7 +329,6 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
       toast((e as Error).message, 'error')
     }
   }
-
   return (
     <div>
       {!sourceFilter && (
@@ -335,7 +350,7 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
 
       <div className="grid gap-4 lg:grid-cols-2">
         {rows.map((d) => (
-          <ReviewCard key={d.id} detail={d} onChanged={() => drifts.reload()} />
+          <ReviewCard key={d.id} detail={d} onChanged={() => reloadAll()} />
         ))}
       </div>
 

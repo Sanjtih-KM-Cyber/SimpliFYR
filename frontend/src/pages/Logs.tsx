@@ -9,6 +9,7 @@ import { EmptyState, PageHeader, TBody, TD, TH, THead, TR, Table } from '../comp
 import { useToast } from '../components/ui'
 import { FOCUS_SEARCH_EVENT } from '../hooks/useKeyboardShortcuts'
 import { useAsync } from '../hooks/useAsync'
+import { useLive } from '../hooks/useLive'
 
 type LogTab = 'all' | 'normalized' | 'review' | 'failed'
 
@@ -301,6 +302,14 @@ export default function Logs() {
     const focus = () => searchRef.current?.focus()
     window.addEventListener(FOCUS_SEARCH_EVENT, focus)
     return () => window.removeEventListener(FOCUS_SEARCH_EVENT, focus)
+  }, [])
+
+  useLive({ onEvent: () => events.reload() })
+
+  useEffect(() => {
+    const timer = setInterval(() => events.reload(), 30000)
+    return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const all = events.data ?? []

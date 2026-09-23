@@ -1,9 +1,11 @@
+import { useEffect } from 'react'
 import { Link, Outlet, useParams } from 'react-router-dom'
 import { getConnection } from '../api/client'
 import { Spinner } from '../components/Spinner'
 import { StatusBadge } from '../components/Status'
 import { TabBar } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
+import { useLive } from '../hooks/useLive'
 import { type ConnectionContext } from './connection-context'
 
 const HEALTH_LABELS: Record<string, string> = {
@@ -16,6 +18,16 @@ export default function ConnectionLayout() {
   const { sourceName = '' } = useParams()
   const connection = useAsync(() => getConnection(sourceName), [sourceName])
   const c = connection.data
+
+  // Live counts: any processed event refreshes this connection so badges
+  // and tabs never show yesterday's numbers after an approve/onboard/delete.
+  useLive({ source: sourceName || undefined, onEvent: () => connection.reload() })
+
+  useEffect(() => {
+    const timer = setInterval(() => connection.reload(), 15000)
+    return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceName])
 
   return (
     <div>
