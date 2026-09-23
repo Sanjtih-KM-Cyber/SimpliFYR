@@ -109,10 +109,11 @@ def main() -> None:
         logging_steps=25,
         # No mid-run eval: val perplexity is a weak signal here and each pass
         # costs minutes on this GPU. The real gate is run_eval on the merged
-        # model (Phase 5.2). Checkpoints still save per epoch for resume.
+        # model (Phase 5.2). Step checkpoints make 10-minute windows resumable.
         eval_strategy="no",
-        save_strategy="epoch",
-        save_total_limit=1,
+        save_strategy="steps",
+        save_steps=50,
+        save_total_limit=2,
         report_to="none",
         seed=20260923,
         gradient_checkpointing=True,
