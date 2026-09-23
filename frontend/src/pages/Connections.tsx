@@ -3,34 +3,8 @@ import { Link } from 'react-router-dom'
 import { getConfig, listConnections } from '../api/client'
 import type { ConnectionSummary } from '../api/types'
 import { Spinner } from '../components/Spinner'
-import { StatusBadge } from '../components/Status'
-import { EmptyState, Modal, PageHeader, TBody, TD, TH, THead, TR, Table } from '../components/ui'
+import { EmptyState, Modal, PageHeader } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
-
-const HEALTH_STYLES: Record<string, string> = {
-  healthy: 'bg-emerald-700 text-emerald-100',
-  needs_review: 'bg-amber-700 text-amber-100',
-  idle: 'bg-slate-700 text-slate-300',
-}
-
-function HealthBadge({ health }: { health: string }) {
-  const style = HEALTH_STYLES[health] ?? 'bg-slate-700 text-slate-300'
-  const label = health === 'needs_review' ? 'needs review' : health
-  return (
-    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${style}`}>
-      {label}
-    </span>
-  )
-}
-
-function formatRate(rate: number): string {
-  return `${(rate * 100).toFixed(1)}%`
-}
-
-function formatTime(iso: string | null): string {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleString()
-}
 
 function ConnectLiveModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const config = useAsync(() => getConfig(), [])
@@ -38,55 +12,108 @@ function ConnectLiveModal({ open, onClose }: { open: boolean; onClose: () => voi
   const origin = window.location.origin
 
   return (
-    <Modal open={open} title="Connect Live Logs" onClose={onClose} width="max-w-xl">
-      <p className="mb-4 text-sm text-slate-400">
-        Live logs flow through the same pipeline as uploads: Receiving → Processing →
-        Normalizing → Storing → Delivering.
+    <Modal open={open} title="Live Log Ingestion" onClose={onClose} width="max-w-2xl">
+      <p className="mb-5 text-[13px] leading-relaxed text-slate-400">
+        Direct live device logs to the framework exactly once. The ingestion pipeline matches events to configured sources autonomously using vector fingerprinting.
       </p>
 
-      <div className="space-y-4">
-        <section className="rounded-lg border border-slate-800 bg-slate-950 p-4">
-          <h4 className="mb-2 text-sm font-medium text-white">Syslog (UDP)</h4>
+      <div className="grid gap-4 md:grid-cols-2">
+        <section className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h4 className="text-[12px] font-bold uppercase tracking-wider text-slate-300">Syslog (UDP)</h4>
+            <span className={`h-2 w-2 rounded-full ${c?.syslog_enabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600'}`}></span>
+          </div>
           {c?.syslog_enabled ? (
             <>
-              <p className="text-xs text-slate-400">
-                Point your device at:
-              </p>
-              <p className="mt-1 font-mono text-sm text-emerald-300">
+              <p className="text-[12px] text-slate-400 mb-2">Endpoint address:</p>
+              <div className="flex items-center gap-2 rounded bg-slate-950 p-2 border border-slate-800 font-mono text-[13px] text-emerald-400 select-all">
                 {c.syslog_udp_host}:{c.syslog_udp_port}
-              </p>
+              </div>
             </>
           ) : (
-            <p className="text-xs text-slate-500">
-              Disabled — enable it in Settings (SYSLOG_ENABLED) to receive syslog streams.
-            </p>
+            <p className="text-[12px] text-slate-500 italic">Syslog daemon disabled in Configuration spec.</p>
           )}
         </section>
 
-        <section className="rounded-lg border border-slate-800 bg-slate-950 p-4">
-          <h4 className="mb-2 text-sm font-medium text-white">HTTP</h4>
-          <p className="text-xs text-slate-400">POST each event to:</p>
-          <p className="mt-1 font-mono text-sm text-emerald-300">{origin}/api/v1/ingest</p>
-          <p className="mt-2 text-xs text-slate-500">
-            with form fields: <span className="font-mono">raw</span>,{' '}
-            <span className="font-mono">source</span>
+        <section className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-4">
+          <h4 className="mb-3 text-[12px] font-bold uppercase tracking-wider text-slate-300">HTTP REST</h4>
+          <p className="text-[12px] text-slate-400 mb-2">POST payload to:</p>
+          <div className="flex items-center gap-2 rounded bg-slate-950 p-2 border border-slate-800 font-mono text-[13px] text-cyan-400 select-all truncate">
+            {origin}/api/v1/ingest
+          </div>
+          <p className="mt-3 text-[11px] text-slate-500">
+            Requires <code className="bg-slate-900 px-1 rounded">raw</code> and <code className="bg-slate-900 px-1 rounded">source</code> form payload.
           </p>
         </section>
+      </div>
 
-        <p className="text-xs text-slate-500">
-          Name the <span className="font-mono">source</span> the same as an existing connection and
-          its recipe is applied automatically — configure once, reuse automatically.
-        </p>
-
-        <Link
-          to="/connections/new"
-          onClick={onClose}
-          className="inline-block rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
-        >
-          Create a connection →
-        </Link>
+      <div className="mt-6 flex justify-end pt-4 border-t border-slate-800">
+        <button onClick={onClose} className="text-[13px] font-medium text-slate-400 hover:text-white transition-colors">Close panel</button>
       </div>
     </Modal>
+  )
+}
+
+function ConnectionCard({ c }: { c: ConnectionSummary }) {
+  const needsReview = c.health === 'needs_review'
+  const isHealthy = c.health === 'healthy'
+  const activeRate = (c.normalization_rate * 100).toFixed(1)
+
+  return (
+    <Link to={`/connections/${encodeURIComponent(c.name)}`} className="group flex flex-col justify-between glass-card rounded-lg p-5 hover:shadow-[0_4px_20px_rgba(0,0,0,0.5)] transition-all">
+      <div>
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h3 className="text-base font-semibold tracking-tight text-white group-hover:text-cyan-400 transition-colors truncate">{c.name}</h3>
+            <p className="text-[11px] font-mono text-slate-500 mt-1 uppercase tracking-wider flex items-center gap-1.5">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+              {c.mapping?.name ?? 'No Integration Defined'}
+            </p>
+          </div>
+          <div className="flex shrink-0">
+            {needsReview ? (
+              <span className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-500">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                Review
+              </span>
+            ) : isHealthy ? (
+              <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-500">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                Active
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 rounded-full border border-slate-600/50 bg-slate-800/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-slate-500"></span>
+                Idle
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 my-6 py-4 border-y border-slate-700/30">
+          <div>
+            <p className="text-[10px] uppercase font-bold tracking-widest text-slate-500 mb-1">Total Throughput</p>
+            <p className="font-mono text-xl text-slate-200">{c.events_processed.toLocaleString()}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase font-bold tracking-widest text-slate-500 mb-1">Index Match</p>
+            <p className="font-mono text-xl text-slate-200">{activeRate}%</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between text-[11px] font-medium text-slate-500 pt-1">
+        {c.needs_review > 0 ? (
+          <span className="text-amber-400 font-mono bg-amber-500/10 px-1.5 rounded border border-amber-500/20">{c.needs_review} Exceptions Active</span>
+        ) : (
+          <span>Operational</span>
+        )}
+        <span className="flex items-center gap-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-3.5 h-3.5"><circle cx="12" cy="12" r="10" strokeWidth="2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6l4 2" /></svg>
+          {c.last_event_at ? new Date(c.last_event_at).toLocaleTimeString() : '--:--'}
+        </span>
+      </div>
+    </Link>
   )
 }
 
@@ -95,96 +122,48 @@ export default function Connections() {
   const rows = connections.data ?? []
   const [showLiveInfo, setShowLiveInfo] = useState(false)
 
-  const needsAttention = (c: ConnectionSummary) => c.health !== 'idle'
-
   return (
-    <div>
+    <div className="h-full flex flex-col">
       <PageHeader
-        title="Connections"
-        subtitle="Every source Simplifyr normalizes for you, in one place."
+        title="Integration Hub"
+        subtitle="Universal device configuration matrix. Manage ingestion, mappings, and outbound sinks."
         actions={
           <>
             <button
               onClick={() => setShowLiveInfo(true)}
-              className="rounded-md border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+              className="rounded bg-slate-800 border border-slate-700 px-4 py-2 text-[13px] font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
             >
-              Connect Live Logs
+              Connect Server
             </button>
             <Link
               to="/connections/new"
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+              className="rounded bg-cyan-600 px-4 py-2 text-[13px] font-medium text-white shadow-[0_0_10px_rgba(6,182,212,0.3)] hover:bg-cyan-500 hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] transition-all"
             >
-              + Add Connection
+              + Integrate Node
             </Link>
           </>
         }
       />
 
-      {connections.loading && <Spinner />}
-      {connections.error && <p className="text-sm text-red-400">{connections.error}</p>}
+      {connections.loading && <div className="mt-12 flex justify-center"><Spinner /></div>}
+      {connections.error && <p className="mt-4 text-[13px] font-medium text-rose-400">{connections.error}</p>}
 
       {!connections.loading && !connections.error && rows.length === 0 && (
-        <EmptyState
-          title="No connections yet"
-          description="Add a connection to start normalizing logs. Sources appear here automatically once events are processed."
-        />
+        <div className="mt-12">
+          <EmptyState
+            title="Ingestion Matrix Empty"
+            description="Deploy a new node integration to begin normalizing and indexing telemetry data from external platforms."
+            action={<Link to="/connections/new" className="text-cyan-400 hover:text-cyan-300 text-[13px] font-medium underline underline-offset-4">Configure initial source node</Link>}
+          />
+        </div>
       )}
 
       {rows.length > 0 && (
-        <Table>
-          <THead>
-            <TR>
-              <TH>Connection</TH>
-              <TH>Health</TH>
-              <TH>Mapping</TH>
-              <TH className="text-right">Events</TH>
-              <TH className="text-right">Normalized</TH>
-              <TH className="text-right">Needs Review</TH>
-              <TH>Last Event</TH>
-            </TR>
-          </THead>
-          <TBody>
-            {rows.map((c) => (
-              <TR key={c.id}>
-                <TD>
-                  <Link
-                    to={`/connections/${encodeURIComponent(c.name)}`}
-                    className="font-medium text-white hover:underline"
-                  >
-                    {c.name}
-                  </Link>
-                </TD>
-                <TD>
-                  <HealthBadge health={c.health} />
-                </TD>
-                <TD>
-                  {c.mapping ? (
-                    <span className="flex items-center gap-2">
-                      <span className="text-slate-300">{c.mapping.name}</span>
-                      <StatusBadge status={c.mapping.status} />
-                    </span>
-                  ) : (
-                    <span className="text-slate-500">—</span>
-                  )}
-                </TD>
-                <TD className="text-right text-slate-300">
-                  {needsAttention(c) ? c.events_processed.toLocaleString() : '—'}
-                </TD>
-                <TD className="text-right text-slate-300">
-                  {needsAttention(c) ? formatRate(c.normalization_rate) : '—'}
-                </TD>
-                <TD className="text-right">
-                  {c.needs_review > 0 ? (
-                    <span className="font-medium text-amber-300">{c.needs_review}</span>
-                  ) : (
-                    <span className="text-slate-500">0</span>
-                  )}
-                </TD>
-                <TD className="text-slate-400">{formatTime(c.last_event_at)}</TD>
-              </TR>
-            ))}
-          </TBody>
-        </Table>
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mt-2 auto-rows-max">
+          {rows.map((c) => (
+            <ConnectionCard key={c.id} c={c} />
+          ))}
+        </div>
       )}
 
       <ConnectLiveModal open={showLiveInfo} onClose={() => setShowLiveInfo(false)} />

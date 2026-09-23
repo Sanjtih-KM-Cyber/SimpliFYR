@@ -71,57 +71,59 @@ export default function ConnectionLive() {
   }, [sourceName])
 
   return (
-    <div>
-      <Link to={`/connections/${sourceName}`} className="mb-2 inline-block text-sm text-slate-400 hover:text-white">
-        ← Back
+    <div className="flex h-full flex-col">
+      <Link to={`/connections/${sourceName}`} className="mb-4 inline-block text-[11px] font-bold uppercase tracking-widest text-slate-500 hover:text-cyan-400">
+        ← Exit Stream
       </Link>
 
-      {connection.loading && <Spinner />}
-      {connection.error && <p className="text-sm text-red-400">{connection.error}</p>}
+      {connection.loading && <div className="mt-8 flex justify-center"><Spinner /></div>}
+      {connection.error && <p className="text-[13px] font-medium text-rose-400">{connection.error}</p>}
 
       {c && (
-        <>
+        <div className="animate-slide-up flex h-full flex-col">
           <PageHeader
-            title="Live"
+            title="Live Telemetry Sink"
             subtitle={
-              <span className="flex items-center gap-2">
-                <span className={`inline-block h-2 w-2 rounded-full ${connected ? 'animate-pulse bg-emerald-500' : 'bg-red-500'}`} />
-                <span>{connected ? 'Receiving' : 'Disconnected'}</span>
-                <span className="text-slate-500">· {c.name}</span>
+              <span className="flex items-center gap-2 mt-2">
+                <span className={`inline-block h-2.5 w-2.5 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.8)] ${connected ? 'animate-[pulse_1s_ease-in-out_infinite] bg-emerald-500' : 'bg-rose-500 shadow-[0_0_10px_rgba(225,29,72,0.8)]'}`} />
+                <span className="font-bold text-[12px] uppercase tracking-wider">{connected ? 'Transmission Active' : 'Disconnected'}</span>
+                <span className="text-slate-600 font-bold">///</span>
+                <span className="text-slate-400 font-mono text-[10px] uppercase tracking-widest">Pipeline: {c.name}</span>
               </span>
             }
             actions={
               <button
                 onClick={() => setPaused((v) => !v)}
-                className="rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                className={`rounded border px-5 py-2 text-[11px] font-bold uppercase tracking-wider transition-colors ${paused ? 'border-amber-900 bg-amber-950/30 text-amber-500 hover:bg-amber-900/50' : 'border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
               >
-                {paused ? 'Resume' : 'Pause'}
+                {paused ? '▶ Resume Feed' : '‖ Pause Feed'}
               </button>
             }
           />
 
-          <section>
+          <section className="flex-1 min-h-[50vh]">
             {events.length === 0 ? (
               <EmptyState
-                title={connected ? 'Waiting for events…' : 'Connecting…'}
-                description={`Incoming events for ${c.name} stream here in real time. Send a log via the connection's ingestion channel to see it flow through.`}
+                title={connected ? 'Listening for transmissions...' : 'Establishing Tunnel...'}
+                description={connected ? `Ingestion port open for ${c.name}. Awaiting payload.` : 'Attempting to open WebSocket interface.'}
               />
             ) : (
-              <div className="max-h-[60vh] space-y-1 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900 p-2 font-mono text-xs">
+              <div className="h-full max-h-[70vh] space-y-1.5 overflow-y-auto rounded-lg border border-slate-700/50 glass-card p-3 shadow-inner custom-scrollbar">
                 {events.map((e, i) => (
                   <div
                     key={`${e.event_id}-${i}`}
-                    className="flex items-center justify-between rounded px-2 py-1.5 hover:bg-slate-800/60"
+                    className="flex flex-wrap items-center justify-between rounded border border-slate-800/80 bg-slate-900/40 px-4 py-2.5 transition-colors hover:border-cyan-900/50 hover:bg-cyan-950/20 glass-panel animate-slide-up"
+                    style={{ animationDuration: '0.2s', opacity: paused ? 0.6 : 1 }}
                   >
-                    <span className="text-slate-300">{e.event_id.slice(0, 8)}…</span>
-                    <span className="text-slate-500">{formatTime(e.received_at)}</span>
+                    <span className="font-mono text-[12px] text-cyan-600/80">{e.event_id}</span>
+                    <span className="font-mono text-[11px] text-slate-500">{formatTime(e.received_at)}</span>
                     <StatusBadge status={e.status} />
                   </div>
                 ))}
               </div>
             )}
           </section>
-        </>
+        </div>
       )}
     </div>
   )

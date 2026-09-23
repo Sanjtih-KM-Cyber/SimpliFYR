@@ -118,163 +118,220 @@ export default function AddConnection() {
   const saved = preview !== null && connectionName.trim() !== ''
 
   return (
-    <div>
+    <div className="flex h-full flex-col">
       <PageHeader
-        title="Add Connection"
-        subtitle="Provide sample logs, choose a mapping and output — from then on, incoming logs follow the recipe."
+        title="Pipeline Wizard"
+        subtitle="Establish data sequence schema. Provide log samples, compute structural mapping, and assign destination."
       />
 
       {error && <ErrorBanner message={error} />}
 
-      <section className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
-        <h3 className="mb-3 text-sm font-medium text-white">1 · Connection</h3>
-        <input
-          value={connectionName}
-          onChange={(e) => setConnectionName(e.target.value)}
-          placeholder="Connection name (e.g. CrowdStrike Falcon)"
-          className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
-        />
-      </section>
-
-      <section className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
-        <h3 className="mb-3 text-sm font-medium text-white">2 · Provide sample logs</h3>
-        <textarea
-          value={raw}
-          onChange={(e) => setRaw(e.target.value)}
-          rows={4}
-          className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-xs text-slate-200"
-        />
-        <button
-          onClick={analyze}
-          disabled={analyzing || !raw.trim()}
-          className="mt-3 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
-        >
-          {analyzing ? 'Analyzing…' : 'Analyze'}
-        </button>
-      </section>
-
-      {analyzing && <Spinner />}
-
-      {analysis && (
-        <section className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
-          <h3 className="mb-3 text-sm font-medium text-white">3 · Detection</h3>
-          <div className="mb-2 flex flex-wrap gap-4 text-sm">
-            <span className="text-slate-300">
-              Format: <span className="font-semibold text-white">{analysis.detection.format}</span>
-            </span>
-            <span className="text-slate-300">
-              Confidence:{' '}
-              <span className="font-semibold text-white">
-                {Math.round(analysis.detection.confidence * 100)}%
-              </span>
-            </span>
-            <span className="text-slate-500">{analysis.detection.detail}</span>
+      <div className="mx-auto w-full max-w-4xl space-y-6 pb-20">
+        <section className="animate-slide-up rounded-lg border border-slate-700/50 p-5 glass-card">
+          <div className="mb-4 flex items-center gap-3 border-b border-slate-800/80 pb-3">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full border border-cyan-800 bg-cyan-950/50 text-[11px] font-bold text-cyan-400">1</div>
+            <h3 className="text-[13px] font-bold uppercase tracking-wider text-white">Connection Identity</h3>
           </div>
-          <Code value={analysis.parsed} />
-        </section>
-      )}
-
-      {analysis && (
-        <section className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
-          <h3 className="mb-3 text-sm font-medium text-white">4 · Choose mapping</h3>
           <input
-            value={mappingName}
-            onChange={(e) => setMappingName(e.target.value)}
-            placeholder={`Mapping name (defaults to "${connectionName || 'Connection'} Mapping")`}
-            className="mb-3 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+            value={connectionName}
+            onChange={(e) => setConnectionName(e.target.value)}
+            placeholder="e.g. CrowdStrike Falcon, AWS CloudTrail"
+            className="w-full rounded border border-slate-700 bg-slate-950 px-4 py-2.5 text-[13px] text-slate-200 outline-none transition-colors focus:border-cyan-500/50"
           />
-          <button
-            onClick={autoSuggest}
-            disabled={suggesting || !raw.trim()}
-            className="mb-3 rounded-md bg-indigo-700 px-3 py-1.5 text-sm text-white hover:bg-indigo-600 disabled:opacity-50"
-          >
-            {suggesting ? 'Suggesting…' : '✨ Auto-suggest mapping'}
-          </button>
-          <div className="mb-3 space-y-2">
-            {rows.map((row, i) => (
-              <div key={i} className="flex gap-2">
-                <span className="w-1/3 truncate rounded-md bg-slate-950 px-3 py-2 text-sm text-slate-300">
-                  {row.input_field}
-                </span>
-                <select
-                  value={row.semantic_field}
-                  onChange={(e) => updateRow(i, { semantic_field: e.target.value })}
-                  className="w-1/3 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
-                >
-                  <option value="">Semantic field…</option>
-                  {SEMANTIC_FIELDS.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-                <span className="w-1/3 text-xs text-slate-600">→ {row.semantic_field}</span>
-              </div>
-            ))}
-          </div>
-
-          <h3 className="mb-2 mt-4 text-sm font-medium text-white">Choose output</h3>
-          <select
-            value={profileId}
-            onChange={(e) => setProfileId(e.target.value ? Number(e.target.value) : '')}
-            className="mb-3 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
-          >
-            <option value="">No profile (normalized only)…</option>
-            {(profiles.data ?? []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-
-          <button
-            onClick={previewOutput}
-            disabled={previewing || rows.every((r) => !r.semantic_field)}
-            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
-          >
-            {previewing ? 'Saving…' : 'Save connection'}
-          </button>
         </section>
-      )}
 
-      {previewing && <Spinner />}
+        <section className="animate-slide-up rounded-lg border border-slate-700/50 p-5 glass-card" style={{ animationDelay: '50ms' }}>
+          <div className="mb-4 flex items-center gap-3 border-b border-slate-800/80 pb-3">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full border border-cyan-800 bg-cyan-950/50 text-[11px] font-bold text-cyan-400">2</div>
+            <h3 className="text-[13px] font-bold uppercase tracking-wider text-white">Telemetry Sample (Raw Context)</h3>
+          </div>
+          <textarea
+            value={raw}
+            onChange={(e) => setRaw(e.target.value)}
+            rows={4}
+            className="w-full resize-none rounded border border-slate-700 bg-slate-950 p-4 font-mono text-[11px] text-slate-300 outline-none transition-colors focus:border-cyan-500/50"
+          />
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={analyze}
+              disabled={analyzing || !raw.trim()}
+              className="rounded bg-cyan-600 px-6 py-2 text-[12px] font-bold uppercase tracking-wider text-white shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all hover:bg-cyan-500 hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] disabled:opacity-50 disabled:shadow-none"
+            >
+              {analyzing ? 'Synthesizing…' : 'Synthesize Schema'}
+            </button>
+          </div>
+        </section>
 
-      {saved && (
-        <div className="mb-6 rounded-lg border border-emerald-800 bg-emerald-950/50 p-4">
-          <p className="text-sm text-emerald-100">
-            Connection and recipe saved. Incoming logs for{' '}
-            <span className="font-semibold">{connectionName.trim()}</span> will automatically follow
-            this recipe — configure once, reuse automatically.
-          </p>
-          <Link
-            to={`/connections/${encodeURIComponent(connectionName.trim())}`}
-            className="mt-3 inline-block rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
-          >
-            View connection →
-          </Link>
-        </div>
-      )}
+        {analyzing && <div className="flex justify-center py-4"><Spinner /></div>}
 
-      {preview && (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-            <h3 className="mb-2 text-sm font-medium text-white">Normalized</h3>
-            <Code value={preview.normalized} />
+        {analysis && (
+          <section className="animate-slide-up rounded-lg border border-cyan-900/30 bg-cyan-950/10 p-5 glass-card" style={{ animationDelay: '100ms' }}>
+            <div className="mb-4 flex items-center justify-between border-b border-cyan-900/50 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full border border-amber-800 bg-amber-950/50 text-[11px] font-bold text-amber-400">3</div>
+                <h3 className="text-[13px] font-bold uppercase tracking-wider text-cyan-400">Detection Matrix</h3>
+              </div>
+            </div>
+
+            <div className="mb-4 flex flex-wrap items-center gap-4 rounded border border-slate-800 bg-slate-900/80 p-3 shadow-inner">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Format Detected</span>
+                <span className="font-mono text-[13px] font-semibold text-white">{analysis.detection.format}</span>
+              </div>
+              <div className="h-6 w-px bg-slate-700"></div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Confidence Model</span>
+                <span className="font-mono text-[13px] font-semibold text-emerald-400">
+                  {Math.round(analysis.detection.confidence * 100)}%
+                </span>
+              </div>
+              <div className="h-6 w-px bg-slate-700"></div>
+              <div className="flex-1 text-[11px] italic leading-tight text-slate-400">
+                " {analysis.detection.detail} "
+              </div>
+            </div>
+
+            <div className="overflow-hidden rounded border border-cyan-900/30 bg-cyan-950/20">
+              <Code value={analysis.parsed} />
+            </div>
           </section>
-          <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-            <h3 className="mb-2 text-sm font-medium text-white">Output</h3>
-            <Code value={preview.output ?? preview.normalized} />
-            {preview.provenance && (
-              <details className="mt-3">
-                <summary className="cursor-pointer text-sm text-slate-300">Provenance</summary>
-                <div className="mt-2">
-                  <Code value={preview.provenance} />
+        )}
+
+        {analysis && (
+          <section className="animate-slide-up rounded-lg border border-slate-700/50 p-5 glass-card" style={{ animationDelay: '150ms' }}>
+            <div className="mb-4 flex items-center justify-between border-b border-slate-800/80 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full border border-cyan-800 bg-cyan-950/50 text-[11px] font-bold text-cyan-400">4</div>
+                <h3 className="text-[13px] font-bold uppercase tracking-wider text-white">AST Map Configuration</h3>
+              </div>
+            </div>
+
+            <div className="mb-4 grid gap-4 lg:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-400">Mapping Identifier</label>
+                <input
+                  value={mappingName}
+                  onChange={(e) => setMappingName(e.target.value)}
+                  placeholder={`${connectionName || 'Connection'} Mapping (Default)`}
+                  className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-[12px] text-slate-200 outline-none focus:border-cyan-500/50"
+                />
+              </div>
+              <div className="flex items-end pb-0.5">
+                <button
+                  onClick={autoSuggest}
+                  disabled={suggesting || !raw.trim()}
+                  className="w-full rounded border border-cyan-900 bg-cyan-950/30 px-4 py-2 text-[12px] font-bold uppercase tracking-wider text-cyan-400 transition-colors hover:bg-cyan-900/50 disabled:opacity-50"
+                >
+                  {suggesting ? 'Initializing Autopilot…' : 'Run Autopilot Suggestion'}
+                </button>
+              </div>
+            </div>
+
+            <div className="mb-6 space-y-2 rounded border border-slate-800 bg-slate-900/50 p-3 shadow-inner">
+              {rows.map((row, i) => (
+                <div key={i} className="flex flex-wrap items-center gap-3 lg:flex-nowrap">
+                  <span className="w-full truncate rounded bg-slate-950 px-3 py-1.5 font-mono text-[11px] text-amber-500/80 border border-amber-900/20 lg:w-1/3">
+                    {row.input_field}
+                  </span>
+                  <select
+                    value={row.semantic_field}
+                    onChange={(e) => updateRow(i, { semantic_field: e.target.value })}
+                    className="w-full flex-1 rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-[12px] font-mono text-cyan-400 outline-none transition-colors focus:border-cyan-500/50 lg:w-auto"
+                  >
+                    <option value="">Select Target Field…</option>
+                    {SEMANTIC_FIELDS.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="hidden lg:flex w-1/4 items-center">
+                    <span className="text-[10px] text-slate-500">→ {row.semantic_field || '(UNASSIGNED)'}</span>
+                  </div>
                 </div>
-              </details>
-            )}
+              ))}
+            </div>
+
+            <div className="mb-4 border-t border-slate-800/80 pt-4">
+              <h3 className="mb-2 text-[13px] font-bold uppercase tracking-wider text-white">Delivery Output Link</h3>
+              <select
+                value={profileId}
+                onChange={(e) => setProfileId(e.target.value ? Number(e.target.value) : '')}
+                className="w-full max-w-md rounded border border-slate-700 bg-slate-950 px-4 py-2.5 text-[12px] font-semibold text-slate-200 outline-none focus:border-cyan-500/50"
+              >
+                <option value="">No delivery profile (Log indexing only)…</option>
+                {(profiles.data ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex justify-end border-t border-slate-800/80 pt-4">
+              <button
+                onClick={previewOutput}
+                disabled={previewing || rows.every((r) => !r.semantic_field)}
+                className="rounded bg-emerald-600 px-6 py-2.5 text-[12px] font-bold uppercase tracking-wider text-white shadow-[0_0_10px_rgba(16,185,129,0.3)] transition-all hover:bg-emerald-500 hover:shadow-[0_0_15px_rgba(16,185,129,0.5)] disabled:opacity-50 disabled:shadow-none"
+              >
+                {previewing ? 'Committing…' : 'Publish Pipeline Sequence'}
+              </button>
+            </div>
           </section>
-        </div>
-      )}
+        )}
+
+        {previewing && <div className="flex justify-center py-4"><Spinner /></div>}
+
+        {saved && (
+          <div className="animate-slide-up rounded-lg border border-emerald-900/50 bg-emerald-950/30 p-5 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+            <p className="text-[13px] font-semibold text-emerald-400">
+              Pipeline Established. Structural context compiled. Streams linked to{' '}
+              <span className="font-bold text-white">{connectionName.trim()}</span> will auto-index.
+            </p>
+            <div className="mt-4">
+              <Link
+                to={`/connections/${encodeURIComponent(connectionName.trim())}`}
+                className="inline-block rounded border border-emerald-700 bg-emerald-900/50 px-5 py-2 text-[12px] font-bold uppercase tracking-wider text-emerald-300 transition-colors hover:bg-emerald-800/80 hover:text-white"
+              >
+                Monitor Pipeline Sequence →
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {preview && (
+          <div className="animate-slide-up grid gap-4 lg:grid-cols-2 mt-6">
+            <section className="rounded-lg border border-slate-700/50 bg-slate-900 p-4 glass-card">
+              <div className="mb-3 flex items-center gap-2 border-b border-cyan-900/50 pb-2">
+                <div className="h-1.5 w-1.5 rounded-full bg-cyan-500 shadow-[0_0_5px_rgba(6,182,212,0.8)]"></div>
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-cyan-500">Normalized Intermediary</h3>
+              </div>
+              <div className="overflow-hidden rounded border border-slate-800/80 bg-slate-950/80">
+                <Code value={preview.normalized} />
+              </div>
+            </section>
+            <section className="rounded-lg border border-slate-700/50 bg-slate-900 p-4 glass-card">
+              <div className="mb-3 flex items-center gap-2 border-b border-emerald-900/50 pb-2">
+                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.8)]"></div>
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-emerald-500">Delivery Payload Target</h3>
+              </div>
+              <div className="overflow-hidden rounded border border-slate-800/80 bg-slate-950/80">
+                <Code value={preview.output ?? preview.normalized} />
+              </div>
+              {preview.provenance && (
+                <details className="mt-4 group">
+                  <summary className="cursor-pointer select-none text-[10px] font-bold uppercase tracking-widest text-slate-500 transition-colors group-open:text-slate-400">
+                    <span className="mr-1 inline-block opacity-50 transition-transform group-open:rotate-90">▶</span> Provenance Trajectory Logs
+                  </summary>
+                  <div className="mt-2 border-l border-slate-800 pl-3 opacity-80">
+                    <Code value={preview.provenance} />
+                  </div>
+                </details>
+              )}
+            </section>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

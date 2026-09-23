@@ -58,8 +58,6 @@ function IngestPanel({ onDone }: { onDone: (id: number) => void }) {
     setError(null)
     setResult(null)
     try {
-      // Connection select drives the recipe: known sources process
-      // automatically, unknown ones quarantine for review.
       const res = await ingest({ raw, source: source || undefined })
       setResult(res)
       toast(
@@ -87,27 +85,26 @@ function IngestPanel({ onDone }: { onDone: (id: number) => void }) {
   }
 
   return (
-    <div className="mb-6 rounded-lg border border-emerald-900 bg-slate-900 p-4">
-      <h3 className="mb-3 text-sm font-medium text-white">Instant ingest</h3>
-      <p className="mb-3 text-xs text-slate-500">
-        Drop logs, pick the connection they belong to, and they process immediately —
-        known sources normalize via their recipe, unknown ones quarantine for review.
+    <div className="mb-6 animate-slide-up rounded-lg border border-slate-700/50 bg-slate-900/40 p-4 shadow-xl backdrop-blur-sm">
+      <h3 className="mb-2 text-[13px] font-bold uppercase tracking-wide text-white">Instant Ingestion Portal</h3>
+      <p className="mb-4 max-w-3xl text-[12px] text-slate-400">
+        Submit raw telemetry. The system autonomously attempts structural normalization using the global context. Unrecognized signatures will be flagged for review.
       </p>
       <div className="mb-3 flex flex-wrap gap-2">
         <select
           value={source}
           onChange={(e) => setSource(e.target.value)}
-          className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+          className="rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-[13px] text-slate-200 outline-none transition-colors focus:border-cyan-500/50"
         >
-          <option value="">No connection (detect only)…</option>
+          <option value="">Auto-detect origin…</option>
           {(connections.data ?? []).map((c) => (
             <option key={c.id} value={c.name}>
               {c.name}
             </option>
           ))}
         </select>
-        <label className="cursor-pointer rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800">
-          Drop a file…
+        <label className="cursor-pointer rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-[13px] font-medium text-slate-300 transition-colors hover:bg-slate-800">
+          Upload Context (File)
           <input
             type="file"
             className="hidden"
@@ -120,23 +117,23 @@ function IngestPanel({ onDone }: { onDone: (id: number) => void }) {
         onChange={(e) => setRaw(e.target.value)}
         rows={5}
         placeholder="<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 dstip=8.8.8.8 proto=tcp action=deny"
-        className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-xs text-slate-200"
+        className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-[11px] text-slate-300 outline-none transition-colors placeholder:text-slate-700 focus:border-cyan-500/50"
       />
-      {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+      {error && <p className="mt-2 font-medium text-[12px] text-rose-400">{error}</p>}
       <div className="mt-3 flex items-center gap-3">
         <button
           onClick={submit}
           disabled={busy || !raw.trim()}
-          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+          className="rounded bg-cyan-600 px-5 py-1.5 text-[13px] font-bold tracking-wide text-white shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all hover:bg-cyan-500 hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] disabled:shadow-none disabled:opacity-50"
         >
-          {busy ? 'Ingesting…' : 'Ingest now'}
+          {busy ? 'Processing Data…' : 'Execute Ingest'}
         </button>
         {result && (
-          <span className="flex items-center gap-2 text-sm">
+          <span className="flex items-center gap-2 rounded border border-slate-800 bg-slate-900/80 px-2 py-1 text-[12px]">
             <StatusBadge status={result.status} />
-            <span className="text-slate-400">
-              event #{result.stored_event_id}
-              {result.duplicate ? ' · duplicate' : ''}
+            <span className="font-mono text-slate-400">
+              EVT-{result.stored_event_id}
+              {result.duplicate ? ' · DUPLICATE' : ''}
             </span>
           </span>
         )}
@@ -153,7 +150,8 @@ function Detail({ detail, onChanged, onDeleted }: { detail: EventDetail; onChang
 
   const actionable = detail.status === 'quarantined' || detail.status === 'dlq'
 
-  async function run(action: 'retry' | 'delete') {    if (action === 'delete' && !window.confirm(`Delete event #${detail.id} and its raw file?`)) return
+  async function run(action: 'retry' | 'delete') {
+    if (action === 'delete' && !window.confirm(`Delete event #${detail.id} and its raw file?`)) return
     setBusy(action)
     setError(null)
     try {
@@ -176,8 +174,6 @@ function Detail({ detail, onChanged, onDeleted }: { detail: EventDetail; onChang
   }
 
   function downloadSingle() {
-    // Downloads carry ONLY the normalized log — the clean, analytics-ready
-    // representation. Raw/parsed/provenance stay inspectable in the UI.
     const payload = detail.output ?? detail.normalized
     if (!payload) return
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
@@ -193,98 +189,119 @@ function Detail({ detail, onChanged, onDeleted }: { detail: EventDetail; onChang
   }
 
   return (
-    <div className="mt-4 rounded-lg border border-slate-800 bg-slate-900 p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h4 className="text-sm font-medium text-white">
-          Event #{detail.id} <span className="font-mono text-slate-500">{detail.event_id}</span>
+    <div className="mt-4 animate-slide-up rounded-lg border border-slate-700/50 glass-card p-5">
+      <div className="mb-4 flex items-center justify-between border-b border-slate-800/80 pb-3">
+        <h4 className="flex items-center gap-2 text-[14px] font-bold text-white">
+          Telemetry Inspection
+          <span className="rounded border border-cyan-500/20 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[11px] text-cyan-500">{detail.event_id}</span>
         </h4>
-        <span className="flex items-center gap-2">
+        <span className="flex items-center gap-3">
           <StatusBadge status={detail.status} />
           {(detail.output || detail.normalized) && (
             <button
               onClick={downloadSingle}
               title="Download the normalized log (JSON)"
-              className="rounded-md border border-slate-700 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800"
+              className="rounded border border-slate-700 bg-slate-800 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-cyan-400 transition-colors hover:bg-slate-700 hover:text-cyan-300"
             >
-              Download
+              Export JSON
             </button>
           )}
         </span>
       </div>
 
       {actionable && (
-        <div className="mb-3 flex flex-wrap gap-2">
+        <div className="mb-4 flex flex-wrap gap-2 border-b border-amber-900/30 pb-4 pt-1">
+          <div className="mb-1 w-full font-mono text-[11px] uppercase tracking-widest text-amber-500/80">Action Required</div>
           {detail.status === 'quarantined' && (
             <button
               onClick={() => setOnboarding(true)}
-              className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500"
+              className="rounded bg-cyan-600 px-4 py-1.5 text-[12px] font-bold text-white shadow-[0_0_10px_rgba(6,182,212,0.2)] transition-colors hover:bg-cyan-500"
             >
-              Onboard — new mapping / version / vendor
+              Establish Mapping (Onboard)
             </button>
           )}
           <button
             onClick={() => run('retry')}
             disabled={busy !== null}
-            className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+            className="rounded border border-slate-700 px-4 py-1.5 text-[12px] font-semibold text-slate-300 transition-colors hover:bg-slate-800 disabled:opacity-50"
           >
-            {busy === 'retry' ? '…' : 'Retry'}
+            {busy === 'retry' ? 'Re-executing…' : 'Re-execute'}
           </button>
           <button
             onClick={() => run('delete')}
             disabled={busy !== null}
-            className="rounded-md border border-red-900 px-3 py-1.5 text-sm text-red-300 hover:bg-red-950/50 disabled:opacity-50"
+            className="rounded border border-rose-900/50 bg-rose-950/20 px-4 py-1.5 text-[12px] font-semibold text-rose-400 transition-colors hover:bg-rose-900/50 disabled:opacity-50"
           >
-            {busy === 'delete' ? '…' : 'Delete'}
+            {busy === 'delete' ? 'Purging…' : 'Purge'}
           </button>
         </div>
       )}
-      {error && <p className="mb-2 text-sm text-red-400">{error}</p>}
+      {error && <p className="mb-3 text-[12px] font-medium text-rose-400">{error}</p>}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section>
-          <h4 className="mb-2 text-xs uppercase tracking-wide text-slate-400">Original</h4>
-          <Code value={detail.views.raw} />
+      <div className="grid gap-1 overflow-hidden rounded border border-slate-700/50 bg-slate-950 lg:grid-cols-2">
+        <section className="bg-slate-900 p-3">
+          <div className="max-w-max mb-3 flex items-center gap-2 border-b border-slate-700/50 pb-1">
+            <div className="h-1.5 w-1.5 rounded-full bg-slate-500"></div>
+            <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Original Telemetry</h4>
+          </div>
+          <div className="opacity-90">
+            <Code value={detail.views.raw} />
+          </div>
         </section>
-        <section>
-          <h4 className="mb-2 text-xs uppercase tracking-wide text-slate-400">Normalized</h4>
+        <section className="mt-1 bg-slate-900 p-3 lg:mt-0 lg:border-l lg:border-slate-700/50">
+          <div className="max-w-max relative mb-3 flex items-center gap-2 border-b border-cyan-900/50 pb-1">
+            <div className="h-1.5 w-1.5 rounded-full bg-cyan-500 shadow-[0_0_5px_rgba(6,182,212,0.8)]"></div>
+            <h4 className="relative text-[10px] font-bold uppercase tracking-widest text-cyan-500">Normalized Context</h4>
+          </div>
           {detail.views.normalized ? (
             <Code value={detail.views.normalized} />
           ) : (
-            <p className="rounded-md border border-amber-800 bg-amber-950/40 p-3 text-xs text-amber-200">
-              Not normalized yet — this event needs review.
-            </p>
+            <div className="relative flex min-h-[100px] h-full items-center justify-center overflow-hidden rounded border border-amber-900/50 bg-amber-950/20 p-4">
+              <div className="absolute left-0 top-0 h-[1px] w-full bg-amber-500/20"></div>
+              <p className="text-center font-mono text-[11px] uppercase tracking-widest text-amber-500/80">
+                Unstructured Data
+                <br />
+                <span className="text-[10px] text-amber-600/70">Awaiting schema resolution</span>
+              </p>
+            </div>
           )}
         </section>
       </div>
 
-      {detail.views.parsed && (
-        <details className="mt-4">
-          <summary className="cursor-pointer text-sm text-slate-300">Parsed</summary>
-          <div className="mt-2">
-            <Code value={detail.views.parsed} />
-          </div>
-        </details>
-      )}
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        {detail.views.parsed && (
+          <details className="group">
+            <summary className="cursor-pointer select-none text-[12px] font-semibold text-slate-400 transition-colors group-open:text-slate-300">
+              <span className="mr-1 inline-block opacity-50 transition-transform group-open:rotate-90">▶</span> Structural AST (Parsed)
+            </summary>
+            <div className="mt-2 border-l border-slate-800 pl-4">
+              <Code value={detail.views.parsed} />
+            </div>
+          </details>
+        )}
 
-      {detail.views.output && (
-        <details className="mt-2">
-          <summary className="cursor-pointer text-sm text-slate-300">Output</summary>
-          <div className="mt-2">
-            <Code value={detail.views.output} />
-          </div>
-        </details>
-      )}
+        {detail.views.output && (
+          <details className="group">
+            <summary className="cursor-pointer select-none text-[12px] font-semibold text-slate-400 transition-colors group-open:text-slate-300">
+              <span className="mr-1 inline-block opacity-50 transition-transform group-open:rotate-90">▶</span> Delivery Payload (Output)
+            </summary>
+            <div className="mt-2 border-l border-slate-800 pl-4">
+              <Code value={detail.views.output} />
+            </div>
+          </details>
+        )}
 
-      {detail.provenance && (
-        <details className="mt-2">
-          <summary className="cursor-pointer text-sm text-slate-300">
-            Provenance
-          </summary>
-          <div className="mt-2">
-            <Code value={detail.provenance} />
-          </div>
-        </details>
-      )}
+        {detail.provenance && (
+          <details className="group lg:col-span-2">
+            <summary className="cursor-pointer select-none text-[12px] font-semibold text-slate-400 transition-colors group-open:text-slate-300">
+              <span className="mr-1 inline-block opacity-50 transition-transform group-open:rotate-90">▶</span> Provenance History
+            </summary>
+            <div className="mt-2 border-l border-slate-800 pl-4">
+              <Code value={detail.provenance} />
+            </div>
+          </details>
+        )}
+      </div>
 
       {onboarding && (
         <OnboardModal
@@ -373,10 +390,10 @@ export default function Logs() {
     })
 
   return (
-    <div>
+    <div className="flex h-full flex-col">
       <PageHeader
-        title="Logs"
-        subtitle="The unified output of Simplifyr — search, filter, and inspect every event."
+        title="Telemetry Data"
+        subtitle="The unified indexing interface — query, inspect, and trace live stream payloads."
         actions={
           <select
             value=""
@@ -385,18 +402,18 @@ export default function Logs() {
               if (e.target.value) download(e.target.value as 'json' | 'ndjson' | 'csv')
               e.target.value = ''
             }}
-            className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 disabled:opacity-50"
+            className="rounded border border-slate-700 bg-slate-900 px-4 py-2 text-[12px] font-bold uppercase tracking-wider text-slate-300 outline-none disabled:opacity-50"
           >
-            <option value="">{downloading ? 'Downloading…' : 'Download…'}</option>
-            <option value="json">JSON</option>
-            <option value="ndjson">NDJSON</option>
-            <option value="csv">CSV</option>
+            <option value="">{downloading ? 'Bundling…' : 'Export Logs…'}</option>
+            <option value="json">JSON format</option>
+            <option value="ndjson">NDJSON format</option>
+            <option value="csv">CSV format</option>
           </select>
         }
       />
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-1">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/50 pb-4">
+        <div className="flex items-center gap-1.5">
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -404,54 +421,58 @@ export default function Logs() {
                 setTab(t.key)
                 setIngesting(false)
               }}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-                tab === t.key && !ingesting
-                  ? 'bg-slate-800 text-white'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-              }`}
+              className={`rounded px-3 py-1.5 text-[13px] font-medium transition-all ${tab === t.key && !ingesting
+                  ? 'border border-slate-700 bg-slate-800 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.15)]'
+                  : 'border border-transparent text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                }`}
             >
               {t.label}
             </button>
           ))}
+          <div className="mx-2 h-5 w-px bg-slate-800"></div>
           <button
             onClick={() => setIngesting(true)}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-              ingesting
-                ? 'bg-emerald-700 text-white'
-                : 'text-emerald-400 hover:bg-slate-800 hover:text-emerald-300'
-            }`}
+            className={`rounded px-3 py-1.5 text-[13px] font-bold tracking-wide transition-all ${ingesting
+                ? 'bg-cyan-600 text-white shadow-[0_0_10px_rgba(6,182,212,0.4)]'
+                : 'border border-cyan-900/50 text-cyan-500 hover:bg-cyan-950/20'
+              }`}
           >
-            + Ingest
+            + Ingest Payload
           </button>
         </div>
-        <input
-          ref={searchRef}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search… (press / to focus)"
-          className="w-64 rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200"
-        />
-        <select
-          value={vendor}
-          onChange={(e) => {
-            setVendor(e.target.value)
-            setExtra([])
-            setSelected(null)
-          }}
-          title="Filter by vendor / connection"
-          className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200"
-        >
-          <option value="">All vendors…</option>
-          {(vendors.data ?? []).map((c) => (
-            <option key={c.id} value={c.name}>
-              {c.name} ({c.events_processed})
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-[1em] h-[1em] absolute left-3 top-1/2 w-6 -translate-y-1/2 border-r border-slate-700 pr-1 text-slate-500"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <input
+              ref={searchRef}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Query payload... ( / )"
+              className="w-64 rounded border border-slate-700 bg-slate-950 py-1.5 pl-8 pr-3 text-[13px] text-slate-200 outline-none transition-colors placeholder:text-slate-600 focus:border-cyan-500/50"
+            />
+          </div>
+          <select
+            value={vendor}
+            onChange={(e) => {
+              setVendor(e.target.value)
+              setExtra([])
+              setSelected(null)
+            }}
+            title="Filter by node / connection"
+            className="rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-[13px] text-slate-300 outline-none focus:border-cyan-500/50"
+          >
+            <option value="">Global context…</option>
+            {(vendors.data ?? []).map((c) => (
+              <option key={c.id} value={c.name}>
+                {c.name} ({c.events_processed})
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {events.loading && <Spinner />}
-      {events.error && <p className="text-sm text-red-400">{events.error}</p>}
+      {events.loading && <div className="mt-8 flex justify-center"><Spinner /></div>}
+      {events.error && <p className="text-[13px] font-medium text-rose-400">{events.error}</p>}
 
       {ingesting && (
         <IngestPanel
@@ -463,40 +484,45 @@ export default function Logs() {
       )}
 
       {!events.loading && !events.error && rows.length === 0 && (
-        <EmptyState
-          title={all.length === 0 ? 'No logs yet' : 'No logs match'}
-          description={
-            all.length === 0
-              ? 'Ingest or connect live logs and they will appear here.'
-              : 'Try a different filter or search term.'
-          }
-        />
+        <div className="mt-8">
+          <EmptyState
+            title={all.length === 0 ? 'Telemetry Empty' : 'No Results'}
+            description={
+              all.length === 0
+                ? 'Awaiting telemetry ingestion. Configure a node to transmit logs.'
+                : 'Modify active filters.'
+            }
+          />
+        </div>
       )}
 
       {rows.length > 0 && (
-        <Table>          <THead>
-            <TR>
-              <TH>ID</TH>
-              <TH>Status</TH>
-              <TH>Received</TH>
-              <TH>Event ID</TH>
-            </TR>
-          </THead>
-          <TBody>
-            {rows.map((e) => (
-              <TR key={e.id} onClick={() => setSelected(e.id)}>
-                <TD className={selected === e.id ? 'font-semibold text-white' : 'text-slate-200'}>
-                  {e.id}
-                </TD>
-                <TD>
-                  <StatusBadge status={e.status} />
-                </TD>
-                <TD className="text-slate-400">{formatTime(e.received_at)}</TD>
-                <TD className="font-mono text-xs text-slate-500">{e.event_id.slice(0, 8)}…</TD>
+        <div className="glass-panel mt-2 rounded-lg p-[1px]">
+          <Table>
+            <THead>
+              <TR>
+                <TH>Index</TH>
+                <TH>Lifecycle</TH>
+                <TH>Timestamp</TH>
+                <TH>Global ID</TH>
               </TR>
-            ))}
-          </TBody>
-        </Table>
+            </THead>
+            <TBody>
+              {rows.map((e) => (
+                <TR key={e.id} onClick={() => setSelected(e.id)}>
+                  <TD className={selected === e.id ? 'bg-cyan-950/20 font-bold text-cyan-400' : 'text-slate-300'}>
+                    {(e.id).toString().padStart(6, '0')}
+                  </TD>
+                  <TD className={selected === e.id ? 'bg-cyan-950/20' : ''}>
+                    <StatusBadge status={e.status} />
+                  </TD>
+                  <TD className={`text-slate-400 ${selected === e.id ? 'bg-cyan-950/20' : ''}`}>{formatTime(e.received_at)}</TD>
+                  <TD className={`font-mono text-[11px] text-slate-500 ${selected === e.id ? 'bg-cyan-950/20 text-cyan-600/70' : ''}`}>{e.event_id}</TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+        </div>
       )}
 
       {selected && detail.data && (
@@ -511,16 +537,16 @@ export default function Logs() {
       )}
 
       {rows.length >= 200 && (
-        <div className="mt-4 text-center">
+        <div className="mt-8 border-t border-slate-800/50 pt-5 text-center">
           <button
             onClick={loadMore}
-            className="rounded-md border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+            className="rounded border border-slate-700 bg-slate-900 px-5 py-2 text-[12px] font-bold uppercase tracking-wider text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
           >
-            Load older logs ({all.length} shown)
+            Execute Paginate ({all.length} Indexed)
           </button>
         </div>
       )}
-      {selected && detail.loading && <Spinner />}
+      {selected && detail.loading && <div className="mt-8 flex justify-center"><Spinner /></div>}
     </div>
   )
 }

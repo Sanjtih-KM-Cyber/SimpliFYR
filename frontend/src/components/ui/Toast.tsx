@@ -8,9 +8,9 @@ interface ToastItem {
 }
 
 const TYPE_STYLES: Record<ToastType, string> = {
-  success: 'border-emerald-700 bg-emerald-950/90 text-emerald-100',
-  error: 'border-red-800 bg-red-950/90 text-red-100',
-  info: 'border-slate-700 bg-slate-900/95 text-slate-100',
+  success: 'border-emerald-500/50 bg-emerald-950/80 text-emerald-100 tactical-glow shadow-emerald-500/10',
+  error: 'border-rose-500/50 bg-rose-950/80 text-rose-100 shadow-rose-500/10',
+  info: 'border-cyan-500/50 bg-slate-900/90 text-slate-100 shadow-[0_0_15px_rgba(6,182,212,0.1)]',
 }
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -28,11 +28,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed bottom-4 right-4 z-50 flex w-80 flex-col gap-2">
+      <div className="fixed bottom-4 right-4 z-[100] flex w-80 flex-col gap-2">
         {items.map((t) => (
           <div
             key={t.id}
-            className={`rounded-md border px-4 py-3 text-sm shadow-lg ${TYPE_STYLES[t.type]}`}
+            className={`rounded-md border px-4 py-3 text-[13px] font-medium backdrop-blur-md animate-slide-up ${TYPE_STYLES[t.type]}`}
           >
             {t.message}
           </div>

@@ -14,7 +14,7 @@ const SHORTCUTS: { keys: string[]; action: string }[] = [
 
 function Kbd({ label }: { label: string }) {
   return (
-    <kbd className="rounded border border-slate-600 bg-slate-950 px-1.5 py-0.5 font-mono text-xs text-slate-200">
+    <kbd className="rounded-[4px] border-b-2 border-slate-700/80 bg-slate-800/80 px-2 py-1 font-mono text-[11px] font-semibold text-cyan-100 shadow-sm">
       {label}
     </kbd>
   )
@@ -28,15 +28,15 @@ export function KeyboardShortcutsPanel({
   onClose: () => void
 }) {
   return (
-    <Modal open={open} title="Keyboard Shortcuts" onClose={onClose}>
-      <div className="space-y-2">
+    <Modal open={open} title="Keyboard Shortcuts" onClose={onClose} width="max-w-md">
+      <div className="space-y-1">
         {SHORTCUTS.map((s) => (
-          <div key={s.action} className="flex items-center justify-between text-sm">
-            <span className="text-slate-300">{s.action}</span>
-            <span className="flex items-center gap-1">
+          <div key={s.action} className="flex items-center justify-between border-b border-slate-700/30 px-2 py-2.5 text-sm hover:bg-slate-800/30 transition-colors">
+            <span className="text-slate-300 text-[13px] font-medium">{s.action}</span>
+            <span className="flex items-center gap-1.5">
               {s.keys.map((k, i) => (
-                <span key={k} className="flex items-center gap-1">
-                  {i > 0 && <span className="text-xs text-slate-500">+</span>}
+                <span key={k} className="flex items-center gap-1.5">
+                  {i > 0 && <span className="text-[10px] uppercase font-bold tracking-widest text-slate-500">+</span>}
                   <Kbd label={k} />
                 </span>
               ))}
@@ -44,10 +44,11 @@ export function KeyboardShortcutsPanel({
           </div>
         ))}
       </div>
-      <p className="mt-4 border-t border-slate-800 pt-3 text-xs text-slate-500">
-        Shortcuts are ignored while typing in an input. Press Ctrl+I or ? anytime to see this
-        panel.
-      </p>
+      <div className="mt-5 rounded-md bg-cyan-950/20 border border-cyan-900/30 p-3">
+        <p className="text-[12px] leading-relaxed text-slate-400">
+          <strong className="text-cyan-500 font-semibold">Note:</strong> Shortcuts are disabled while typing in input fields. Press <Kbd label="Ctrl" /> + <Kbd label="I" /> or <Kbd label="?" /> anytime to view this panel.
+        </p>
+      </div>
     </Modal>
   )
 }

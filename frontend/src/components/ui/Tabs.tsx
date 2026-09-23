@@ -16,16 +16,15 @@ export function TabBar({ tabs }: { tabs: TabItem[] }) {
           to={t.to}
           end={t.end}
           className={({ isActive }) =>
-            `-mb-px border-b-2 px-3 py-2 text-sm transition-colors ${
-              isActive
-                ? 'border-white text-white'
-                : 'border-transparent text-slate-400 hover:text-white'
+            `-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-all ${isActive
+              ? 'border-cyan-500 text-cyan-500 shadow-[0_1px_10px_-2px_rgba(6,182,212,0.4)]'
+              : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'
             }`
           }
         >
           {t.label}
           {typeof t.badge === 'number' && t.badge > 0 && (
-            <span className="ml-1.5 rounded-full bg-amber-700 px-1.5 py-0.5 text-[10px] font-medium text-white">
+            <span className="ml-2 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-500 border border-amber-500/30">
               {t.badge}
             </span>
           )}

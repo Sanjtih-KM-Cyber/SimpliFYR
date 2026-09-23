@@ -30,19 +30,20 @@ export default function ConnectionLayout() {
   }, [sourceName])
 
   return (
-    <div>
-      <Link to="/connections" className="mb-2 inline-block text-sm text-slate-400 hover:text-white">
-        ← Connections
+    <div className="flex h-full flex-col">
+      <Link to="/connections" className="mb-4 inline-block text-[11px] font-bold uppercase tracking-widest text-slate-500 hover:text-cyan-400">
+        ← Return Admin Console
       </Link>
 
-      {connection.loading && <Spinner />}
-      {connection.error && <p className="text-sm text-red-400">{connection.error}</p>}
+      {connection.loading && <div className="mt-8 flex justify-center"><Spinner /></div>}
+      {connection.error && <p className="text-[13px] font-medium text-rose-400">{connection.error}</p>}
 
       {c && (
         <>
-          <header className="mb-4">
-            <h2 className="flex items-center gap-3 text-2xl font-semibold text-white">
+          <header className="mb-6 border-b border-slate-800/80 pb-5">
+            <h2 className="flex flex-wrap items-center gap-4 text-[20px] font-bold tracking-wide text-white">
               {c.name}
+              <div className="h-4 w-px bg-slate-700"></div>
               <StatusBadge
                 status={
                   c.health === 'healthy'
@@ -52,7 +53,7 @@ export default function ConnectionLayout() {
                       : 'draft'
                 }
               />
-              <span className="text-sm font-normal text-slate-400">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
                 {HEALTH_LABELS[c.health] ?? c.health}
               </span>
             </h2>
@@ -60,19 +61,21 @@ export default function ConnectionLayout() {
 
           <TabBar
             tabs={[
-              { to: `/connections/${sourceName}`, label: 'Overview', end: true },
-              { to: `/connections/${sourceName}/mappings`, label: 'Mappings' },
-              { to: `/connections/${sourceName}/output`, label: 'Output' },
-              { to: `/connections/${sourceName}/learning`, label: 'Learning' },
+              { to: `/connections/${sourceName}`, label: 'OVERVIEW', end: true },
+              { to: `/connections/${sourceName}/mappings`, label: 'SCHEMA MAP' },
+              { to: `/connections/${sourceName}/output`, label: 'DESTINATIONS' },
+              { to: `/connections/${sourceName}/learning`, label: 'AI KNOWLEDGE' },
               {
                 to: `/connections/${sourceName}/needs-review`,
-                label: 'Needs Review',
+                label: 'DRIFT QUEUE',
                 badge: (c.open_drift ?? 0) + (c.events_by_status?.quarantined ?? 0),
               },
             ]}
           />
 
-          <Outlet context={{ connection: c } satisfies ConnectionContext} />
+          <div className="mt-6 flex-1">
+            <Outlet context={{ connection: c } satisfies ConnectionContext} />
+          </div>
         </>
       )}
     </div>

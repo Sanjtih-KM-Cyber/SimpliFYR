@@ -8,9 +8,9 @@ import { useConnection } from './connection-context'
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-      <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-white">{value}</p>
+    <div className="animate-slide-up rounded-lg border border-slate-700/50 p-5 glass-card">
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">{label}</p>
+      <p className="font-mono text-2xl font-bold text-white">{value}</p>
     </div>
   )
 }
@@ -41,7 +41,7 @@ export default function ConnectionOverview() {
   }
 
   return (
-    <div>
+    <div className="pb-10">
       <section className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Events Processed" value={c.events_processed.toLocaleString()} />
         <Stat label="Normalization Rate" value={`${(c.normalization_rate * 100).toFixed(1)}%`} />
@@ -52,18 +52,19 @@ export default function ConnectionOverview() {
         />
       </section>
 
-      <div className="mb-6 flex flex-wrap items-center gap-2">
+      <div className="mb-8 flex flex-wrap items-center gap-3">
         <Link
           to={`/connections/${encodeURIComponent(c.name)}/live`}
-          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+          className="rounded border border-emerald-900/50 bg-emerald-950/30 px-5 py-2 text-[11px] font-bold uppercase tracking-wider text-emerald-400 transition-colors hover:bg-emerald-900/50 shadow-[0_0_10px_rgba(16,185,129,0.15)] animate-pulse"
         >
-          View Live
+          ● View Live Stream
         </Link>
+        <div className="h-5 w-px bg-slate-800"></div>
         <Link
           to="/logs"
-          className="rounded-md border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+          className="rounded border border-cyan-900/50 text-cyan-500 px-5 py-2 text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-cyan-950/30"
         >
-          Browse all logs
+          Observe Indexed Logs
         </Link>
         <select
           value=""
@@ -72,116 +73,129 @@ export default function ConnectionOverview() {
             if (e.target.value) download(e.target.value as 'json' | 'ndjson' | 'csv')
             e.target.value = ''
           }}
-          className="rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 disabled:opacity-50"
+          className="rounded border border-slate-700 bg-slate-950 px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-300 outline-none hover:bg-slate-900 disabled:opacity-50"
         >
-          <option value="">{downloading ? 'Downloading…' : 'Download…'}</option>
-          <option value="json">JSON</option>
-          <option value="ndjson">NDJSON</option>
-          <option value="csv">CSV</option>
+          <option value="">{downloading ? 'Bundling Payload…' : 'Export Payload…'}</option>
+          <option value="json">JSON format</option>
+          <option value="ndjson">NDJSON format</option>
+          <option value="csv">CSV format</option>
         </select>
       </div>
 
-      <section className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
-        <h3 className="mb-3 text-sm font-medium text-white">Mapping</h3>
-        {c.mapping ? (
-          <div className="flex items-center gap-3 text-sm">
-            <span className="font-medium text-white">{c.mapping.name}</span>
-            <StatusBadge status={c.mapping.status} />
-            <span className="text-slate-500">v{c.mapping.version}</span>
-          </div>
-        ) : (
-          <p className="text-sm text-slate-500">
-            No mapping yet — events from this connection are quarantined until one is created.
-          </p>
-        )}
-      </section>
+      <div className="grid gap-6 lg:grid-cols-2 lg:items-start mb-6">
+        <section className="animate-slide-up rounded-lg border border-slate-700/50 p-5 glass-card" style={{ animationDelay: '50ms' }}>
+          <h3 className="mb-4 text-[12px] font-bold uppercase tracking-widest text-white border-b border-slate-800/80 pb-2">Schema Mapping Status</h3>
+          {c.mapping ? (
+            <div className="flex items-center gap-3 text-[13px]">
+              <span className="font-mono font-bold text-cyan-400">{c.mapping.name}</span>
+              <StatusBadge status={c.mapping.status} />
+              <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">v{c.mapping.version}</span>
+            </div>
+          ) : (
+            <div className="rounded border border-amber-900/30 bg-amber-950/10 p-3 leading-relaxed">
+              <p className="text-[12px] text-amber-500/80">
+                No active schema established — telemetry quarantined until structural context provided.
+              </p>
+            </div>
+          )}
+        </section>
 
-      <section className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
-        <h3 className="mb-3 text-sm font-medium text-white">Output</h3>
-        {c.output_profile ? (
-          <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-            <span className="text-slate-300">
-              Bound output profile:{' '}
-              <span className="font-medium text-white">{c.output_profile.name}</span>
-            </span>
-            <Link
-              to={`/connections/${encodeURIComponent(c.name)}/output`}
-              className="text-sm text-sky-400 hover:text-sky-300"
-            >
-              Manage binding →
-            </Link>
-          </div>
-        ) : (
-          <p className="text-sm text-slate-500">
-            No recipe binding yet — outputs apply per-request.{' '}
-            <Link
-              to={`/connections/${encodeURIComponent(c.name)}/output`}
-              className="text-sky-400 hover:text-sky-300"
-            >
-              Bind a profile →
-            </Link>
-          </p>
-        )}
-      </section>
+        <section className="animate-slide-up rounded-lg border border-slate-700/50 p-5 glass-card" style={{ animationDelay: '100ms' }}>
+          <h3 className="mb-4 text-[12px] font-bold uppercase tracking-widest text-white border-b border-slate-800/80 pb-2">Destinations Profile Link</h3>
+          {c.output_profile ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 text-[13px]">
+              <span className="text-slate-400">
+                Bound deployment endpoint:{' '}
+                <span className="font-mono font-bold text-emerald-400">{c.output_profile.name}</span>
+              </span>
+              <Link
+                to={`/connections/${encodeURIComponent(c.name)}/output`}
+                className="text-[11px] font-bold uppercase tracking-wider text-cyan-500 hover:text-cyan-400 underline decoration-cyan-900/50 underline-offset-4"
+              >
+                Manage Link
+              </Link>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between text-[12px]">
+              <p className="text-slate-500">
+                No delivery link. Local index only.
+              </p>
+              <Link
+                to={`/connections/${encodeURIComponent(c.name)}/output`}
+                className="rounded border border-cyan-900/50 bg-cyan-950/30 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-cyan-500 hover:bg-cyan-900/50"
+              >
+                Establish Link
+              </Link>
+            </div>
+          )}
+        </section>
+      </div>
 
-      {c.events_processed > 0 && (
-        <section className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
-          <h3 className="mb-3 text-sm font-medium text-white">By Pipeline Stage</h3>
-          <div className="space-y-2 text-sm">
-            {stageOrder
-              .filter((k) => (c.events_by_status[k] ?? 0) > 0)
-              .map((status) => (
-                <div key={status} className="flex items-center justify-between">
-                  <span className="text-slate-300">{status}</span>
-                  <span className="font-semibold text-white">{c.events_by_status[status]}</span>
+      <div className="grid gap-6 lg:grid-cols-2 mb-8">
+        {c.events_processed > 0 && (
+          <section className="animate-slide-up rounded-lg border border-slate-700/50 p-5 glass-card" style={{ animationDelay: '150ms' }}>
+            <h3 className="mb-4 text-[12px] font-bold uppercase tracking-widest text-white border-b border-slate-800/80 pb-2">Throughput by Operation</h3>
+            <div className="space-y-2">
+              {stageOrder
+                .filter((k) => (c.events_by_status[k] ?? 0) > 0)
+                .map((status) => (
+                  <div key={status} className="flex items-center justify-between rounded border border-slate-800/50 bg-slate-900/50 px-3 py-2">
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">{status}</span>
+                    <span className="font-mono text-[13px] font-bold text-white shadow-[0_0_10px_rgba(255,255,255,0.05)]">{c.events_by_status[status]}</span>
+                  </div>
+                ))}
+            </div>
+          </section>
+        )}
+
+        {c.drift.length > 0 && (
+          <section className="animate-slide-up rounded-lg border border-amber-900/30 bg-amber-950/10 p-5 glass-card" style={{ animationDelay: '200ms' }}>
+            <h3 className="mb-4 text-[12px] font-bold uppercase tracking-widest text-amber-500 border-b border-amber-900/50 pb-2">Schema Drift Detentions</h3>
+            <div className="space-y-3">
+              {c.drift.map((d) => (
+                <div key={d.id} className="flex items-center justify-between border-l-2 border-amber-700 pl-3">
+                  <span className="text-[11px] font-mono text-amber-500/80">
+                    <span className="uppercase tracking-widest text-amber-700/60 font-sans mr-2 text-[9px]">delta_fields:</span>
+                    {d.new_fields.join(', ') || '—'}
+                  </span>
+                  <StatusBadge status={d.status} />
                 </div>
               ))}
-          </div>
-        </section>
-      )}
+            </div>
+            <Link
+              to={`/connections/${encodeURIComponent(c.name)}/needs-review`}
+              className="mt-4 block rounded bg-amber-900/20 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-amber-500 transition-colors hover:bg-amber-900/40"
+            >
+              Analyze Queue →
+            </Link>
+          </section>
+        )}
+      </div>
 
-      {c.drift.length > 0 && (
-        <section className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
-          <h3 className="mb-3 text-sm font-medium text-white">Needs Review</h3>
-          <div className="space-y-2 text-sm">
-            {c.drift.map((d) => (
-              <div key={d.id} className="flex items-center justify-between">
-                <span className="text-slate-300">
-                  New fields: {d.new_fields.join(', ') || '—'}
-                </span>
-                <StatusBadge status={d.status} />
-              </div>
-            ))}
-          </div>
-          <Link
-            to={`/connections/${encodeURIComponent(c.name)}/needs-review`}
-            className="mt-3 inline-block text-sm text-sky-400 hover:text-sky-300"
-          >
-            Review changes →
-          </Link>
-        </section>
-      )}
-
-      <section>
-        <h3 className="mb-3 text-sm font-medium text-white">Recent Events</h3>
+      <section className="animate-slide-up rounded-lg border border-slate-700/50 glass-card p-1" style={{ animationDelay: '250ms' }}>
+        <div className="px-4 pb-3 pt-4 border-b border-slate-800/50">
+          <h3 className="text-[13px] font-bold uppercase tracking-wider text-white">Latest Telemetry Commits</h3>
+        </div>
         {c.recent_events.length === 0 ? (
-          <EmptyState
-            title="No events yet"
-            description="Events for this connection will appear here."
-          />
+          <div className="p-4">
+            <EmptyState
+              title="No events yet"
+              description="Events for this connection will appear here."
+            />
+          </div>
         ) : (
           <Table>
             <THead>
               <TR>
-                <TH>Event</TH>
-                <TH>Status</TH>
-                <TH>Received</TH>
+                <TH>Global ID</TH>
+                <TH>Lifecycle</TH>
+                <TH>Commit Time</TH>
               </TR>
             </THead>
             <TBody>
               {c.recent_events.map((e) => (
                 <TR key={e.id}>
-                  <TD className="font-mono text-xs text-slate-300">{e.event_id}</TD>
+                  <TD className="font-mono text-[11px] text-cyan-600/70">{e.event_id}</TD>
                   <TD>
                     <StatusBadge status={e.status} />
                   </TD>

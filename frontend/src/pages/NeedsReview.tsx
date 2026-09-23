@@ -31,18 +31,18 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  detected: 'bg-amber-700 text-amber-100',
-  analyzed: 'bg-sky-700 text-sky-100',
-  review: 'bg-red-700 text-red-100',
-  approved: 'bg-emerald-700 text-emerald-100',
-  rejected: 'bg-red-800 text-red-100',
-  ignored: 'bg-slate-700 text-slate-300',
+  detected: 'bg-amber-950/30 text-amber-400 border-amber-900/50',
+  analyzed: 'bg-cyan-950/30 text-cyan-400 border-cyan-900/50',
+  review: 'bg-rose-950/30 text-rose-400 border-rose-900/50',
+  approved: 'bg-emerald-950/30 text-emerald-400 border-emerald-900/50',
+  rejected: 'bg-rose-950/30 text-rose-500 border-rose-900/40',
+  ignored: 'bg-slate-800/40 text-slate-400 border-slate-700/50',
 }
 
 function StatusPill({ status }: { status: string }) {
-  const color = STATUS_COLORS[status] ?? 'bg-slate-700 text-slate-200'
+  const color = STATUS_COLORS[status] ?? 'bg-slate-800/40 text-slate-400 border-slate-700/50'
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${color}`}>
+    <span className={`rounded-sm border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${color}`}>
       {STATUS_LABELS[status] ?? status}
     </span>
   )
@@ -92,25 +92,25 @@ function CorrectModal({
   }
 
   return (
-    <Modal open title="Teach Simplifyr — correct the interpretation" onClose={onClose}>
-      <p className="mb-3 text-xs text-slate-400">
-        Your correction becomes a new published mapping version. Future events from{' '}
-        {detail.source ?? 'this source'} are recognized automatically.
+    <Modal open title="Teach Pattern — Override Interpretation" onClose={onClose}>
+      <p className="mb-4 text-[12px] text-slate-400">
+        Your correction becomes a newly published mapping version. Future telemetry from{' '}
+        <span className="font-mono text-cyan-400">{detail.source ?? 'this sequence'}</span> will automatically inherit these properties.
       </p>
       {error && <ErrorBanner message={error} />}
-      <div className="mb-4 space-y-2">
+      <div className="mb-5 space-y-2 rounded border border-slate-800 bg-slate-900/50 p-2">
         {rows.map((row, i) => (
-          <div key={row.input_field} className="flex items-center gap-2">
-            <span className="w-1/3 truncate rounded-md bg-slate-950 px-3 py-2 font-mono text-xs text-slate-300">
+          <div key={row.input_field} className="flex items-center gap-3">
+            <span className="w-1/3 truncate rounded bg-slate-950 px-3 py-1.5 font-mono text-[11px] text-amber-500/80 border border-amber-900/20">
               {row.input_field}
             </span>
-            <span className="text-xs text-slate-500">→</span>
+            <span className="text-[10px] text-slate-500">→</span>
             <select
               value={row.semantic_field}
               onChange={(e) => updateRow(i, e.target.value)}
-              className="flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+              className="flex-1 rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-[12px] font-mono text-cyan-400 outline-none transition-colors focus:border-cyan-500/50"
             >
-              <option value="">Semantic field…</option>
+              <option value="">Select Semantic Field…</option>
               {SEMANTIC_FIELDS.map((s) => (
                 <option key={s} value={s}>
                   {s}
@@ -120,20 +120,20 @@ function CorrectModal({
           </div>
         ))}
       </div>
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end gap-3 pt-2">
         <button
           onClick={onClose}
           disabled={busy}
-          className="rounded-md border border-slate-700 px-4 py-1.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+          className="rounded border border-slate-700 px-5 py-1.5 text-[12px] font-bold uppercase tracking-wider text-slate-400 transition-colors hover:bg-slate-800 hover:text-white disabled:opacity-50"
         >
-          Cancel
+          Abort
         </button>
         <button
           onClick={submit}
           disabled={busy}
-          className="rounded-md bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+          className="rounded bg-cyan-600 px-5 py-1.5 text-[12px] font-bold uppercase tracking-wider text-white shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all hover:bg-cyan-500 hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] disabled:opacity-50 disabled:shadow-none"
         >
-          {busy ? 'Applying…' : 'Apply correction'}
+          {busy ? 'Applying…' : 'Apply Override'}
         </button>
       </div>
     </Modal>
@@ -170,82 +170,95 @@ function ReviewCard({
   }
 
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-      <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white">
-          Change #{detail.id}{' '}
-          <span className="font-normal text-slate-500">· {detail.source ?? 'unknown source'}</span>
+    <div className="animate-slide-up rounded-lg border border-slate-700/50 glass-card p-5">
+      <div className="mb-3 flex items-center justify-between border-b border-slate-800/80 pb-3">
+        <h3 className="text-[13px] font-bold text-white flex items-center gap-2">
+          Delta Request
+          <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-slate-400">#{detail.id}</span>
+          <span className="mx-1 text-slate-600">|</span>
+          <span className="font-mono text-[11px] text-cyan-500">{detail.source ?? 'UNTITLED'}</span>
         </h3>
         <StatusPill status={detail.status} />
       </div>
 
-      <div className="mb-2 flex flex-wrap gap-4 text-xs">
-        <span className="text-slate-400">
-          New: <span className="font-mono text-amber-300">{detail.new_fields.join(', ') || '—'}</span>
+      <div className="mb-4 flex flex-wrap gap-4 text-[11px] uppercase tracking-wider font-semibold rounded bg-slate-900 border border-slate-800 p-2">
+        <span className="text-slate-500">
+          New Fields: <span className="font-mono text-amber-500/80 bg-amber-500/10 px-1 rounded ml-1 lowercase">{detail.new_fields.join(', ') || '—'}</span>
         </span>
-        <span className="text-slate-400">
-          Missing: <span className="font-mono text-red-300">{detail.missing_fields.join(', ') || '—'}</span>
+        <span className="text-slate-500">
+          Missing: <span className="font-mono text-rose-400 bg-rose-500/10 px-1 rounded ml-1 lowercase">{detail.missing_fields.join(', ') || '—'}</span>
         </span>
       </div>
 
       {detail.proposal && (
-        <div className="mb-3">
-          <div className="mb-1 text-xs text-slate-400">
-            Proposed interpretation (confidence {Math.round(detail.proposal.confidence * 100)}%)
+        <div className="mb-4 rounded border border-cyan-900/30 bg-cyan-950/10 p-3">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-cyan-600">Model Inference (Pattern Proposal)</div>
+            <div className="flex items-center gap-1.5">
+              <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-800">
+                <div
+                  className={`h-full ${detail.proposal.confidence > 0.8 ? 'bg-cyan-500' : 'bg-amber-500'}`}
+                  style={{ width: `${Math.round(detail.proposal.confidence * 100)}%` }}
+                ></div>
+              </div>
+              <span className="font-mono text-[10px] text-slate-400">{Math.round(detail.proposal.confidence * 100)}% Match</span>
+            </div>
           </div>
-          <div className="mb-1 space-y-1">
+
+          <div className="mb-3 space-y-1.5 border-l-2 border-cyan-800/50 pl-3">
             {detail.proposal.new_field_suggestions.map((s) => (
-              <div key={s.input_field} className="flex items-center gap-2 text-xs">
-                <span className="font-mono text-slate-200">{s.input_field}</span>
-                <span className="text-slate-500">→</span>
-                <span className={`font-mono ${s.semantic_field ? 'text-emerald-300' : 'text-slate-500'}`}>
-                  {s.semantic_field || '(needs input)'}
+              <div key={s.input_field} className="flex items-center gap-2 text-[11px]">
+                <span className="font-mono text-slate-300 bg-slate-900 px-1 rounded">{s.input_field}</span>
+                <span className="text-cyan-800">→</span>
+                <span className={`font-mono font-bold ${s.semantic_field ? 'text-cyan-400' : 'text-slate-500'}`}>
+                  {s.semantic_field || '(UNCERTAIN)'}
                 </span>
-                <span className="text-slate-600">conf {Math.round(s.confidence * 100)}%</span>
+                <span className="ml-auto font-mono text-[10px] text-slate-600">conf {Math.round(s.confidence * 100)}%</span>
               </div>
             ))}
           </div>
           {detail.proposal.explanation && (
-            <p className="text-xs text-slate-500">{detail.proposal.explanation}</p>
+            <p className="text-[11px] leading-relaxed text-slate-400 italic">" {detail.proposal.explanation} "</p>
           )}
         </div>
       )}
 
       {error && <ErrorBanner message={error} />}
 
-      <div className="mt-2 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap gap-2 pt-2 border-t border-slate-800/50">
         <button
           onClick={() => run('analyze')}
           disabled={busy !== null || resolved}
-          className="rounded-md bg-sky-700 px-3 py-1.5 text-sm text-white hover:bg-sky-600 disabled:opacity-40"
+          className="rounded border border-cyan-900 bg-cyan-950/30 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-cyan-400 transition-colors hover:bg-cyan-900/50 disabled:opacity-40"
         >
-          {busy === 'analyze' ? '…' : 'Analyze'}
+          {busy === 'analyze' ? 'Computing…' : 'Synthesize AI'}
         </button>
         <button
           onClick={() => run('approve')}
           disabled={busy !== null || resolved}
-          className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm text-white hover:bg-emerald-500 disabled:opacity-40"
+          className="rounded bg-cyan-600 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white shadow-[0_0_10px_rgba(6,182,212,0.2)] transition-colors hover:bg-cyan-500 disabled:opacity-40"
         >
-          {busy === 'approve' ? '…' : 'Approve'}
+          {busy === 'approve' ? 'Authorizing…' : 'Authorize AI'}
         </button>
         <button
           onClick={() => setCorrecting(true)}
           disabled={busy !== null || resolved}
-          className="rounded-md bg-indigo-700 px-3 py-1.5 text-sm text-white hover:bg-indigo-600 disabled:opacity-40"
+          className="rounded border border-slate-700 bg-slate-800 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-300 transition-colors hover:bg-slate-700 hover:text-white disabled:opacity-40"
         >
-          Correct
+          Override
         </button>
+        <div className="flex-1"></div>
         <button
           onClick={() => run('ignore')}
           disabled={busy !== null || resolved}
-          className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-40"
+          className="rounded border border-slate-700 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 transition-colors hover:bg-slate-800 hover:text-white disabled:opacity-40"
         >
           {busy === 'ignore' ? '…' : 'Ignore'}
         </button>
         <button
           onClick={() => run('reject')}
           disabled={busy !== null || resolved}
-          className="rounded-md border border-red-900 px-3 py-1.5 text-sm text-red-300 hover:bg-red-950/50 disabled:opacity-40"
+          className="rounded border border-rose-900/40 text-rose-400 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-rose-900/50 disabled:opacity-40"
         >
           {busy === 'reject' ? '…' : 'Reject'}
         </button>
@@ -260,9 +273,11 @@ function ReviewCard({
       )}
 
       {detail.sample && (
-        <details className="mt-3">
-          <summary className="cursor-pointer text-xs text-slate-400">Sample event</summary>
-          <div className="mt-2">
+        <details className="mt-4 group">
+          <summary className="cursor-pointer select-none text-[10px] font-bold uppercase tracking-widest text-slate-500 transition-colors group-open:text-slate-400">
+            <span className="mr-1 inline-block opacity-50 transition-transform group-open:rotate-90">▶</span> Sample Evidence Payload
+          </summary>
+          <div className="mt-2 border-l border-slate-800 pl-3 opacity-80">
             <Code value={detail.sample} />
           </div>
         </details>
@@ -311,17 +326,17 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
     try {
       if (action === 'retry') {
         const updated = await retryEvent(id)
-        toast(`Reprocessed — now ${updated.status}`, 'success')
+        toast(`Re-executing sequence — now ${updated.status}`, 'success')
       } else if (action === 'delete') {
         if (!window.confirm(`Delete event #${id}?`)) return
         await deleteEvent(id)
-        toast(`Deleted event #${id}`, 'success')
+        toast(`Purged event #${id}`, 'success')
       } else {
         const res = await onboardEvent(id, {
           connectionName: sourceFilter,
           fields: [],
         })
-        toast(`Mapped (v${res.mapping_version}) — event ${res.event_status}`, 'success')
+        toast(`Mapping compiled (v${res.mapping_version}) — event ${res.event_status}`, 'success')
       }
       quarantined.reload()
       drifts.reload()
@@ -329,23 +344,26 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
       toast((e as Error).message, 'error')
     }
   }
+
   return (
-    <div>
+    <div className="h-full flex flex-col">
       {!sourceFilter && (
         <PageHeader
-          title="Needs Review"
-          subtitle="AI proposes. Humans teach. The system remembers. Approve, correct, or ignore proposals."
+          title="Review Queue"
+          subtitle="AI intercepts unmapped telemetry. Provide structural context to refine the parser engine."
         />
       )}
 
-      {drifts.loading && <Spinner />}
-      {drifts.error && <p className="text-sm text-red-400">{drifts.error}</p>}
+      {drifts.loading && <div className="mt-10 flex justify-center"><Spinner /></div>}
+      {drifts.error && <p className="text-[13px] font-medium text-rose-400">{drifts.error}</p>}
 
       {!drifts.loading && !drifts.error && rows.length === 0 && stuck.length === 0 && (
-        <EmptyState
-          title={sourceFilter ? 'Nothing needs review for this connection' : 'Nothing needs review'}
-          description="Approved patterns are handled automatically in the future."
-        />
+        <div className="mt-8">
+          <EmptyState
+            title={sourceFilter ? 'System Nominal' : 'No Anomalies Detected'}
+            description="Active parser maps match all incoming telemetry structures."
+          />
+        </div>
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -355,44 +373,49 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
       </div>
 
       {stuck.length > 0 && (
-        <section className="mt-6">
-          <h3 className="mb-2 text-sm font-medium text-white">
-            Quarantined events{sourceFilter ? ` for ${sourceFilter}` : ''} — no mapping yet
+        <section className={`${rows.length > 0 ? 'mt-10 border-t border-slate-800/50 pt-8' : 'mt-4'}`}>
+          <h3 className="mb-1 text-[13px] font-bold uppercase tracking-wider text-white">
+            Unmapped Telemetry (Quarantine){sourceFilter ? ` // ${sourceFilter}` : ''}
           </h3>
-          <p className="mb-3 text-xs text-slate-500">
-            Onboard publishes a mapping (new version for a known connection, new
-            vendor for a new name) and reprocesses the event. Retry re-runs it.
-            Delete removes junk.
+          <p className="mb-4 text-[12px] text-slate-400 max-w-2xl leading-relaxed">
+            These payloads did not match any active AST schemas. They require an initial baseline mapping to proceed.
           </p>
           <div className="space-y-2">
             {stuck.map((e: EventSummary) => (
               <div
                 key={e.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-800 bg-slate-900 px-3 py-2 text-sm"
+                className="flex flex-wrap items-center justify-between gap-3 rounded border border-slate-700/50 bg-slate-900/50 p-3 transition-colors hover:bg-slate-800/60 glass-panel animate-slide-up"
               >
-                <span className="font-mono text-xs text-slate-300">
-                  #{e.id} · {e.event_id.slice(0, 8)}… · {e.source ?? 'no source'}
-                </span>
-                <span className="flex gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="h-1.5 w-1.5 rounded-full bg-amber-500 shadow-[0_0_5px_rgba(245,158,11,0.5)]"></div>
+                  <span className="font-mono text-[12px] text-slate-300">
+                    <span className="text-slate-500">ID:</span> {(e.id).toString().padStart(5, '0')}
+                    <span className="mx-2 text-slate-700">|</span>
+                    <span className="text-cyan-600/70">{e.event_id.slice(0, 8)}…</span>
+                    <span className="mx-2 text-slate-700">|</span>
+                    <span className="text-amber-500/80">{e.source ?? 'UNKNOWN ORIGIN'}</span>
+                  </span>
+                </div>
+                <div className="flex gap-2">
                   <button
                     onClick={() => actOnEvent(e.id, 'onboard')}
-                    className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-500"
+                    className="rounded bg-cyan-600 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-[0_0_10px_rgba(6,182,212,0.2)] transition-colors hover:bg-cyan-500"
                   >
-                    Onboard
+                    Establish Mapping
                   </button>
                   <button
                     onClick={() => actOnEvent(e.id, 'retry')}
-                    className="rounded-md border border-slate-700 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800"
+                    className="rounded border border-slate-700 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
                   >
-                    Retry
+                    Re-Execute
                   </button>
                   <button
                     onClick={() => actOnEvent(e.id, 'delete')}
-                    className="rounded-md border border-red-900 px-2.5 py-1 text-xs text-red-300 hover:bg-red-950/50"
+                    className="rounded border border-rose-900/40 text-rose-400 px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-rose-900/50"
                   >
-                    Delete
+                    Purge
                   </button>
-                </span>
+                </div>
               </div>
             ))}
           </div>
