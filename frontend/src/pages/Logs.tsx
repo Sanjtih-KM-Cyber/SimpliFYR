@@ -301,8 +301,10 @@ export default function Logs() {
   const [tab, setTab] = useState<LogTab>('all')
   const [ingesting, setIngesting] = useState(false)
   const [search, setSearch] = useState('')
+  const [vendor, setVendor] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
-  const events = useAsync(() => listEvents({ limit: 200 }), [])
+  const vendors = useAsync(() => listConnections(), [])
+  const events = useAsync(() => listEvents({ limit: 200, ...(vendor ? { source: vendor } : {}) }), [vendor])
   const [extra, setExtra] = useState<EventSummary[]>([])
   const [selected, setSelected] = useState<number | null>(null)
   const detail = useAsync(
@@ -317,7 +319,11 @@ export default function Logs() {
     setDownloading(true)
     try {
       const statuses = TAB_STATUSES[tab]
-      await exportLogs({ format, status: statuses ? statuses.join(',') : undefined })
+      await exportLogs({
+        format,
+        status: statuses ? statuses.join(',') : undefined,
+        source: vendor || undefined,
+      })
       toast(`Downloaded logs (${format.toUpperCase()})`, 'success')
     } catch (e) {
       toast((e as Error).message, 'error')
@@ -328,7 +334,7 @@ export default function Logs() {
 
   async function loadMore() {
     try {
-      const more = await listEvents({ limit: 200, offset: all.length })
+      const more = await listEvents({ limit: 200, offset: all.length, ...(vendor ? { source: vendor } : {}) })
       if (more.length === 0) {
         toast('No older logs — you have the full history', 'info')
         return
@@ -425,6 +431,23 @@ export default function Logs() {
           placeholder="Search… (press / to focus)"
           className="w-64 rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200"
         />
+        <select
+          value={vendor}
+          onChange={(e) => {
+            setVendor(e.target.value)
+            setExtra([])
+            setSelected(null)
+          }}
+          title="Filter by vendor / connection"
+          className="rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200"
+        >
+          <option value="">All vendors…</option>
+          {(vendors.data ?? []).map((c) => (
+            <option key={c.id} value={c.name}>
+              {c.name} ({c.events_processed})
+            </option>
+          ))}
+        </select>
       </div>
 
       {events.loading && <Spinner />}
