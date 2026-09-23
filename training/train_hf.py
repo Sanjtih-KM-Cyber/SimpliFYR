@@ -119,7 +119,11 @@ def main() -> None:
         eval_dataset=val_ds,
         data_collator=DataCollatorForLanguageModeling(tokenizer, mlm=False),
     )
-    trainer.train(resume_from_checkpoint=True)
+    import glob as _glob
+
+    ckpt_dir = os.path.join(OUT, "checkpoints")
+    resume = any(os.path.isdir(p) for p in _glob.glob(os.path.join(ckpt_dir, "checkpoint-*")))
+    trainer.train(resume_from_checkpoint=resume)
     print("training done; merging", flush=True)
 
     merged = model.merge_and_unload()
