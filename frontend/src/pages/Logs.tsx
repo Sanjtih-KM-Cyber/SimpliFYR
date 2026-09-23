@@ -176,16 +176,20 @@ function Detail({ detail, onChanged, onDeleted }: { detail: EventDetail; onChang
   }
 
   function downloadSingle() {
-    const blob = new Blob([JSON.stringify(detail, null, 2)], { type: 'application/json' })
+    // Downloads carry ONLY the normalized log — the clean, analytics-ready
+    // representation. Raw/parsed/provenance stay inspectable in the UI.
+    const payload = detail.output ?? detail.normalized
+    if (!payload) return
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = `simplifyr-event-${detail.id}.json`
+    anchor.download = `simplifyr-event-${detail.id}-normalized.json`
     document.body.appendChild(anchor)
     anchor.click()
     anchor.remove()
     URL.revokeObjectURL(url)
-    toast(`Downloaded event #${detail.id} (raw + parsed + normalized + output + provenance)`, 'success')
+    toast(`Downloaded normalized log for event #${detail.id}`, 'success')
   }
 
   return (
@@ -196,12 +200,15 @@ function Detail({ detail, onChanged, onDeleted }: { detail: EventDetail; onChang
         </h4>
         <span className="flex items-center gap-2">
           <StatusBadge status={detail.status} />
-          <button
-            onClick={downloadSingle}
-            className="rounded-md border border-slate-700 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800"
-          >
-            Download
-          </button>
+          {(detail.output || detail.normalized) && (
+            <button
+              onClick={downloadSingle}
+              title="Download the normalized log (JSON)"
+              className="rounded-md border border-slate-700 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800"
+            >
+              Download
+            </button>
+          )}
         </span>
       </div>
 
