@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
 from app.core.database import get_db
+from app.core.datetimes import as_utc
 from app.core.environment import get_environment
 from app.core.security import require_auth, require_write
 from app.models import Mapping as MappingModel
@@ -27,7 +28,7 @@ def _db_to_response(mapping: MappingModel) -> MappingResponse:
         event_family=mapping.event_family,
         version=mapping.version,
         status=mapping.status,
-        created_at=mapping.created_at,
+        created_at=as_utc(mapping.created_at),
         fields=[
             {
                 "input_field": f.input_field,

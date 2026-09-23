@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.datetimes import as_utc_iso
 from app.core.environment import get_environment
 from app.core.security import require_auth
 from app.models import Event, EventStatus
@@ -59,7 +60,7 @@ def _event_record(event: Event) -> dict:
         "id": event.id,
         "event_id": event.event_id,
         "status": str(event.status),
-        "received_at": event.received_at.isoformat(),
+        "received_at": as_utc_iso(event.received_at),
         "source": event.source,
         "raw": event.raw,
         "parsed": event.parsed,
@@ -103,7 +104,7 @@ def export_events(
                     e.id,
                     e.event_id,
                     str(e.status),
-                    e.received_at.isoformat(),
+                    as_utc_iso(e.received_at),
                     e.source or "",
                     e.raw,
                     json.dumps(e.parsed) if e.parsed is not None else "",

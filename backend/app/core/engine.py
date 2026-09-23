@@ -326,6 +326,7 @@ class ProcessingEngine:
 
     def _publish_live(self, event: Event) -> None:
         try:
+            from app.core.datetimes import as_utc_iso
             from app.core.live import hub
 
             hub.publish(
@@ -333,7 +334,7 @@ class ProcessingEngine:
                     "event_id": event.event_id,
                     "source": event.source,
                     "status": str(event.status),
-                    "received_at": event.received_at.isoformat(),
+                    "received_at": as_utc_iso(event.received_at),
                     "environment": event.environment,
                 }
             )

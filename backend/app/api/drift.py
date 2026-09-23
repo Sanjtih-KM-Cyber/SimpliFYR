@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.ai.base import AIDriftProposal, FieldSuggestion
 from app.core.audit import log_action
 from app.core.database import get_db
+from app.core.datetimes import as_utc
 from app.core.drift import _analyze_and_decide, apply_corrections, apply_drift, reprocess_quarantined
 from app.core.environment import get_environment
 from app.core.security import require_auth, require_write
@@ -43,7 +44,7 @@ def _to_summary(d: DriftRecord) -> DriftSummary:
         new_fields=d.new_fields,
         missing_fields=d.missing_fields,
         confidence=d.confidence,
-        created_at=d.created_at,
+        created_at=as_utc(d.created_at),
     )
 
 
@@ -52,7 +53,7 @@ def _to_detail(d: DriftRecord) -> DriftDetail:
     detail.mapping_id = d.mapping_id
     detail.sample = d.sample
     detail.event_ids = d.event_ids
-    detail.resolved_at = d.resolved_at
+    detail.resolved_at = as_utc(d.resolved_at)
     if d.proposal:
         detail.proposal = DriftProposalSchema(**d.proposal)
     return detail

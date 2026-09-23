@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
 from app.core.database import get_db
+from app.core.datetimes import as_utc
 from app.core.destination_delivery import invalidate_destination_sinks
 from app.core.security import require_auth, require_write
 from app.models import Destination
@@ -26,7 +27,7 @@ def _db_to_response(d: Destination) -> DestinationResponse:
         type=d.type,
         config=d.config or {},
         enabled=d.enabled,
-        created_at=d.created_at,
+        created_at=as_utc(d.created_at),
     )
 
 

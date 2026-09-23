@@ -3,6 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.datetimes import as_utc
 from app.core.security import require_auth
 from app.models import AuditLog
 from app.schemas.stats import AuditEntry
@@ -25,7 +26,7 @@ def list_audit(
             entity_id=a.entity_id,
             before=a.before,
             after=a.after,
-            created_at=a.created_at,
+            created_at=as_utc(a.created_at),
         )
         for a in rows
     ]

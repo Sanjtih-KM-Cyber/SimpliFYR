@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.datetimes import as_utc
 from app.core.engine import ProcessingEngine
 from app.core.environment import get_environment
 from app.core.raw_store import get_raw_store
@@ -27,7 +28,7 @@ def _to_summary(event: Event) -> EventSummary:
         id=event.id,
         event_id=event.event_id,
         status=event.status,
-        received_at=event.received_at,
+        received_at=as_utc(event.received_at),
         source_id=event.source_id,
         source=event.source,
         raw_hash=event.raw_hash,

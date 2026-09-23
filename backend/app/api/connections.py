@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.datetimes import as_utc
 from app.core.environment import get_environment
 from app.core.security import require_auth
 from app.models import DriftRecord, Event, Mapping, Recipe
@@ -78,7 +79,7 @@ def _build_summary(
         needs_review=needs_review,
         open_drift=open_drift,
         avg_latency_ms=avg_latency_ms,
-        last_event_at=last_event_at,
+        last_event_at=as_utc(last_event_at),
     )
 
 
@@ -240,10 +241,10 @@ def get_connection(
 
     return ConnectionDetail(
         **summary.model_dump(),
-        created_at=created_at,
+        created_at=as_utc(created_at),
         recent_events=[
             ConnectionEvent(
-                id=e.id, event_id=e.event_id, status=str(e.status), received_at=e.received_at
+                id=e.id, event_id=e.event_id, status=str(e.status), received_at=as_utc(e.received_at)
             )
             for e in recent
         ],
@@ -255,7 +256,7 @@ def get_connection(
                 new_fields=d.new_fields or [],
                 missing_fields=d.missing_fields or [],
                 confidence=d.confidence,
-                created_at=d.created_at,
+                created_at=as_utc(d.created_at),
             )
             for d in open_drift
         ],

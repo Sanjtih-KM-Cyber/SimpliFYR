@@ -130,11 +130,13 @@ def correlate(db: Session, rule: str, threshold: int = 5, environment: str = "de
 
 
 def _summary(event: Event) -> dict:
+    from app.core.datetimes import as_utc_iso
+
     return {
         "id": event.id,
         "event_id": event.event_id,
         "source": event.source,
         "status": event.status,
-        "received_at": event.received_at.isoformat(),
+        "received_at": as_utc_iso(event.received_at),
         "normalized": event.normalized,
     }

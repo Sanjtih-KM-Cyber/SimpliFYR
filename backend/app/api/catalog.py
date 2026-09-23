@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
 from app.core.database import get_db
+from app.core.datetimes import as_utc
 from app.core.environment import get_environment
 from app.core.security import require_auth, require_write
 from app.core.sources import ensure_source_version, resolve_environment
@@ -44,7 +45,7 @@ def list_vendors(environment: str = Depends(get_environment), db: Session = Depe
         .scalars()
         .all()
     )
-    return [VendorResponse(id=v.id, name=v.name, environment_id=v.environment_id, created_at=v.created_at) for v in rows]
+    return [VendorResponse(id=v.id, name=v.name, environment_id=v.environment_id, created_at=as_utc(v.created_at)) for v in rows]
 
 
 @router.post("/vendors", response_model=VendorResponse, status_code=201, dependencies=[Depends(require_write)])
@@ -59,7 +60,7 @@ def create_vendor(payload: VendorCreate, environment: str = Depends(get_environm
     db.refresh(vendor)
     log_action(db, action="create", entity_type="vendor", entity_id=vendor.id, after={"name": name})
     db.commit()
-    return VendorResponse(id=vendor.id, name=vendor.name, environment_id=vendor.environment_id, created_at=vendor.created_at)
+    return VendorResponse(id=vendor.id, name=vendor.name, environment_id=vendor.environment_id, created_at=as_utc(vendor.created_at))
 
 
 # --- products ---
@@ -71,7 +72,7 @@ def list_products(vendor_id: int | None = None, db: Session = Depends(get_db)):
     if vendor_id is not None:
         stmt = stmt.where(Product.vendor_id == vendor_id)
     rows = db.execute(stmt).scalars().all()
-    return [ProductResponse(id=p.id, name=p.name, vendor_id=p.vendor_id, created_at=p.created_at) for p in rows]
+    return [ProductResponse(id=p.id, name=p.name, vendor_id=p.vendor_id, created_at=as_utc(p.created_at)) for p in rows]
 
 
 @router.post("/products", response_model=ProductResponse, status_code=201, dependencies=[Depends(require_write)])
@@ -88,7 +89,7 @@ def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
     db.refresh(product)
     log_action(db, action="create", entity_type="product", entity_id=product.id, after={"name": name, "vendor_id": vendor.id})
     db.commit()
-    return ProductResponse(id=product.id, name=product.name, vendor_id=product.vendor_id, created_at=product.created_at)
+    return ProductResponse(id=product.id, name=product.name, vendor_id=product.vendor_id, created_at=as_utc(product.created_at))
 
 
 # --- sources ---
@@ -158,7 +159,7 @@ def _source_to_response(s: Source) -> SourceResponse:
         product_id=s.product_id,
         address=s.address,
         status=s.status,
-        created_at=s.created_at,
+        created_at=as_utc(s.created_at),
     )
 
 
@@ -193,4 +194,4 @@ def create_version(source_id: int, payload: VersionCreate, db: Session = Depends
 
 
 def _version_to_response(v: SourceVersion) -> VersionResponse:
-    return VersionResponse(id=v.id, source_id=v.source_id, version=v.version, active=v.active, created_at=v.created_at)
+    return VersionResponse(id=v.id, source_id=v.source_id, version=v.version, active=v.active, created_at=as_utc(v.created_at))

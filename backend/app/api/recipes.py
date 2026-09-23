@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
 from app.core.database import get_db
+from app.core.datetimes import as_utc
 from app.core.environment import get_environment
 from app.core.mapping_cache import invalidate_active_mapping
 from app.core.security import require_auth, require_write
@@ -20,7 +21,7 @@ def _db_to_response(recipe: Recipe) -> RecipeResponse:
         source=recipe.source,
         mapping_id=recipe.mapping_id,
         output_profile_id=recipe.output_profile_id,
-        created_at=recipe.created_at,
+        created_at=as_utc(recipe.created_at),
     )
 
 
