@@ -12,14 +12,8 @@ from app.core.sources import get_or_create_source, resolve_environment
 from app.models import (
     Approval,
     ApprovalStatus,
-    Mapping as MappingModel,
-    MappingField,
-    MappingStatus,
     Onboarding,
     OnboardingStatus,
-    OutputProfile,
-    Recipe,
-    SourceVersion,
 )
 from app.schemas.onboarding import (
     OnboardingAnalyzeResponse,
@@ -198,35 +192,16 @@ def approve_onboarding(
         raise HTTPException(status_code=422, detail="No mappable fields found; provide fields explicitly")
 
     source = get_or_create_source(db, source_name, environment)
-    version_row = _next_version(db, source)
+    from app.core.publishing import publish_mapping_knowledge
 
-    profile = None
-    if payload.output_profile_id is not None:
-        profile = db.get(OutputProfile, payload.output_profile_id)
-        if profile is None:
-            raise HTTPException(status_code=404, detail="Output profile not found")
-
-    mapping = MappingModel(
-        name=payload.mapping_name.strip() if payload.mapping_name and payload.mapping_name.strip() else f"{source.name} Mapping",
-        source=source.name,
-        source_version_id=version_row.id,
-        status=MappingStatus.PUBLISHED,
-        version=version_row_number(version_row.version),
+    _, _, mapping, recipe = publish_mapping_knowledge(
+        db,
+        source_name=source.name,
+        fields=fields,
+        mapping_name=payload.mapping_name,
+        output_profile_id=payload.output_profile_id,
+        environment=environment,
     )
-    for input_field, semantic_field in fields:
-        mapping.fields.append(MappingField(input_field=input_field, semantic_field=semantic_field, confidence=1.0))
-    db.add(mapping)
-    db.flush()
-
-    recipe = db.execute(select(Recipe).where(Recipe.source == source.name)).scalars().first()
-    if recipe is None:
-        recipe = Recipe(source=source.name, mapping_id=mapping.id, output_profile_id=profile.id if profile else None)
-        db.add(recipe)
-        db.flush()
-    else:
-        recipe.mapping_id = mapping.id
-        if profile is not None:
-            recipe.output_profile_id = profile.id
 
     onboarding.status = OnboardingStatus.APPROVED
     onboarding.source_id = source.id
@@ -263,40 +238,6 @@ def approve_onboarding(
         mapping_version=mapping.version,
         recipe_id=recipe.id,
     )
-
-
-def _next_version(db: Session, source) -> SourceVersion:
-    """Allocate the next version label for a source (v1 for brand-new sources)."""
-    rows = db.execute(select(SourceVersion).where(SourceVersion.source_id == source.id)).scalars().all()
-    has_knowledge = (
-        db.execute(select(MappingModel).where(MappingModel.source == source.name).limit(1)).first() is not None
-    )
-    if not rows:
-        # get_or_create_source already ensured v1; reuse it for first knowledge.
-        return ensure_v1(db, source)
-    if not has_knowledge:
-        return rows[0]
-    taken = {v.version for v in rows}
-    n = 2
-    while f"v{n}" in taken:
-        n += 1
-    row = SourceVersion(source_id=source.id, version=f"v{n}", active=True)
-    db.add(row)
-    db.flush()
-    return row
-
-
-def ensure_v1(db: Session, source) -> SourceVersion:
-    from app.core.sources import ensure_source_version
-
-    return ensure_source_version(db, source)
-
-
-def version_row_number(label: str) -> int:
-    try:
-        return int(label.lstrip("v"))
-    except (ValueError, AttributeError):
-        return 1
 
 
 @router.post("/analyze", response_model=OnboardingAnalyzeResponse, dependencies=[Depends(require_write)])

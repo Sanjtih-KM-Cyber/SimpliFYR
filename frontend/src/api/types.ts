@@ -52,6 +52,7 @@ export interface EventSummary {
   status: EventStatus
   received_at: string
   source_id: number | null
+  source: string | null
   raw_hash: string
 }
 

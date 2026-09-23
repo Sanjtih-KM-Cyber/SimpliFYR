@@ -434,3 +434,24 @@ Open <http://localhost:5173>. The Vite dev server proxies `/api` to the backend 
   `POST /ingest/preview` (detect + parse, stores nothing) instead of an
   ingest that polluted review queues.
 - 247 tests passing; frontend `tsc -b && vite build` + `oxlint` clean.
+
+## UX pass 2 — quick parse, event actions, honest badges
+
+- **Home Quick Parse modal:** paste/drop logs, choose a mapping, parse
+  immediately — events route straight to the selected mapping, output shown
+  with one-click JSON download.
+- **Quarantined events are actionable now:** every quarantined event offers
+  Onboard (name the connection — existing = new version, new name = new
+  vendor — AI-suggested editable mapping, reprocessed on publish), Retry,
+  and Delete. Same actions inline in the connection Needs Review tab, whose
+  badge now equals its content (open drift + quarantined).
+- **Why quarantine happens:** no mapping attached (usually: ingested without
+  selecting a connection). The UI says so where it matters instead of a bare
+  badge.
+- **Connection Output tab** is now try-it-first: ingest box, bound-profile
+  rendering, output + download on the spot; preset catalog collapsed to a
+  reference section (binding still one click in the status card).
+- New `POST /events/{id}/onboard|suggest`, `DELETE /events/{id}`,
+  `GET /events?source=` behind the same published-knowledge path as
+  onboarding (shared `core/publishing.py` — no divergent copies).
+- 253 tests passing; frontend `tsc -b && vite build` + `oxlint` clean.

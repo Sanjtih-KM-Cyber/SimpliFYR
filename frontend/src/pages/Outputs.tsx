@@ -3,15 +3,17 @@ import {
   createOutputProfile,
   createRecipe,
   deleteRecipe,
+  ingest,
   listMappings,
   listOutputProfiles,
   listRecipes,
 } from '../api/client'
-import type { Recipe } from '../api/types'
+import type { IngestResponse, Recipe } from '../api/types'
 import { Code, Empty } from '../components/Code'
 import { Spinner } from '../components/Spinner'
 import { ErrorBanner, StatusBadge } from '../components/Status'
 import { useAsync } from '../hooks/useAsync'
+import { useToast } from '../components/ui'
 
 interface Row {
   output_field: string
@@ -83,6 +85,120 @@ function BindingCard({
           No recipe binding yet — outputs apply per-request. Bind a profile below to configure
           this connection once.
         </p>
+      )}
+    </section>
+  )
+}
+
+function TryItPanel({ sourceName }: { sourceName?: string }) {
+  const profiles = useAsync(() => listOutputProfiles(), [])
+  const [raw, setRaw] = useState('')
+  const [profileId, setProfileId] = useState<number | ''>('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<IngestResponse | null>(null)
+  const { toast } = useToast()
+
+  async function run() {
+    if (!raw.trim()) {
+      setError('Paste logs or drop a file first')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    setResult(null)
+    try {
+      const res = await ingest({
+        raw,
+        source: sourceName,
+        outputProfileId: profileId ? Number(profileId) : undefined,
+      })
+      setResult(res)
+    } catch (e) {
+      const msg = (e as Error).message
+      setError(msg)
+      toast(msg, 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function onFile(file: File | undefined) {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setRaw(String(reader.result ?? ''))
+    reader.onerror = () => setError('Could not read file')
+    reader.readAsText(file)
+  }
+
+  function download() {
+    if (!result?.output && !result?.normalized) return
+    const blob = new Blob(
+      [JSON.stringify(result.output ?? result.normalized, null, 2)],
+      { type: 'application/json' },
+    )
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `simplifyr-event-${result.stored_event_id}.json`
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <section className="mb-6 rounded-lg border border-emerald-900 bg-slate-900 p-4">
+      <h3 className="mb-2 text-sm font-medium text-white">Try it now — ingest, see the output, download it</h3>
+      {error && <ErrorBanner message={error} />}
+      <textarea
+        value={raw}
+        onChange={(e) => setRaw(e.target.value)}
+        rows={4}
+        placeholder="<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 dstip=8.8.8.8 proto=tcp action=deny"
+        className="mb-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-xs text-slate-200"
+      />
+      <div className="mb-3 flex flex-wrap gap-2">
+        <select
+          value={profileId}
+          onChange={(e) => setProfileId(e.target.value ? Number(e.target.value) : '')}
+          className="flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+        >
+          <option value="">Render with… (bound profile by default)</option>
+          {(profiles.data ?? []).map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+        <label className="cursor-pointer rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800">
+          Drop a file…
+          <input type="file" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+        </label>
+        <button
+          onClick={run}
+          disabled={busy || !raw.trim()}
+          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+        >
+          {busy ? 'Running…' : sourceName ? `Run via ${sourceName}` : 'Run'}
+        </button>
+        {result && (result.output || result.normalized) && (
+          <button
+            onClick={download}
+            className="rounded-md border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+          >
+            Download output
+          </button>
+        )}
+      </div>
+      {result && (
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-sm">
+            <StatusBadge status={result.status} />
+            <span className="text-slate-400">event #{result.stored_event_id}</span>
+          </div>
+          <Code value={result.output ?? result.normalized} />
+        </div>
       )}
     </section>
   )
@@ -220,6 +336,8 @@ export default function Outputs({
         />
       )}
 
+      {sourceName && <TryItPanel sourceName={sourceName} />}
+
       {showForm && (
         <section className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
           <h3 className="mb-3 text-sm font-medium text-white">New Custom Profile</h3>
@@ -291,8 +409,12 @@ export default function Outputs({
         <Empty message="No output profiles." />
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {(profiles.data ?? []).map((p) => {
+      <details>
+        <summary className="cursor-pointer text-sm text-slate-400 hover:text-white">
+          Profile reference ({(profiles.data ?? []).length})
+        </summary>
+        <div className="mt-3 grid gap-4 lg:grid-cols-2">
+          {(profiles.data ?? []).map((p) => {
           const isBound = boundProfileId === p.id
           return (
             <div key={p.id} className="rounded-lg border border-slate-800 bg-slate-900 p-4">
@@ -346,7 +468,8 @@ export default function Outputs({
             </div>
           )
         })}
-      </div>
+        </div>
+      </details>
     </div>
   )
 }

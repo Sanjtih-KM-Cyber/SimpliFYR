@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { exportLogs, getEvent, ingest, listConnections, listEvents } from '../api/client'
+import { deleteEvent, exportLogs, getEvent, ingest, listConnections, listEvents, retryEvent } from '../api/client'
 import type { EventDetail, EventStatus, EventSummary, IngestResponse } from '../api/types'
 import { Code } from '../components/Code'
 import { Spinner } from '../components/Spinner'
 import { StatusBadge } from '../components/Status'
+import { OnboardModal } from '../components/OnboardModal'
 import { EmptyState, PageHeader, TBody, TD, TH, THead, TR, Table } from '../components/ui'
 import { useToast } from '../components/ui'
 import { FOCUS_SEARCH_EVENT } from '../hooks/useKeyboardShortcuts'
@@ -143,7 +144,37 @@ function IngestPanel({ onDone }: { onDone: (id: number) => void }) {
   )
 }
 
-function Detail({ detail }: { detail: EventDetail }) {
+function Detail({ detail, onChanged, onDeleted }: { detail: EventDetail; onChanged: () => void; onDeleted: () => void }) {
+  const [onboarding, setOnboarding] = useState(false)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
+
+  const actionable = detail.status === 'quarantined' || detail.status === 'dlq'
+
+  async function run(action: 'retry' | 'delete') {
+    if (action === 'delete' && !window.confirm(`Delete event #${detail.id} and its raw file?`)) return
+    setBusy(action)
+    setError(null)
+    try {
+      if (action === 'retry') {
+        const updated = await retryEvent(detail.id)
+        toast(`Reprocessed — now ${updated.status}`, 'success')
+      } else {
+        await deleteEvent(detail.id)
+        toast(`Deleted event #${detail.id}`, 'success')
+        onDeleted()
+      }
+      onChanged()
+    } catch (e) {
+      const msg = (e as Error).message
+      setError(msg)
+      toast(msg, 'error')
+    } finally {
+      setBusy(null)
+    }
+  }
+
   return (
     <div className="mt-4 rounded-lg border border-slate-800 bg-slate-900 p-4">
       <div className="mb-3 flex items-center justify-between">
@@ -152,6 +183,34 @@ function Detail({ detail }: { detail: EventDetail }) {
         </h4>
         <StatusBadge status={detail.status} />
       </div>
+
+      {actionable && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {detail.status === 'quarantined' && (
+            <button
+              onClick={() => setOnboarding(true)}
+              className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500"
+            >
+              Onboard — new mapping / version / vendor
+            </button>
+          )}
+          <button
+            onClick={() => run('retry')}
+            disabled={busy !== null}
+            className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+          >
+            {busy === 'retry' ? '…' : 'Retry'}
+          </button>
+          <button
+            onClick={() => run('delete')}
+            disabled={busy !== null}
+            className="rounded-md border border-red-900 px-3 py-1.5 text-sm text-red-300 hover:bg-red-950/50 disabled:opacity-50"
+          >
+            {busy === 'delete' ? '…' : 'Delete'}
+          </button>
+        </div>
+      )}
+      {error && <p className="mb-2 text-sm text-red-400">{error}</p>}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section>
@@ -197,6 +256,14 @@ function Detail({ detail }: { detail: EventDetail }) {
             <Code value={detail.provenance} />
           </div>
         </details>
+      )}
+
+      {onboarding && (
+        <OnboardModal
+          event={detail}
+          onClose={() => setOnboarding(false)}
+          onDone={onChanged}
+        />
       )}
     </div>
   )
@@ -359,7 +426,16 @@ export default function Logs() {
         </Table>
       )}
 
-      {selected && detail.data && <Detail detail={detail.data} />}
+      {selected && detail.data && (
+        <Detail
+          detail={detail.data}
+          onChanged={() => {
+            events.reload()
+            detail.reload()
+          }}
+          onDeleted={() => setSelected(null)}
+        />
+      )}
       {selected && detail.loading && <Spinner />}
     </div>
   )

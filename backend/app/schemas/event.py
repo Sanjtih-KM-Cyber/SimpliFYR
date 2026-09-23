@@ -29,3 +29,31 @@ class EventDetail(EventSummary):
     provenance: dict | None = None
     output: dict | None = None
     views: EventViews
+
+
+class EventSuggestion(BaseModel):
+    input_field: str
+    semantic_field: str
+    confidence: float
+    reason: str = ""
+
+
+class EventOnboardField(BaseModel):
+    input_field: str
+    semantic_field: str
+
+
+class EventOnboardRequest(BaseModel):
+    connection_name: str | None = None
+    mapping_name: str | None = None
+    output_profile_id: int | None = None
+    fields: list[EventOnboardField] = []
+
+
+class EventOnboardResponse(BaseModel):
+    event_id: int
+    source_id: int
+    mapping_id: int
+    mapping_version: int
+    recipe_id: int
+    event_status: str

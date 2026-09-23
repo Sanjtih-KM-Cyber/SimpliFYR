@@ -55,7 +55,7 @@ export default function ConnectionLayout() {
               {
                 to: `/connections/${sourceName}/needs-review`,
                 label: 'Needs Review',
-                badge: c.needs_review,
+                badge: (c.open_drift ?? 0) + (c.events_by_status?.quarantined ?? 0),
               },
             ]}
           />

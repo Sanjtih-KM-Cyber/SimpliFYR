@@ -1,6 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getAnomalies, getHealth, getStats, listConnections } from '../api/client'
+import { QuickParseModal } from '../components/QuickParseModal'
 import { Spinner } from '../components/Spinner'
 import { StatusBadge } from '../components/Status'
 import { useToast } from '../components/ui'
@@ -22,6 +23,7 @@ export default function Dashboard() {
   const connections = useAsync(() => listConnections(), [])
   const anomalies = useAsync(() => getAnomalies(), [])
   const { toast } = useToast()
+  const [quickParse, setQuickParse] = useState(false)
   const s = stats.data
 
   // Real-time: a live event refreshes the numbers; quarantined/DLQ arrivals
@@ -57,12 +59,21 @@ export default function Dashboard() {
 
   return (
     <div>
-      <header className="mb-6">
-        <h2 className="text-2xl font-semibold text-white">Home</h2>
-        <p className="text-sm text-slate-400">
-          Quickly determine whether Simplifyr is functioning correctly.
-        </p>
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-semibold text-white">Home</h2>
+          <p className="text-sm text-slate-400">
+            Quickly determine whether Simplifyr is functioning correctly.
+          </p>
+        </div>
+        <button
+          onClick={() => setQuickParse(true)}
+          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
+        >
+          + Quick parse
+        </button>
       </header>
+      {quickParse && <QuickParseModal onClose={() => setQuickParse(false)} />}
 
       {stats.loading && <Spinner />}
       {stats.error && <p className="text-sm text-red-400">{stats.error}</p>}

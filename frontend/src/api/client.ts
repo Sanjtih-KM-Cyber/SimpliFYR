@@ -169,18 +169,68 @@ export function createOutputProfile(payload: OutputProfileInput): Promise<Output
 export interface ListEventsParams {
   status?: EventStatus
   limit?: number
+  source?: string
 }
 
 export function listEvents(params: ListEventsParams = {}): Promise<EventSummary[]> {
   const qs = new URLSearchParams()
   if (params.status) qs.set('status', params.status)
   if (params.limit) qs.set('limit', String(params.limit))
+  if (params.source) qs.set('source', params.source)
   const query = qs.toString()
   return request(`${BASE}/events${query ? `?${query}` : ''}`)
 }
 
 export function getEvent(id: number): Promise<EventDetail> {
   return request(`${BASE}/events/${id}`)
+}
+
+export async function deleteEvent(id: number): Promise<void> {
+  await request(`${BASE}/events/${id}`, { method: 'DELETE' })
+}
+
+export function retryEvent(id: number): Promise<EventDetail> {
+  return request(`${BASE}/events/${id}/retry`, { method: 'POST' })
+}
+
+export interface EventSuggestion {
+  input_field: string
+  semantic_field: string
+  confidence: number
+  reason: string
+}
+
+export function suggestEventMapping(id: number): Promise<EventSuggestion[]> {
+  return request(`${BASE}/events/${id}/suggest`)
+}
+
+export interface OnboardEventInput {
+  connectionName?: string
+  mappingName?: string
+  outputProfileId?: number
+  fields: { input_field: string; semantic_field: string }[]
+}
+
+export interface OnboardEventResult {
+  event_id: number
+  source_id: number | null
+  mapping_id: number
+  mapping_version: number
+  recipe_id: number
+  event_status: string
+}
+
+export function onboardEvent(id: number, input: OnboardEventInput): Promise<OnboardEventResult> {
+  return request(`${BASE}/events/${id}/onboard`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      connection_name: input.connectionName ?? null,
+      mapping_name: input.mappingName ?? null,
+      output_profile_id: input.outputProfileId ?? null,
+      fields: input.fields,
+    }),
+  })
 }
 
 export async function getEventRaw(id: number): Promise<string> {

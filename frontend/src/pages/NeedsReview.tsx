@@ -3,17 +3,21 @@ import {
   analyzeDrift,
   approveDrift,
   correctDrift,
+  deleteEvent,
   getDrift,
   ignoreDrift,
   listDrift,
+  listEvents,
+  onboardEvent,
   rejectDrift,
+  retryEvent,
 } from '../api/client'
-import type { DriftDetail } from '../api/types'
+import type { DriftDetail, EventSummary } from '../api/types'
 import { SEMANTIC_FIELDS } from '../api/types'
 import { Code } from '../components/Code'
 import { Spinner } from '../components/Spinner'
 import { ErrorBanner } from '../components/Status'
-import { EmptyState, Modal, PageHeader } from '../components/ui'
+import { EmptyState, Modal, PageHeader, useToast } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -271,10 +275,44 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
     const list = await listDrift()
     return Promise.all(list.map((d) => getDrift(d.id)))
   }, [])
+  const quarantined = useAsync(
+    () =>
+      listEvents({
+        status: 'quarantined',
+        limit: 100,
+        ...(sourceFilter ? { source: sourceFilter } : {}),
+      }),
+    [sourceFilter],
+  )
 
   const rows = (drifts.data ?? []).filter(
     (d) => !sourceFilter || d.source === sourceFilter,
   )
+  const stuck = quarantined.data ?? []
+  const { toast } = useToast()
+
+  async function actOnEvent(id: number, action: 'onboard' | 'retry' | 'delete') {
+    try {
+      if (action === 'retry') {
+        const updated = await retryEvent(id)
+        toast(`Reprocessed — now ${updated.status}`, 'success')
+      } else if (action === 'delete') {
+        if (!window.confirm(`Delete event #${id}?`)) return
+        await deleteEvent(id)
+        toast(`Deleted event #${id}`, 'success')
+      } else {
+        const res = await onboardEvent(id, {
+          connectionName: sourceFilter,
+          fields: [],
+        })
+        toast(`Mapped (v${res.mapping_version}) — event ${res.event_status}`, 'success')
+      }
+      quarantined.reload()
+      drifts.reload()
+    } catch (e) {
+      toast((e as Error).message, 'error')
+    }
+  }
 
   return (
     <div>
@@ -288,7 +326,7 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
       {drifts.loading && <Spinner />}
       {drifts.error && <p className="text-sm text-red-400">{drifts.error}</p>}
 
-      {!drifts.loading && !drifts.error && rows.length === 0 && (
+      {!drifts.loading && !drifts.error && rows.length === 0 && stuck.length === 0 && (
         <EmptyState
           title={sourceFilter ? 'Nothing needs review for this connection' : 'Nothing needs review'}
           description="Approved patterns are handled automatically in the future."
@@ -300,6 +338,51 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
           <ReviewCard key={d.id} detail={d} onChanged={() => drifts.reload()} />
         ))}
       </div>
+
+      {stuck.length > 0 && (
+        <section className="mt-6">
+          <h3 className="mb-2 text-sm font-medium text-white">
+            Quarantined events{sourceFilter ? ` for ${sourceFilter}` : ''} — no mapping yet
+          </h3>
+          <p className="mb-3 text-xs text-slate-500">
+            Onboard publishes a mapping (new version for a known connection, new
+            vendor for a new name) and reprocesses the event. Retry re-runs it.
+            Delete removes junk.
+          </p>
+          <div className="space-y-2">
+            {stuck.map((e: EventSummary) => (
+              <div
+                key={e.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-800 bg-slate-900 px-3 py-2 text-sm"
+              >
+                <span className="font-mono text-xs text-slate-300">
+                  #{e.id} · {e.event_id.slice(0, 8)}… · {e.source ?? 'no source'}
+                </span>
+                <span className="flex gap-2">
+                  <button
+                    onClick={() => actOnEvent(e.id, 'onboard')}
+                    className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-500"
+                  >
+                    Onboard
+                  </button>
+                  <button
+                    onClick={() => actOnEvent(e.id, 'retry')}
+                    className="rounded-md border border-slate-700 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800"
+                  >
+                    Retry
+                  </button>
+                  <button
+                    onClick={() => actOnEvent(e.id, 'delete')}
+                    className="rounded-md border border-red-900 px-2.5 py-1 text-xs text-red-300 hover:bg-red-950/50"
+                  >
+                    Delete
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   )
 }
