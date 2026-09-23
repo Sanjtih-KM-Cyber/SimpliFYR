@@ -37,6 +37,7 @@ export interface Envelope {
 export interface IngestResponse {
   envelope: Envelope
   detection: DetectionResult
+  status: EventStatus | string
   parsed: Record<string, unknown> | null
   normalized: Record<string, unknown> | null
   provenance: Record<string, unknown> | null
@@ -260,6 +261,7 @@ export interface ConnectionSummary {
   events_by_status: Record<string, number>
   normalization_rate: number
   needs_review: number
+  open_drift: number
   avg_latency_ms: number
   last_event_at: string | null
 }

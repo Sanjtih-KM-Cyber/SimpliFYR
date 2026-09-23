@@ -33,3 +33,8 @@ class IngestResponse(BaseModel):
     output: dict | None = None
     stored_event_id: int
     duplicate: bool = False
+
+
+class PreviewResponse(BaseModel):
+    detection: DetectionSchema
+    parsed: dict | None

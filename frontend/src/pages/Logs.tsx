@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { exportLogs, getEvent, listEvents } from '../api/client'
-import type { EventDetail, EventStatus, EventSummary } from '../api/types'
+import { exportLogs, getEvent, ingest, listConnections, listEvents } from '../api/client'
+import type { EventDetail, EventStatus, EventSummary, IngestResponse } from '../api/types'
 import { Code } from '../components/Code'
 import { Spinner } from '../components/Spinner'
 import { StatusBadge } from '../components/Status'
@@ -36,6 +36,111 @@ function formatTime(iso: string) {
   } catch {
     return iso
   }
+}
+
+function IngestPanel({ onDone }: { onDone: (id: number) => void }) {
+  const connections = useAsync(() => listConnections(), [])
+  const [raw, setRaw] = useState('')
+  const [source, setSource] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<IngestResponse | null>(null)
+  const { toast } = useToast()
+
+  async function submit() {
+    if (!raw.trim()) {
+      setError('Paste logs or drop a file first')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    setResult(null)
+    try {
+      // Connection select drives the recipe: known sources process
+      // automatically, unknown ones quarantine for review.
+      const res = await ingest({ raw, source: source || undefined })
+      setResult(res)
+      toast(
+        res.duplicate
+          ? `Duplicate — already stored as event #${res.stored_event_id}`
+          : `Ingested as event #${res.stored_event_id} (${res.status})`,
+        res.status === 'quarantined' || res.status === 'dlq' ? 'info' : 'success',
+      )
+      onDone(res.stored_event_id)
+    } catch (e) {
+      const msg = (e as Error).message
+      setError(msg)
+      toast(msg, 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function onFile(file: File | undefined) {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setRaw(String(reader.result ?? ''))
+    reader.onerror = () => setError('Could not read file')
+    reader.readAsText(file)
+  }
+
+  return (
+    <div className="mb-6 rounded-lg border border-emerald-900 bg-slate-900 p-4">
+      <h3 className="mb-3 text-sm font-medium text-white">Instant ingest</h3>
+      <p className="mb-3 text-xs text-slate-500">
+        Drop logs, pick the connection they belong to, and they process immediately —
+        known sources normalize via their recipe, unknown ones quarantine for review.
+      </p>
+      <div className="mb-3 flex flex-wrap gap-2">
+        <select
+          value={source}
+          onChange={(e) => setSource(e.target.value)}
+          className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+        >
+          <option value="">No connection (detect only)…</option>
+          {(connections.data ?? []).map((c) => (
+            <option key={c.id} value={c.name}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        <label className="cursor-pointer rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800">
+          Drop a file…
+          <input
+            type="file"
+            className="hidden"
+            onChange={(e) => onFile(e.target.files?.[0])}
+          />
+        </label>
+      </div>
+      <textarea
+        value={raw}
+        onChange={(e) => setRaw(e.target.value)}
+        rows={5}
+        placeholder="<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 dstip=8.8.8.8 proto=tcp action=deny"
+        className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-xs text-slate-200"
+      />
+      {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+      <div className="mt-3 flex items-center gap-3">
+        <button
+          onClick={submit}
+          disabled={busy || !raw.trim()}
+          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+        >
+          {busy ? 'Ingesting…' : 'Ingest now'}
+        </button>
+        {result && (
+          <span className="flex items-center gap-2 text-sm">
+            <StatusBadge status={result.status} />
+            <span className="text-slate-400">
+              event #{result.stored_event_id}
+              {result.duplicate ? ' · duplicate' : ''}
+            </span>
+          </span>
+        )}
+      </div>
+    </div>
+  )
 }
 
 function Detail({ detail }: { detail: EventDetail }) {
@@ -99,6 +204,7 @@ function Detail({ detail }: { detail: EventDetail }) {
 
 export default function Logs() {
   const [tab, setTab] = useState<LogTab>('all')
+  const [ingesting, setIngesting] = useState(false)
   const [search, setSearch] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
   const events = useAsync(() => listEvents({ limit: 200 }), [])
@@ -170,9 +276,12 @@ export default function Logs() {
           {TABS.map((t) => (
             <button
               key={t.key}
-              onClick={() => setTab(t.key)}
+              onClick={() => {
+                setTab(t.key)
+                setIngesting(false)
+              }}
               className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-                tab === t.key
+                tab === t.key && !ingesting
                   ? 'bg-slate-800 text-white'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
@@ -180,6 +289,16 @@ export default function Logs() {
               {t.label}
             </button>
           ))}
+          <button
+            onClick={() => setIngesting(true)}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+              ingesting
+                ? 'bg-emerald-700 text-white'
+                : 'text-emerald-400 hover:bg-slate-800 hover:text-emerald-300'
+            }`}
+          >
+            + Ingest
+          </button>
         </div>
         <input
           ref={searchRef}
@@ -192,6 +311,15 @@ export default function Logs() {
 
       {events.loading && <Spinner />}
       {events.error && <p className="text-sm text-red-400">{events.error}</p>}
+
+      {ingesting && (
+        <IngestPanel
+          onDone={(id) => {
+            events.reload()
+            setSelected(id)
+          }}
+        />
+      )}
 
       {!events.loading && !events.error && rows.length === 0 && (
         <EmptyState

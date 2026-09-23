@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { analyzeOnboarding, approveOnboarding, createOnboarding, ingest, listOutputProfiles } from '../api/client'
+import { analyzeOnboarding, approveOnboarding, createOnboarding, ingest, listOutputProfiles, previewIngest } from '../api/client'
 import { SEMANTIC_FIELDS } from '../api/types'
 import type { Format, IngestResponse } from '../api/types'
 import { Code } from '../components/Code'
@@ -49,8 +49,10 @@ export default function AddConnection() {
     setError(null)
     setPreview(null)
     try {
-      const res = await ingest({ raw })
-      setAnalysis(res)
+      // Side-effect-free preview: detects + parses without storing an event,
+      // so wizard probing never pollutes connections or review queues.
+      const res = await previewIngest(raw)
+      setAnalysis({ detection: res.detection, parsed: res.parsed } as IngestResponse)
       const keys = sourceKeys(res.parsed, res.detection.format)
       setRows(keys.map((k) => ({ input_field: k, semantic_field: '' })))
     } catch (e) {

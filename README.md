@@ -414,3 +414,23 @@ Open <http://localhost:5173>. The Vite dev server proxies `/api` to the backend 
   Binaries/data gitignored; scripts committed. Fine-tune itself pending
   weights — one overnight command away.
 - 243 tests passing.
+
+## UX pass — real-time, honest review counts, instant ingest
+
+- **Real-time (`frontend/src/hooks/useLive.ts`):** Dashboard subscribes to
+  the existing `/api/v1/ws/live` stream (Vite already proxied WS) with
+  reconnect + heartbeat skip. New events refresh stats/connections live;
+  quarantined arrivals toast an info, DLQ an error. 30s polling covers
+  missed frames.
+- **Review counts that agree:** `quarantine_pending` now includes every open
+  drift status; connections expose `open_drift`; the Home attention panel
+  lists only connections with decisions pending ("N changes to review") —
+  quarantined events without drift live under Logs → Needs Review instead
+  of crying wolf on Home. The confusing By Pipeline Stage panel is gone.
+- **Instant ingest (Logs → + Ingest):** paste or drop a file, pick the
+  connection (drives its recipe), ingest immediately with result + toast —
+  known sources normalize, unknown ones quarantine for review.
+- **Wizard hygiene:** AddConnection analysis uses side-effect-free
+  `POST /ingest/preview` (detect + parse, stores nothing) instead of an
+  ingest that polluted review queues.
+- 247 tests passing; frontend `tsc -b && vite build` + `oxlint` clean.

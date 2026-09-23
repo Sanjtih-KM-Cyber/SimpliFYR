@@ -13,6 +13,7 @@ import type {
   EventDetail,
   EventStatus,
   EventSummary,
+  Format,
   HealthResponse,
   IngestResponse,
   Mapping,
@@ -112,6 +113,19 @@ export function ingest(input: IngestInput): Promise<IngestResponse> {
   if (input.mappingId) body.append('mapping_id', String(input.mappingId))
   if (input.outputProfileId) body.append('output_profile_id', String(input.outputProfileId))
   return request(`${BASE}/ingest`, { method: 'POST', body })
+}
+
+export interface PreviewResult {
+  detection: { format: Format; confidence: number; detail: string }
+  parsed: Record<string, unknown> | null
+}
+
+/** Side-effect-free detection + parse (stores nothing). */
+export function previewIngest(raw: string, hint?: string): Promise<PreviewResult> {
+  const body = new FormData()
+  body.append('raw', raw)
+  if (hint) body.append('hint', hint)
+  return request(`${BASE}/ingest/preview`, { method: 'POST', body })
 }
 
 export function listMappings(): Promise<Mapping[]> {

@@ -34,6 +34,7 @@ class ConnectionSummary(BaseModel):
     events_by_status: dict[str, int]
     normalization_rate: float
     needs_review: int
+    open_drift: int = 0  # drift records awaiting a decision (the actionable part)
     avg_latency_ms: float = 0.0
     last_event_at: datetime | None = None
 

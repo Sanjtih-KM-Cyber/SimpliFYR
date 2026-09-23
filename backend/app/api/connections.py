@@ -76,6 +76,7 @@ def _build_summary(
         events_by_status=by_status,
         normalization_rate=rate,
         needs_review=needs_review,
+        open_drift=open_drift,
         avg_latency_ms=avg_latency_ms,
         last_event_at=last_event_at,
     )

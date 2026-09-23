@@ -1,8 +1,11 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { getAnomalies, getHealth, getStats, listConnections } from '../api/client'
 import { Spinner } from '../components/Spinner'
 import { StatusBadge } from '../components/Status'
+import { useToast } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
+import { useLive } from '../hooks/useLive'
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
@@ -18,12 +21,36 @@ export default function Dashboard() {
   const stats = useAsync(() => getStats(), [])
   const connections = useAsync(() => listConnections(), [])
   const anomalies = useAsync(() => getAnomalies(), [])
+  const { toast } = useToast()
   const s = stats.data
 
-  const stageOrder = ['received', 'parsed', 'normalized', 'output', 'quarantined', 'dlq']
-  const stages = s ? stageOrder.filter((k) => (s.events_by_status[k] ?? 0) > 0) : []
+  // Real-time: a live event refreshes the numbers; quarantined/DLQ arrivals
+  // raise a toast so nothing sits unnoticed. 30s polling covers missed frames.
+  useLive({
+    onEvent: (msg) => {
+      stats.reload()
+      connections.reload()
+      if (msg.status === 'quarantined') {
+        toast(`Quarantined event from ${msg.source ?? 'unknown source'} — review needed`, 'info')
+      } else if (msg.status === 'dlq') {
+        toast(`Malformed event from ${msg.source ?? 'unknown source'} moved to DLQ`, 'error')
+      }
+    },
+  })
 
-  const attention = (connections.data ?? []).filter((c) => c.health === 'needs_review')
+  useEffect(() => {
+    const timer = setInterval(() => {
+      stats.reload()
+      connections.reload()
+    }, 30000)
+    return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Attention = connections with drift awaiting a decision. Quarantined
+  // events without drift live under Logs → Needs Review instead, so this
+  // panel never cries wolf when there is nothing to approve.
+  const attention = (connections.data ?? []).filter((c) => (c.open_drift ?? 0) > 0)
   const topConnections = (connections.data ?? [])
     .filter((c) => c.events_processed > 0)
     .slice(0, 5)
@@ -60,7 +87,7 @@ export default function Dashboard() {
                   {c.name}
                 </Link>
                 <span className="text-amber-300">
-                  {c.needs_review} need{c.needs_review === 1 ? '' : 's'} review
+                  {c.open_drift} change{c.open_drift === 1 ? '' : 's'} to review
                 </span>
               </div>
             ))}
@@ -96,24 +123,6 @@ export default function Dashboard() {
           <Link to="/connections" className="mt-3 inline-block text-sm text-sky-400 hover:text-sky-300">
             All connections →
           </Link>
-        </section>
-      )}
-
-      {s && (
-        <section className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
-          <h3 className="mb-3 text-sm font-medium text-white">By Pipeline Stage</h3>
-          {stages.length === 0 ? (
-            <p className="text-sm text-slate-500">No events yet. Run an ingest to get started.</p>
-          ) : (
-            <div className="space-y-2 text-sm">
-              {stages.map((status) => (
-                <div key={status} className="flex items-center justify-between">
-                  <span className="text-slate-300">{status}</span>
-                  <span className="font-semibold text-white">{s.events_by_status[status]}</span>
-                </div>
-              ))}
-            </div>
-          )}
         </section>
       )}
 

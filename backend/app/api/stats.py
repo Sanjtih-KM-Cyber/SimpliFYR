@@ -76,7 +76,7 @@ def get_stats(
         ).scalar() or 0
 
     drift_stmt = select(DriftRecord.status, func.count(DriftRecord.id))
-    pending_stmt = select(func.count(DriftRecord.id)).where(DriftRecord.status.in_(("detected", "analyzed")))
+    pending_stmt = select(func.count(DriftRecord.id)).where(DriftRecord.status.in_(("detected", "analyzed", "review")))
     if names:
         drift_stmt = drift_stmt.where(DriftRecord.source.is_(None) | DriftRecord.source.in_(names))
         pending_stmt = pending_stmt.where(DriftRecord.source.is_(None) | DriftRecord.source.in_(names))

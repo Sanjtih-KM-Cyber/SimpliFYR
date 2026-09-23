@@ -8,8 +8,8 @@ from app.core.ratelimit import check_rate_limit
 from app.core.security import require_write
 from app.models import Mapping as MappingModel
 from app.models import OutputProfile
-from app.schemas.ingest import DetectionSchema, EnvelopeSchema, IngestResponse, IngestSourceSchema
-from simplifyr_parsers import Format
+from app.schemas.ingest import DetectionSchema, EnvelopeSchema, IngestResponse, IngestSourceSchema, PreviewResponse
+from simplifyr_parsers import Format, detect_format, parse
 
 router = APIRouter(
     prefix="/ingest",
@@ -108,4 +108,45 @@ async def ingest(
         output=result["output"],
         stored_event_id=result["stored_event_id"],
         duplicate=bool(result.get("duplicate", False)),
+    )
+
+
+@router.post("/preview", response_model=PreviewResponse)
+async def preview(
+    file: UploadFile | None = File(default=None),
+    raw: str | None = Form(default=None),
+    hint: Format | None = Form(default=None),
+) -> PreviewResponse:
+    """Detect + parse a sample WITHOUT storing anything.
+
+    Side-effect-free analysis for wizards and quick inspection: no event row,
+    no raw file, no drift record. Use /ingest when the event should persist.
+    """
+    if file is not None:
+        content = (await file.read()).decode("utf-8", errors="replace")
+        content_type = file.content_type or "text/plain"
+    elif raw is not None:
+        content = raw
+        content_type = "text/plain"
+    else:
+        raise HTTPException(status_code=422, detail="Provide either 'file' or 'raw'")
+
+    if not content.strip():
+        raise HTTPException(status_code=422, detail="Sample is empty")
+    if len(content.encode("utf-8")) > MAX_PAYLOAD:
+        raise HTTPException(status_code=413, detail="Payload exceeds size limit")
+
+    hint_used = hint or _content_type_to_format(content_type)
+    detection = detect_format(content, content_type=content_type, hint=hint_used)
+    try:
+        parsed = parse(detection.format, content)
+    except Exception:
+        parsed = None
+    return PreviewResponse(
+        detection=DetectionSchema(
+            format=detection.format,
+            confidence=detection.confidence,
+            detail=detection.detail,
+        ),
+        parsed=parsed,
     )
