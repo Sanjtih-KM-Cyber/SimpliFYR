@@ -14,11 +14,11 @@ import json
 import os
 
 REPO = "/mnt/d/MyDesktop/SIMPLIFYR_2_Backup_2/SIMPLIFYR_2"
-DATA = os.path.join(REPO, "training", "data", "combined.jsonl")
-OUT = os.path.join(REPO, "training", "out")
+DATA = os.environ.get("TRAIN_DATA", os.path.join(REPO, "training", "data", "combined.jsonl"))
+OUT = os.environ.get("TRAIN_OUT", os.path.join(REPO, "training", "out"))
 
 MODEL_NAME = os.environ.get("MODEL_DIR", "Qwen/Qwen2.5-1.5B-Instruct")
-MAX_SEQ_LEN = 1024
+MAX_SEQ_LEN = 512  # rows peak ~250 tokens; 1024 wastes 4x compute on this GPU
 EPOCHS = 3
 
 
@@ -54,24 +54,27 @@ def main() -> None:
 
     def tokenize(batch):
         texts = [fmt(r) for r in batch["rows"]]
-        toks = tokenizer(texts, truncation=True, max_length=MAX_SEQ_LEN)
+        # Pre-pad to max length: every row comes out exactly MAX_SEQ_LEN so
+        # the collator only stacks (collating ragged rows proved brittle).
+        toks = tokenizer(texts, truncation=True, padding="max_length", max_length=MAX_SEQ_LEN)
         # Mask everything before the response so loss focuses on the mapping.
         labels = []
         for text, ids in zip(texts, toks["input_ids"]):
             marker = "### Response:\n"
             cut = text.index(marker) + len(marker)
             n_prompt = len(tokenizer(text[:cut], add_special_tokens=False)["input_ids"])
-            labels.append([-100] * min(n_prompt, len(ids)) + ids[min(n_prompt, len(ids)):])
+            # Prompt encodings can overshoot truncated inputs; labels must
+            # equal len(ids) exactly or the collator breaks.
+            row = ([-100] * n_prompt + ids[n_prompt:])[: len(ids)]
+            row += [-100] * (len(ids) - len(row))
+            labels.append(row)
         toks["labels"] = labels
         return toks
 
     train_ds = Dataset.from_list([{"rows": r} for r in train_rows])
-    val_ds = Dataset.from_list([{"rows": r} for r in val_rows])
     cols_in = train_ds.column_names
     train_ds = train_ds.map(lambda b: tokenize(b), batched=True, batch_size=64,
                             remove_columns=cols_in)
-    val_ds = val_ds.map(lambda b: tokenize(b), batched=True, batch_size=64,
-                        remove_columns=cols_in)
 
     bnb = BitsAndBytesConfig(
         load_in_4bit=True,
@@ -97,14 +100,17 @@ def main() -> None:
 
     args = TrainingArguments(
         output_dir=os.path.join(OUT, "checkpoints"),
-        per_device_train_batch_size=2,
-        per_device_eval_batch_size=2,
-        gradient_accumulation_steps=4,
+        per_device_train_batch_size=4,
+        per_device_eval_batch_size=4,
+        gradient_accumulation_steps=2,
         num_train_epochs=EPOCHS,
         learning_rate=2e-4,
         bf16=True,
         logging_steps=25,
-        eval_strategy="epoch",
+        # No mid-run eval: val perplexity is a weak signal here and each pass
+        # costs minutes on this GPU. The real gate is run_eval on the merged
+        # model (Phase 5.2). Checkpoints still save per epoch for resume.
+        eval_strategy="no",
         save_strategy="epoch",
         save_total_limit=1,
         report_to="none",
@@ -116,7 +122,7 @@ def main() -> None:
         model=model,
         args=args,
         train_dataset=train_ds,
-        eval_dataset=val_ds,
+        eval_dataset=None,
         data_collator=DataCollatorForLanguageModeling(tokenizer, mlm=False),
     )
     import glob as _glob
