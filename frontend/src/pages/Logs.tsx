@@ -153,8 +153,7 @@ function Detail({ detail, onChanged, onDeleted }: { detail: EventDetail; onChang
 
   const actionable = detail.status === 'quarantined' || detail.status === 'dlq'
 
-  async function run(action: 'retry' | 'delete') {
-    if (action === 'delete' && !window.confirm(`Delete event #${detail.id} and its raw file?`)) return
+  async function run(action: 'retry' | 'delete') {    if (action === 'delete' && !window.confirm(`Delete event #${detail.id} and its raw file?`)) return
     setBusy(action)
     setError(null)
     try {
@@ -176,13 +175,34 @@ function Detail({ detail, onChanged, onDeleted }: { detail: EventDetail; onChang
     }
   }
 
+  function downloadSingle() {
+    const blob = new Blob([JSON.stringify(detail, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `simplifyr-event-${detail.id}.json`
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(url)
+    toast(`Downloaded event #${detail.id} (raw + parsed + normalized + output + provenance)`, 'success')
+  }
+
   return (
     <div className="mt-4 rounded-lg border border-slate-800 bg-slate-900 p-4">
       <div className="mb-3 flex items-center justify-between">
         <h4 className="text-sm font-medium text-white">
           Event #{detail.id} <span className="font-mono text-slate-500">{detail.event_id}</span>
         </h4>
-        <StatusBadge status={detail.status} />
+        <span className="flex items-center gap-2">
+          <StatusBadge status={detail.status} />
+          <button
+            onClick={downloadSingle}
+            className="rounded-md border border-slate-700 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800"
+          >
+            Download
+          </button>
+        </span>
       </div>
 
       {actionable && (
@@ -276,6 +296,7 @@ export default function Logs() {
   const [search, setSearch] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
   const events = useAsync(() => listEvents({ limit: 200 }), [])
+  const [extra, setExtra] = useState<EventSummary[]>([])
   const [selected, setSelected] = useState<number | null>(null)
   const detail = useAsync(
     () => (selected ? getEvent(selected) : Promise.resolve(null)),
@@ -298,6 +319,20 @@ export default function Logs() {
     }
   }
 
+  async function loadMore() {
+    try {
+      const more = await listEvents({ limit: 200, offset: all.length })
+      if (more.length === 0) {
+        toast('No older logs — you have the full history', 'info')
+        return
+      }
+      const seen = new Set(all.map((e) => e.id))
+      setExtra((prev) => [...prev, ...more.filter((e) => !seen.has(e.id))])
+    } catch (e) {
+      toast((e as Error).message, 'error')
+    }
+  }
+
   useEffect(() => {
     const focus = () => searchRef.current?.focus()
     window.addEventListener(FOCUS_SEARCH_EVENT, focus)
@@ -312,7 +347,7 @@ export default function Logs() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const all = events.data ?? []
+  const all = [...(events.data ?? []), ...extra]
   const rows = all
     .filter((e: EventSummary) => matchesTab(e.status, tab))
     .filter((e: EventSummary) => {
@@ -409,8 +444,7 @@ export default function Logs() {
       )}
 
       {rows.length > 0 && (
-        <Table>
-          <THead>
+        <Table>          <THead>
             <TR>
               <TH>ID</TH>
               <TH>Status</TH>
@@ -444,6 +478,17 @@ export default function Logs() {
           }}
           onDeleted={() => setSelected(null)}
         />
+      )}
+
+      {rows.length >= 200 && (
+        <div className="mt-4 text-center">
+          <button
+            onClick={loadMore}
+            className="rounded-md border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+          >
+            Load older logs ({all.length} shown)
+          </button>
+        </div>
       )}
       {selected && detail.loading && <Spinner />}
     </div>

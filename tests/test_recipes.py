@@ -162,7 +162,7 @@ def test_export_json_ndjson_csv(client):
 
     csv_text = client.get("/api/v1/export?format=csv").text
     lines = csv_text.strip().splitlines()
-    assert lines[0].startswith("id,event_id,status,received_at,source,raw,normalized")
+    assert lines[0].startswith("id,event_id,status,received_at,source,raw,parsed,normalized")
     assert len(lines) >= 2
 
 

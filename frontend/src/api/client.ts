@@ -169,6 +169,7 @@ export function createOutputProfile(payload: OutputProfileInput): Promise<Output
 export interface ListEventsParams {
   status?: EventStatus
   limit?: number
+  offset?: number
   source?: string
 }
 
@@ -176,6 +177,7 @@ export function listEvents(params: ListEventsParams = {}): Promise<EventSummary[
   const qs = new URLSearchParams()
   if (params.status) qs.set('status', params.status)
   if (params.limit) qs.set('limit', String(params.limit))
+  if (params.offset) qs.set('offset', String(params.offset))
   if (params.source) qs.set('source', params.source)
   const query = qs.toString()
   return request(`${BASE}/events${query ? `?${query}` : ''}`)

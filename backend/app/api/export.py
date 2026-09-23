@@ -96,7 +96,7 @@ def export_events(
     else:
         buf = io.StringIO()
         writer = csv.writer(buf)
-        writer.writerow(["id", "event_id", "status", "received_at", "source", "raw", "normalized"])
+        writer.writerow(["id", "event_id", "status", "received_at", "source", "raw", "parsed", "normalized"])
         for e in events:
             writer.writerow(
                 [
@@ -106,6 +106,7 @@ def export_events(
                     e.received_at.isoformat(),
                     e.source or "",
                     e.raw,
+                    json.dumps(e.parsed) if e.parsed is not None else "",
                     json.dumps(e.normalized) if e.normalized is not None else "",
                 ]
             )
