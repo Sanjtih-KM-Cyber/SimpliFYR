@@ -19,7 +19,7 @@ OUT = os.environ.get("TRAIN_OUT", os.path.join(REPO, "training", "out"))
 
 MODEL_NAME = os.environ.get("MODEL_DIR", "Qwen/Qwen2.5-1.5B-Instruct")
 MAX_SEQ_LEN = 512  # rows peak ~250 tokens; 1024 wastes 4x compute on this GPU
-EPOCHS = 3
+EPOCHS = int(os.environ.get("TRAIN_EPOCHS", "2"))
 
 
 def main() -> None:
