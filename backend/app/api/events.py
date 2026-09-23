@@ -217,6 +217,11 @@ def onboard_event(event_id: int, payload: EventOnboardRequest, db: Session = Dep
         output_profile_id=payload.output_profile_id,
         environment=event.environment,
     )
+    # The event now belongs to this connection: adopt its identity BEFORE
+    # reprocessing so source_id is never NULL (previously a 500 on sourceless
+    # probe events) and the row shows under the right connection afterwards.
+    event.source = _source.name
+    event.source_id = _source.id
     db.add(
         Approval(entity_type="event", entity_id=event.id, status=ApprovalStatus.APPROVED, actor="system", comment=f"onboarded -> mapping {mapping.name}")
     )

@@ -95,3 +95,27 @@ def test_events_filter_by_source_name(client):
     res = client.get("/api/v1/events", params={"source": "Filter Me"}).json()
     assert res and all(e["source_id"] is not None for e in res)
     assert client.get("/api/v1/events", params={"source": "Nobody"}).json() == []
+
+
+def test_onboard_sourceless_probe_adopts_connection(client):
+    """Regression: onboarding a sourceless probe event (no source label, NULL
+    source_id) must adopt the connection identity instead of 500ing."""
+    res = client.post("/api/v1/ingest", data={"raw": _raw(18)})
+    stored = res.json()["stored_event_id"]
+    detail = client.get(f"/api/v1/events/{stored}").json()
+    assert detail["source"] is None
+    assert detail["source_id"] is None
+
+    onboarded = client.post(
+        f"/api/v1/events/{stored}/onboard",
+        json={
+            "connection_name": "Probe Adopt",
+            "fields": [{"input_field": "brandnew1", "semantic_field": "source.ip"}],
+        },
+    )
+    assert onboarded.status_code == 200, onboarded.text
+    body = onboarded.json()
+    assert body["source_id"] is not None
+    after = client.get(f"/api/v1/events/{stored}").json()
+    assert after["source"] == "Probe Adopt"
+    assert after["source_id"] == body["source_id"]

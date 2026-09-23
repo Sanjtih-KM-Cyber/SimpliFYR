@@ -52,7 +52,7 @@ class EventOnboardRequest(BaseModel):
 
 class EventOnboardResponse(BaseModel):
     event_id: int
-    source_id: int
+    source_id: int | None = None
     mapping_id: int
     mapping_version: int
     recipe_id: int
