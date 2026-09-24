@@ -33,7 +33,7 @@ services:
       TRUST_PROXY_HEADERS: "true"
       AI_PROVIDER: ollama
       OLLAMA_URL: http://ollama:11434
-      OLLAMA_MODEL: qwen2.5:0.5b
+      OLLAMA_MODEL: simplifyr:1.5b
       PIPELINE_WORKERS: "2"
       PIPELINE_MAX_QUEUE: "10000"
       # PIPELINE_BACKEND: kafka  # durable transport via the kafka service below
