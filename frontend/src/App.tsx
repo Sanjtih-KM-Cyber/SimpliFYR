@@ -10,7 +10,7 @@ import Audit from './pages/Audit'
 import ConnectionLayout from './pages/ConnectionLayout'
 import ConnectionLive from './pages/ConnectionLive'
 import ConnectionOverview from './pages/ConnectionOverview'
-import { ConnectionLearning, ConnectionLogs, ConnectionMappings, ConnectionNeedsReview, ConnectionOutputs } from './pages/ConnectionTabs'
+import { ConnectionLearning, ConnectionLogs, ConnectionMappings, ConnectionOutputs } from './pages/ConnectionTabs'
 import Connections from './pages/Connections'
 import Dashboard from './pages/Dashboard'
 import Destinations from './pages/Destinations'
@@ -122,7 +122,6 @@ function Shell() {
               <Route path="mappings" element={<ConnectionMappings />} />
               <Route path="output" element={<ConnectionOutputs />} />
               <Route path="learning" element={<ConnectionLearning />} />
-              <Route path="needs-review" element={<ConnectionNeedsReview />} />
               <Route path="logs" element={<ConnectionLogs />} />
               <Route path="live" element={<ConnectionLive />} />
             </Route>

@@ -65,11 +65,6 @@ export default function ConnectionLayout() {
               { to: `/connections/${sourceName}/mappings`, label: 'SCHEMA MAP' },
               { to: `/connections/${sourceName}/output`, label: 'DESTINATIONS' },
               { to: `/connections/${sourceName}/learning`, label: 'AI KNOWLEDGE' },
-              {
-                to: `/connections/${sourceName}/needs-review`,
-                label: 'DRIFT QUEUE',
-                badge: (c.open_drift ?? 0) + (c.events_by_status?.quarantined ?? 0),
-              },
               { to: `/connections/${sourceName}/logs`, label: 'LOGS' },
             ]}
           />
