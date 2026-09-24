@@ -345,12 +345,20 @@ export interface ExportParams {
   format: 'json' | 'ndjson' | 'csv'
   status?: string
   source?: string
+  limit?: number
 }
 
-export async function exportLogs(params: ExportParams): Promise<void> {
+export interface ExportResult {
+  filename: string
+  total: number
+  normalized: number
+}
+
+export async function exportLogs(params: ExportParams): Promise<ExportResult> {
   const qs = new URLSearchParams({ format: params.format })
   if (params.status) qs.set('status', params.status)
   if (params.source) qs.set('source', params.source)
+  if (params.limit) qs.set('limit', String(params.limit))
   const res = await fetch(`${BASE}/export?${qs.toString()}`)
   if (!res.ok) {
     let detail = `Download failed: ${res.status}`
@@ -365,6 +373,8 @@ export async function exportLogs(params: ExportParams): Promise<void> {
   const disposition = res.headers.get('Content-Disposition') ?? ''
   const match = disposition.match(/filename="([^"]+)"/)
   const filename = match ? match[1] : `simplifyr-events.${params.format}`
+  const total = Number(res.headers.get('X-Export-Total') ?? '0')
+  const normalized = Number(res.headers.get('X-Export-Normalized') ?? '0')
   const url = URL.createObjectURL(await res.blob())
   const anchor = document.createElement('a')
   anchor.href = url
@@ -373,6 +383,7 @@ export async function exportLogs(params: ExportParams): Promise<void> {
   anchor.click()
   anchor.remove()
   URL.revokeObjectURL(url)
+  return { filename, total, normalized }
 }
 
 export function getStats(): Promise<Stats> {

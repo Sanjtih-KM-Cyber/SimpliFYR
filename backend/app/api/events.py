@@ -104,6 +104,7 @@ def search_events(
         raw_match = (func.similarity(Event.raw, term) >= 0.1) | (
             Event.raw.ilike(pattern, escape="\\")
         )
+        raw_match = raw_match | (Event.event_id.ilike(pattern, escape="\\"))
         if wanted_id is not None:
             raw_match = raw_match | (Event.id == wanted_id)
         stmt = (
@@ -113,7 +114,9 @@ def search_events(
         )
         rows = [row[0] for row in db.execute(stmt.limit(limit)).all()]
     else:
-        raw_match = Event.raw.like(pattern, escape="\\")
+        raw_match = Event.raw.like(pattern, escape="\\") | Event.event_id.like(
+            pattern, escape="\\"
+        )
         if wanted_id is not None:
             raw_match = raw_match | (Event.id == wanted_id)
         rows = (

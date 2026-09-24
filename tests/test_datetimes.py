@@ -15,7 +15,7 @@ def test_event_timestamps_carry_utc_offset(client):
     listing = client.get("/api/v1/events").json()[0]
     assert listing["received_at"].endswith(("+00:00", "Z"))
 
-    exported = client.get("/api/v1/export?format=json").json()[0]
+    exported = client.get("/api/v1/export?format=json").json()["events"][0]
     assert exported["received_at"].endswith(("+00:00", "Z"))
 
 

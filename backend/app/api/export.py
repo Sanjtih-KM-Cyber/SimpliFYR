@@ -22,7 +22,6 @@ _MEDIA_TYPES = {
     "ndjson": "application/x-ndjson",
     "csv": "text/csv",
 }
-MAX_EXPORT = 5000
 
 
 def _parse_statuses(status: str | None) -> list[EventStatus]:
@@ -45,14 +44,16 @@ def _collect(
     environment: str,
     statuses: list[EventStatus],
     source: str | None,
-    limit: int,
+    limit: int | None,
 ) -> list[Event]:
     stmt = select(Event).where(Event.environment == environment).order_by(Event.id.desc())
     if statuses:
         stmt = stmt.where(Event.status.in_(statuses))
     if source:
         stmt = stmt.where(Event.source == source)
-    return list(db.execute(stmt.limit(limit)).scalars().all())
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    return list(db.execute(stmt).scalars().all())
 
 
 def _event_record(event: Event) -> dict:
@@ -74,11 +75,16 @@ def export_events(
     format: str = Query(default="json"),
     status: str | None = Query(default=None),
     source: str | None = Query(default=None),
-    limit: int = Query(default=1000, ge=1, le=MAX_EXPORT),
+    limit: int | None = Query(default=None, ge=1),
     environment: str = Depends(get_environment),
     db: Session = Depends(get_db),
 ):
-    """Download processed logs as a file (json, ndjson, or csv)."""
+    """Download processed logs as a file (json, ndjson, or csv).
+
+    `limit` omitted = the whole matching set, uncapped: an export of
+    normalized logs always contains every normalized log. Counts travel in
+    the filename, the JSON meta block, and X-Export-* headers.
+    """
     fmt = format.strip().lower()
     if fmt not in FORMATS:
         raise HTTPException(
@@ -88,12 +94,22 @@ def export_events(
     statuses = _parse_statuses(status)
 
     events = _collect(db, environment, statuses, source, limit)
-    filename = f"simplifyr-events-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.{fmt}"
+    records = [_event_record(e) for e in events]
+    normalized_count = sum(1 for e in events if e.status in (EventStatus.NORMALIZED, EventStatus.OUTPUT))
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    filename = f"simplifyr-events-{len(events)}total-{normalized_count}normalized-{stamp}.{fmt}"
+    meta = {
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "count": len(events),
+        "normalized_count": normalized_count,
+        "source": source,
+        "statuses": [str(s) for s in statuses],
+    }
 
     if fmt == "json":
-        content = json.dumps([_event_record(e) for e in events], indent=2)
+        content = json.dumps({"meta": meta, "events": records}, indent=2)
     elif fmt == "ndjson":
-        content = "\n".join(json.dumps(_event_record(e)) for e in events)
+        content = "\n".join(json.dumps(r) for r in records)
     else:
         buf = io.StringIO()
         writer = csv.writer(buf)
@@ -116,5 +132,9 @@ def export_events(
     return Response(
         content=content,
         media_type=_MEDIA_TYPES[fmt],
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Export-Total": str(len(events)),
+            "X-Export-Normalized": str(normalized_count),
+        },
     )

@@ -29,6 +29,15 @@ def test_search_by_index_number(client):
     assert any(h["id"] == stored for h in padded), padded
 
 
+def test_search_by_global_id(client):
+    stored = _quarantined(client, 27, "Box-GlobalSearch")
+    detail = client.get(f"/api/v1/events/{stored}").json()
+    fragment = detail["event_id"][:8]
+    assert len(fragment) >= 2
+    hits = client.get("/api/v1/events/search", params={"q": fragment}).json()
+    assert any(h["id"] == stored for h in hits), hits
+
+
 def test_batch_retry_normalizes_group_after_onboard(client):
     a = _quarantined(client, 23, "Box-BatchRetry")
     b = _quarantined(client, 24, "Box-BatchRetry")

@@ -23,16 +23,18 @@ import { FOCUS_SEARCH_EVENT } from '../hooks/useKeyboardShortcuts'
 import { useAsync } from '../hooks/useAsync'
 import { useLive } from '../hooks/useLive'
 
-type LogTab = 'normalized' | 'inspection' | 'failed'
+type LogTab = 'normalized' | 'index-detail' | 'inspection' | 'failed'
 
 const TABS: { key: LogTab; label: string }[] = [
   { key: 'normalized', label: 'Normalized' },
+  { key: 'index-detail', label: 'Index Detail' },
   { key: 'inspection', label: 'Telemetry Inspection' },
   { key: 'failed', label: 'Failed' },
 ]
 
 const TAB_STATUSES: Record<LogTab, EventStatus[]> = {
   normalized: ['normalized', 'output'],
+  'index-detail': [],
   inspection: ['quarantined'],
   failed: ['dlq'],
 }
@@ -167,7 +169,18 @@ function IngestPanel({ onDone }: { onDone: (id: number) => void }) {
   )
 }
 
-function Detail({ detail, onChanged, onDeleted }: { detail: EventDetail; onChanged: () => void; onDeleted: () => void }) {
+function Detail({
+  detail,
+  siblingCount,
+  onChanged,
+  onDeleted,
+}: {
+  detail: EventDetail
+  /** Loaded logs sharing this event's source + format (ingested-of-type count). */
+  siblingCount: number
+  onChanged: () => void
+  onDeleted: () => void
+}) {
   const [onboarding, setOnboarding] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -198,21 +211,6 @@ function Detail({ detail, onChanged, onDeleted }: { detail: EventDetail; onChang
     }
   }
 
-  function downloadSingle() {
-    const payload = detail.output ?? detail.normalized
-    if (!payload) return
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = `simplifyr-event-${detail.id}-normalized.json`
-    document.body.appendChild(anchor)
-    anchor.click()
-    anchor.remove()
-    URL.revokeObjectURL(url)
-    toast(`Downloaded normalized log for event #${detail.id}`, 'success')
-  }
-
   return (
     <div className="mt-4 animate-slide-up rounded-lg border border-slate-700/50 glass-card p-5">
       <div className="mb-4 flex items-center justify-between border-b border-slate-800/80 pb-3">
@@ -220,18 +218,7 @@ function Detail({ detail, onChanged, onDeleted }: { detail: EventDetail; onChang
           Index Detail
           <span className="rounded border border-cyan-500/20 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[11px] text-cyan-500">{detail.event_id}</span>
         </h4>
-        <span className="flex items-center gap-3">
-          <StatusBadge status={detail.status} />
-          {(detail.output || detail.normalized) && (
-            <button
-              onClick={downloadSingle}
-              title="Download the normalized log (JSON)"
-              className="rounded border border-slate-700 bg-slate-800 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-cyan-400 transition-colors hover:bg-slate-700 hover:text-cyan-300"
-            >
-              Export JSON
-            </button>
-          )}
-        </span>
+        <StatusBadge status={detail.status} />
       </div>
 
       {actionable && (
@@ -264,15 +251,17 @@ function Detail({ detail, onChanged, onDeleted }: { detail: EventDetail; onChang
       {error && <p className="mb-3 text-[12px] font-medium text-rose-400">{error}</p>}
 
       <div className="grid gap-1 overflow-hidden rounded border border-slate-700/50 bg-slate-950 lg:grid-cols-2">
-        <section className="bg-slate-900 p-3">
-          <div className="max-w-max mb-3 flex items-center gap-2 border-b border-slate-700/50 pb-1">
+        <details open className="bg-slate-900 p-3">
+          <summary className="mb-3 flex cursor-pointer select-none items-center gap-2 border-b border-slate-700/50 pb-1">
             <div className="h-1.5 w-1.5 rounded-full bg-slate-500"></div>
-            <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Original Telemetry</h4>
-          </div>
+            <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              Original Telemetry · {siblingCount} ingested
+            </h4>
+          </summary>
           <div className="opacity-90">
             <Code value={detail.views.raw} />
           </div>
-        </section>
+        </details>
         <section className="mt-1 bg-slate-900 p-3 lg:mt-0 lg:border-l lg:border-slate-700/50">
           <div className="max-w-max relative mb-3 flex items-center gap-2 border-b border-cyan-900/50 pb-1">
             <div className="h-1.5 w-1.5 rounded-full bg-cyan-500 shadow-[0_0_5px_rgba(6,182,212,0.8)]"></div>
@@ -407,6 +396,43 @@ function InspectionCard({
   )
 }
 
+/** The single export home: downloads the whole normalized set (uncapped),
+ *  in any format. Counts come back in the file and the toast. */
+function IndexExport({ source }: { source: string }) {
+  const { toast } = useToast()
+  const [downloading, setDownloading] = useState<string | null>(null)
+
+  async function download(format: 'json' | 'ndjson' | 'csv') {
+    setDownloading(format)
+    try {
+      const res = await exportLogs({ format, status: 'normalized,output', source: source || undefined })
+      toast(`Downloaded ${res.total} logs (${res.normalized} normalized)`, 'success')
+    } catch (e) {
+      toast((e as Error).message, 'error')
+    } finally {
+      setDownloading(null)
+    }
+  }
+
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-white/[0.08] bg-slate-900/60 px-4 py-3">
+      <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+        Download all normalized
+      </span>
+      {(['json', 'ndjson', 'csv'] as const).map((fmt) => (
+        <button
+          key={fmt}
+          onClick={() => download(fmt)}
+          disabled={downloading !== null}
+          className="rounded border border-slate-700 bg-slate-950 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-cyan-400 transition-colors hover:bg-slate-800 disabled:opacity-50"
+        >
+          {downloading === fmt ? 'Bundling…' : fmt}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
   const [tab, setTab] = useState<LogTab>('normalized')
   const [ingesting, setIngesting] = useState(false)
@@ -432,24 +458,10 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
   const mappings = useAsync(() => listMappings(), [])
   const { toast } = useToast()
 
-  const [downloading, setDownloading] = useState(false)
-
-  async function download(format: 'json' | 'ndjson' | 'csv') {
-    setDownloading(true)
-    try {
-      const statuses = TAB_STATUSES[tab]
-      await exportLogs({
-        format,
-        status: statuses.join(','),
-        source: source || undefined,
-      })
-      toast(`Downloaded logs (${format.toUpperCase()})`, 'success')
-    } catch (e) {
-      toast((e as Error).message, 'error')
-    } finally {
-      setDownloading(false)
-    }
-  }
+  // Bounce off the gated tab when its index is gone (deleted / scope cleared).
+  useEffect(() => {
+    if (tab === 'index-detail' && selected === null) setTab('normalized')
+  }, [tab, selected])
 
   async function loadMore() {
     try {
@@ -498,16 +510,30 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const all = serverHits ?? [...(events.data ?? []), ...extra]
+  const base = useMemo(
+    () => [...(events.data ?? []), ...extra],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [events.data, extra],
+  )
+  // Server hits extend reach into unloaded history; loaded rows always stay
+  // client-filterable so a zero-hit server response never blanks the view.
+  const serverIds = useMemo(() => new Set((serverHits ?? []).map((e) => e.id)), [serverHits])
+  const all = useMemo(() => {
+    if (!serverHits?.length) return base
+    const seen = new Set(base.map((e) => e.id))
+    return [...base, ...serverHits.filter((e) => !seen.has(e.id))]
+  }, [base, serverHits])
 
   function matchesSearch(e: EventSummary): boolean {
     const q = search.trim()
     if (!q) return true
-    if (serverHits) return true // server already filtered
+    if (serverIds.has(e.id)) return true // server matched its raw payload
     const lq = q.toLowerCase()
     return (
       e.event_id.toLowerCase().includes(lq) ||
       (e.source_id !== null && String(e.source_id).includes(q)) ||
+      (e.source ?? '').toLowerCase().includes(lq) ||
+      formatLabel(e.detected_format).includes(lq) ||
       matchesId(e, q)
     )
   }
@@ -631,15 +657,25 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     .filter((e: EventSummary) => matchesTab(e.status, tab))
     .filter(matchesSearch)
     .filter((e: EventSummary) => {
-      if (!scope || tab === 'normalized') return true
+      if (!scope || tab === 'normalized' || tab === 'index-detail') return true
       return e.source === scope.source && formatLabel(e.detected_format) === formatLabel(scope.detected_format)
     })
 
   function selectIndex(e: EventSummary) {
     setSelected(e.id)
-    // Clicking a Normalized index scopes the sibling tabs to its type.
+    // Clicking a Normalized index scopes the sibling tabs to its type and
+    // opens the gated Index Detail tab — the only place detail lives.
     setScope(e)
+    setTab('index-detail')
   }
+
+  /** Ingested-of-type count for the open index (heads the telemetry panel). */
+  const siblingCount = useMemo(() => {
+    if (!scope) return 0
+    return all.filter(
+      (e) => e.source === scope.source && formatLabel(e.detected_format) === formatLabel(scope.detected_format),
+    ).length
+  }, [all, scope])
 
   const onboardingRep = onboarding ? reps[`${onboarding.format}::${onboarding.source ?? ''}`] : undefined
 
@@ -648,41 +684,33 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
       <PageHeader
         title={sourceFilter ? `Logs · ${sourceFilter}` : 'Telemetry Data'}
         subtitle="The unified indexing interface — query, inspect, and trace live stream payloads."
-        actions={
-          <select
-            value=""
-            disabled={downloading}
-            onChange={(e) => {
-              if (e.target.value) download(e.target.value as 'json' | 'ndjson' | 'csv')
-              e.target.value = ''
-            }}
-            className="rounded border border-slate-700 bg-slate-900 px-4 py-2 text-[12px] font-bold uppercase tracking-wider text-slate-300 outline-none disabled:opacity-50"
-          >
-            <option value="">{downloading ? 'Bundling…' : 'Export Logs…'}</option>
-            <option value="json">JSON format</option>
-            <option value="ndjson">NDJSON format</option>
-            <option value="csv">CSV format</option>
-          </select>
-        }
       />
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/50 pb-4">
         <div className="flex items-center gap-1.5">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => {
-                setTab(t.key)
-                setIngesting(false)
-              }}
-              className={`rounded px-3 py-1.5 text-[13px] font-medium transition-all ${tab === t.key && !ingesting
-                  ? 'border border-slate-700 bg-slate-800 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.15)]'
-                  : 'border border-transparent text-slate-400 hover:bg-slate-900 hover:text-slate-200'
-                }`}
-            >
-              {t.label}
-            </button>
-          ))}
+          {TABS.map((t) => {
+            const gated = t.key === 'index-detail' && selected === null
+            return (
+              <button
+                key={t.key}
+                disabled={gated}
+                onClick={() => {
+                  if (gated) return
+                  setTab(t.key)
+                  setIngesting(false)
+                }}
+                title={gated ? 'Click an index in Normalized first' : undefined}
+                className={`rounded px-3 py-1.5 text-[13px] font-medium transition-all ${gated
+                    ? 'cursor-not-allowed border border-transparent text-slate-700'
+                    : tab === t.key && !ingesting
+                      ? 'border border-slate-700 bg-slate-800 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.15)]'
+                      : 'border border-transparent text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                  }`}
+              >
+                {t.label}
+              </button>
+            )
+          })}
           <div className="mx-2 h-5 w-px bg-slate-800"></div>
           <button
             onClick={() => setIngesting(true)}
@@ -780,7 +808,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
         </div>
       )}
 
-      {tab !== 'inspection' && !events.loading && !events.error && rows.length === 0 && (
+      {tab !== 'inspection' && tab !== 'index-detail' && !events.loading && !events.error && rows.length === 0 && (
         <div className="mt-8">
           <EmptyState
             title={all.length === 0 ? 'Telemetry Empty' : 'No Results'}
@@ -793,7 +821,37 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
         </div>
       )}
 
-      {tab !== 'inspection' && rows.length > 0 && (
+      {/* Index Detail: the only place indexed detail lives. Export lives here too. */}
+      {tab === 'index-detail' && (
+        <div>
+          {scope && (
+            <div className="mb-4 flex items-center gap-3 rounded-xl border border-cyan-900/50 bg-cyan-950/20 px-4 py-2 text-[12px] text-cyan-300">
+              <span>
+                Index <span className="font-mono font-bold">{padId(scope.id)}</span>
+                {' '}· {formatLabel(scope.detected_format)} · {scope.source ?? 'unsourced'}
+              </span>
+            </div>
+          )}
+          {selected && detail.data ? (
+            <>
+              <IndexExport source={source} />
+              <Detail
+                detail={detail.data}
+                siblingCount={siblingCount}
+                onChanged={() => {
+                  events.reload()
+                  detail.reload()
+                }}
+                onDeleted={() => setSelected(null)}
+              />
+            </>
+          ) : (
+            <div className="mt-8 flex justify-center"><Spinner /></div>
+          )}
+        </div>
+      )}
+
+      {(tab === 'normalized' || tab === 'failed') && rows.length > 0 && (
         <div className="data-scroll-region mt-2 rounded-2xl border border-white/[0.1] bg-slate-900/55 p-[1px] shadow-[0_18px_44px_-34px_rgba(0,0,0,0.95)]">
           <Table>
             <THead>
@@ -806,7 +864,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
             </THead>
             <TBody>
               {rows.map((e) => (
-                <TR key={e.id} onClick={() => selectIndex(e)}>
+                <TR key={e.id} onClick={tab === 'normalized' ? () => selectIndex(e) : undefined}>
                   <TD className={selected === e.id ? 'bg-cyan-950/20 font-bold text-cyan-400' : 'text-slate-300'}>
                     {padId(e.id)}
                   </TD>
@@ -822,18 +880,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
         </div>
       )}
 
-      {tab !== 'inspection' && selected && detail.data && (
-        <Detail
-          detail={detail.data}
-          onChanged={() => {
-            events.reload()
-            detail.reload()
-          }}
-          onDeleted={() => setSelected(null)}
-        />
-      )}
-
-      {tab !== 'inspection' && rows.length >= 200 && (
+      {(tab === 'normalized' || tab === 'failed') && rows.length >= 200 && (
         <div className="mt-8 border-t border-slate-800/50 pt-5 text-center">
           <button
             onClick={loadMore}
@@ -843,7 +890,6 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
           </button>
         </div>
       )}
-      {tab !== 'inspection' && selected && detail.loading && <div className="mt-8 flex justify-center"><Spinner /></div>}
 
       {onboarding && onboardingRep && (
         <OnboardModal

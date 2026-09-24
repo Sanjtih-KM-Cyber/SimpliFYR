@@ -149,8 +149,10 @@ def test_export_json_ndjson_csv(client):
         assert "attachment" in res.headers["content-disposition"], fmt
 
     json_body = client.get("/api/v1/export?format=json").json()
-    assert isinstance(json_body, list) and len(json_body) >= 1
-    record = next(e for e in json_body if e["source"] == MAPPING["source"])
+    assert isinstance(json_body["events"], list) and len(json_body["events"]) >= 1
+    assert json_body["meta"]["count"] == len(json_body["events"])
+    assert json_body["meta"]["normalized_count"] >= 1
+    record = next(e for e in json_body["events"] if e["source"] == MAPPING["source"])
     assert record["normalized"] is not None
     assert record["raw"].startswith("<134>")
 
@@ -174,15 +176,32 @@ def test_export_filters(client):
     client.post("/api/v1/ingest", data={"raw": RAW, "source": MAPPING["source"]})
     client.post("/api/v1/ingest", data={"raw": "unknown stuff", "source": "Other Box"})
 
-    by_source = client.get(f"/api/v1/export?source={MAPPING['source']}").json()
+    by_source = client.get(f"/api/v1/export?source={MAPPING['source']}").json()["events"]
     assert all(e["source"] == MAPPING["source"] for e in by_source)
 
-    by_status = client.get("/api/v1/export?status=quarantined").json()
+    by_status = client.get("/api/v1/export?status=quarantined").json()["events"]
     assert len(by_status) >= 1
     assert all(e["status"] == "quarantined" for e in by_status)
 
-    multi = client.get("/api/v1/export?status=normalized,quarantined").json()
+    multi = client.get("/api/v1/export?status=normalized,quarantined").json()["events"]
     assert all(e["status"] in ("normalized", "quarantined") for e in multi)
+
+
+def test_export_uncapped_and_counted(client):
+    """Exports are uncapped: every matching log ships, with counts attached."""
+    for n in range(3):
+        client.post(
+            "/api/v1/ingest",
+            data={"raw": f"<134>Sep 15 10:31:44 fw01 uncap={n} action=deny", "source": "Box-Uncapped"},
+        )
+    res = client.get("/api/v1/export?format=json&status=quarantined&source=Box-Uncapped")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["meta"]["count"] == 3
+    assert len(body["events"]) == 3
+    assert res.headers["X-Export-Total"] == "3"
+    # Counts ride in the filename too.
+    assert "3total" in res.headers["content-disposition"]
 
 
 def test_export_bad_format_and_status(client):
