@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { exportLogs, listMappings, processBatch } from '../api/client'
 import type { BatchResult } from '../api/types'
+import { latestMappings } from '../api/types'
 import { useAsync } from '../hooks/useAsync'
 import { ErrorBanner } from './Status'
 import { useToast } from './ui'
@@ -29,7 +30,7 @@ export function LoadTestPanel() {
   const [error, setError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
 
-  const chosen = (mappings.data ?? []).find((m) => m.id === mappingId) ?? null
+  const chosen = latestMappings(mappings.data ?? []).find((m) => m.id === mappingId) ?? null
 
   async function runLoadTest() {
     setBusy(true)
@@ -95,7 +96,7 @@ export function LoadTestPanel() {
           className="input-glass px-3 py-2.5 text-xs text-slate-200"
         >
           <option value="">Auto-resolve mapping…</option>
-          {(mappings.data ?? []).map((m) => (
+          {latestMappings(mappings.data ?? []).map((m) => (
             <option key={m.id} value={m.id}>
               {m.name} · {m.source ?? 'global'} · {m.status} (v{m.version})
             </option>

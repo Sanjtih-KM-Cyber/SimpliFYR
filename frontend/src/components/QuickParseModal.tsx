@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ingest, listMappings } from '../api/client'
 import type { IngestResponse } from '../api/types'
+import { latestMappings } from '../api/types'
 import { Code } from './Code'
 import { ErrorBanner } from './Status'
 import { Modal, useToast } from './ui'
@@ -90,7 +91,7 @@ export function QuickParseModal({ onClose }: { onClose: () => void }) {
           className="input-glass flex-1 px-3.5 py-2.5 text-sm text-slate-200"
         >
           <option value="">Choose mapping…</option>
-          {(mappings.data ?? []).map((m) => (
+          {latestMappings(mappings.data ?? []).map((m) => (
             <option key={m.id} value={m.id}>
               {m.source ? `${m.source} · ` : ''}{m.name} (v{m.version}, {m.status})
             </option>

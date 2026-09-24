@@ -89,6 +89,19 @@ export interface Mapping {
   fields: MappingField[]
 }
 
+/** One row per mapping name (latest version wins): versions are iterations
+ *  of the same mapping, so pickers show each name exactly once. */
+export function latestMappings(mappings: Mapping[]): Mapping[] {
+  const byName = new Map<string, Mapping>()
+  for (const m of mappings) {
+    const cur = byName.get(m.name)
+    if (!cur || m.version > cur.version || (m.version === cur.version && m.id > cur.id)) {
+      byName.set(m.name, m)
+    }
+  }
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name))
+}
+
 export interface OutputProfile {
   id: number
   name: string
