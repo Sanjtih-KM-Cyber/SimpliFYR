@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { getAnomalies, getHealth, getStats, listConnections } from '../api/client'
 import { LoadTestPanel } from '../components/LoadTestPanel'
-import { QuickParseModal } from '../components/QuickParseModal'
 import { Spinner } from '../components/Spinner'
 import { useToast } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
@@ -57,7 +56,6 @@ export default function Dashboard() {
   const connections = useAsync(() => listConnections(), [])
   const anomalies = useAsync(() => getAnomalies(), [])
   const { toast } = useToast()
-  const [quickParse, setQuickParse] = useState(false)
   const s = stats.data
 
   useLive({
@@ -102,21 +100,9 @@ export default function Dashboard() {
           </h2>
           <p className="text-[13px] text-slate-400">Global telemetry processing status and backend health metrics.</p>
         </div>
-        <button
-          onClick={() => setQuickParse(true)}
-          className="btn-glass group relative overflow-hidden bg-cyan-600 px-5 py-2 font-medium text-white shadow-[0_0_15px_rgba(6,182,212,0.2)] hover:bg-cyan-500 hover:shadow-[0_0_20px_rgba(6,182,212,0.4)]"
-        >
-          <span className="relative text-[13px] tracking-wide">+ Quick Parse</span>
-        </button>
       </header>
 
-      {quickParse && <QuickParseModal onClose={() => setQuickParse(false)} />}
-
       {stats.error && <div className="mb-6 rounded border border-rose-900/50 bg-rose-950/30 p-3 text-[13px] text-rose-400">{stats.error}</div>}
-
-      <div className="mb-8">
-        <LoadTestPanel />
-      </div>
 
       <section className="mb-8 grid grid-cols-2 gap-5 lg:grid-cols-4">
         <Stat label="Total Processed" value={s?.total_events.toLocaleString() ?? '—'} loading={stats.loading} />
@@ -124,6 +110,10 @@ export default function Dashboard() {
         <Stat label="Active Streams" value={connections.data?.length ?? '—'} loading={connections.loading} />
         <Stat label="Needs Review" value={s?.quarantine_pending.toLocaleString() ?? '—'} loading={stats.loading} />
       </section>
+
+      <div className="mb-8">
+        <LoadTestPanel />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-6">

@@ -148,6 +148,10 @@ export function createMapping(payload: MappingInput): Promise<Mapping> {
   })
 }
 
+export async function deleteMapping(id: number): Promise<void> {
+  await request(`${BASE}/mappings/${id}`, { method: 'DELETE' })
+}
+
 export function listOutputProfiles(): Promise<OutputProfile[]> {
   return request(`${BASE}/output-profiles`)
 }

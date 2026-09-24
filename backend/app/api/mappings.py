@@ -176,3 +176,36 @@ def update_mapping_status(
     db.commit()
     db.refresh(mapping)
     return _db_to_response(mapping)
+
+
+@router.delete("/{mapping_id}", status_code=204, dependencies=[Depends(require_write)])
+def delete_mapping(mapping_id: int, db: Session = Depends(get_db)):
+    """Delete a mapping version and its fields (Schema Map delete).
+
+    Dependent recipe bindings are removed (the source falls back to
+    auto-resolve) and drift rows pointing at the mapping are detached
+    (mapping_id NULL) so history survives without dangling FKs.
+    """
+    from app.models import DriftRecord, Recipe
+
+    mapping = db.get(MappingModel, mapping_id)
+    if mapping is None:
+        raise HTTPException(status_code=404, detail="Mapping not found")
+    before = {"name": mapping.name, "version": mapping.version, "source": mapping.source}
+    for recipe in db.execute(select(Recipe).where(Recipe.mapping_id == mapping_id)).scalars().all():
+        db.delete(recipe)
+    for drift in db.execute(
+        select(DriftRecord).where(DriftRecord.mapping_id == mapping_id)
+    ).scalars().all():
+        drift.mapping_id = None
+    db.delete(mapping)  # fields cascade via delete-orphan
+    db.commit()
+    log_action(
+        db,
+        action="delete",
+        entity_type="mapping",
+        entity_id=mapping_id,
+        before=before,
+    )
+    db.commit()
+    return None

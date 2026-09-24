@@ -68,7 +68,7 @@ export function LoadTestPanel() {
 
   return (
     <section className="glass-card rounded-2xl p-5">
-      <h3 className="mb-2 text-sm font-medium text-white">Load Test</h3>
+      <h3 className="mb-2 text-sm font-medium text-white">Trial Run</h3>
       <p className="mb-2 text-xs text-slate-500">
         Process a batch of events (one per line) and measure throughput. Matching
         lines auto-normalize through existing mappings; new shapes can be adopted
@@ -87,7 +87,7 @@ export function LoadTestPanel() {
           disabled={busy}
           className="btn-glass bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.9)] hover:bg-emerald-400"
         >
-          {busy ? 'Running…' : 'Run load test'}
+          {busy ? 'Running…' : 'Run trial'}
         </button>
         <select
           value={mappingId}

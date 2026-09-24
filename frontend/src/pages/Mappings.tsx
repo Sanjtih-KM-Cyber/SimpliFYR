@@ -1,11 +1,12 @@
-import { useState } from 'react'
-import { createMapping, listMappings } from '../api/client'
-import { SEMANTIC_FIELDS } from '../api/types'
+import { useMemo, useState } from 'react'
+import { createMapping, deleteMapping, listMappings } from '../api/client'
+import { normalizeMappingName } from '../api/types'
 import type { Mapping } from '../api/types'
 import { Code } from '../components/Code'
+import { SemanticFieldInput } from '../components/SemanticFieldInput'
 import { Spinner } from '../components/Spinner'
 import { ErrorBanner, StatusBadge } from '../components/Status'
-import { EmptyState, PageHeader } from '../components/ui'
+import { EmptyState, PageHeader, useToast } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
 
 interface Row {
@@ -59,6 +60,38 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
   const rows_ = (mappings.data ?? []).filter(
     (m: Mapping) => !sourceFilter || m.source === sourceFilter,
   )
+
+  /** One card per mapping lineage (name ignoring v-suffixes, latest first). */
+  const groups = useMemo(() => {
+    const byKey = new Map<string, Mapping[]>()
+    for (const m of rows_) {
+      const key = normalizeMappingName(m.name)
+      const g = byKey.get(key)
+      if (g) g.push(m)
+      else byKey.set(key, [m])
+    }
+    return [...byKey.values()].map((versions) => {
+      const sorted = [...versions].sort((a, b) => b.version - a.version || b.id - a.id)
+      return { latest: sorted[0], count: sorted.length, ids: sorted.map((m) => m.id) }
+    })
+  }, [rows_])
+
+  const { toast } = useToast()
+  const [deleting, setDeleting] = useState<string | null>(null)
+
+  async function deleteGroup(key: string, ids: number[], name: string) {
+    if (!window.confirm(`Delete mapping "${name}" and all ${ids.length} version(s)? Bound recipes unbind; drift history detaches.`)) return
+    setDeleting(key)
+    try {
+      for (const id of ids) await deleteMapping(id)
+      toast(`Deleted mapping "${name}"`, 'success')
+      mappings.reload()
+    } catch (e) {
+      toast((e as Error).message, 'error')
+    } finally {
+      setDeleting(null)
+    }
+  }
 
   return (
     <div>
@@ -116,18 +149,10 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
                     placeholder="Source field"
                     className="input-glass w-1/3 px-3.5 py-2.5 text-sm text-slate-200"
                   />
-                  <select
+                  <SemanticFieldInput
                     value={row.semantic_field}
-                    onChange={(e) => updateRow(i, { semantic_field: e.target.value })}
-                    className="input-glass w-1/3 px-3.5 py-2.5 text-sm text-slate-200"
-                  >
-                    <option value="">Semantic field…</option>
-                    {SEMANTIC_FIELDS.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(v) => updateRow(i, { semantic_field: v })}
+                  />
                   <button
                     onClick={() => setRows((prev) => prev.filter((_, idx) => idx !== i))}
                     className="control-icon h-auto rounded-xl px-3"
@@ -159,7 +184,7 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
         {mappings.loading && <Spinner />}
         {mappings.error && <p className="text-sm text-red-400">{mappings.error}</p>}
 
-        {!mappings.loading && !mappings.error && rows_.length === 0 && (
+        {!mappings.loading && !mappings.error && groups.length === 0 && (
           <EmptyState
             title={sourceFilter ? 'No mappings for this connection' : 'No mappings yet'}
             description="Create one to start normalizing."
@@ -167,22 +192,46 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
         )}
 
         <div className="grid gap-4 lg:grid-cols-2">
-          {rows_.map((m: Mapping) => (
-            <div key={m.id} className="glass-card rounded-2xl p-5">
-              <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-white">{m.name}</h3>
-                <StatusBadge status={m.status} />
+          {groups.map((g) => {
+            const m = g.latest
+            const key = normalizeMappingName(m.name)
+            return (
+              <div key={key} className="glass-card rounded-2xl p-5">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+                    {m.name}
+                    <span className="rounded border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-cyan-400">
+                      v{m.version}
+                    </span>
+                    {g.count > 1 && (
+                      <span className="rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 font-mono text-[10px] text-slate-400">
+                        {g.count} versions
+                      </span>
+                    )}
+                  </h3>
+                  <span className="flex items-center gap-2">
+                    <StatusBadge status={m.status} />
+                    <button
+                      onClick={() => deleteGroup(key, g.ids, m.name)}
+                      disabled={deleting === key}
+                      title={`Delete "${m.name}" and all its versions`}
+                      className="rounded border border-rose-900/50 bg-rose-950/20 px-2 py-0.5 text-[11px] font-semibold text-rose-400 transition-colors hover:bg-rose-900/50 disabled:opacity-50"
+                    >
+                      {deleting === key ? '…' : 'Delete'}
+                    </button>
+                  </span>
+                </div>
+                <p className="mb-3 text-xs text-slate-500">
+                  {m.source ?? 'No source'} · v{m.version} · {m.event_family}
+                </p>
+                <div className="max-h-48 overflow-auto">
+                  <Code
+                    value={m.fields.map((f) => `${f.input_field} → ${f.semantic_field}`).join('\n')}
+                  />
+                </div>
               </div>
-              <p className="mb-3 text-xs text-slate-500">
-                {m.source ?? 'No source'} · v{m.version} · {m.event_family}
-              </p>
-              <div className="max-h-48 overflow-auto">
-                <Code
-                  value={m.fields.map((f) => `${f.input_field} → ${f.semantic_field}`).join('\n')}
-                />
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </div>

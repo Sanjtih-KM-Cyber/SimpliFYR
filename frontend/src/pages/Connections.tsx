@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { getConfig, listConnections } from '../api/client'
 import type { ConnectionSummary } from '../api/types'
 import { Spinner } from '../components/Spinner'
+import { QuickParseModal } from '../components/QuickParseModal'
 import { EmptyState, Modal, PageHeader } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
 
@@ -121,6 +122,7 @@ export default function Connections() {
   const connections = useAsync(() => listConnections(), [])
   const rows = connections.data ?? []
   const [showLiveInfo, setShowLiveInfo] = useState(false)
+  const [quickParse, setQuickParse] = useState(false)
 
   return (
     <div className="h-full flex flex-col">
@@ -135,15 +137,17 @@ export default function Connections() {
             >
               Connect Server
             </button>
-            <Link
-              to="/connections/new"
+            <button
+              onClick={() => setQuickParse(true)}
               className="rounded bg-cyan-600 px-4 py-2 text-[13px] font-medium text-white shadow-[0_0_10px_rgba(6,182,212,0.3)] hover:bg-cyan-500 hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] transition-all"
             >
-              + Integrate Node
-            </Link>
+              + Quick Parse
+            </button>
           </>
         }
       />
+
+      {quickParse && <QuickParseModal onClose={() => setQuickParse(false)} />}
 
       {connections.loading && <div className="mt-12 flex justify-center"><Spinner /></div>}
       {connections.error && <p className="mt-4 text-[13px] font-medium text-rose-400">{connections.error}</p>}

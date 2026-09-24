@@ -89,14 +89,25 @@ export interface Mapping {
   fields: MappingField[]
 }
 
+/** Canonical mapping identity: versions are iterations, and editors often
+ *  save "Name v3" next to "Name" — both are the same mapping. */
+export function normalizeMappingName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\s*[-(]?\s*v\s*\d+\s*\)?\s*$/i, '')
+    .replace(/\s*\(\d+\)\s*$/, '')
+    .trim()
+}
+
 /** One row per mapping name (latest version wins): versions are iterations
  *  of the same mapping, so pickers show each name exactly once. */
 export function latestMappings(mappings: Mapping[]): Mapping[] {
   const byName = new Map<string, Mapping>()
   for (const m of mappings) {
-    const cur = byName.get(m.name)
+    const key = normalizeMappingName(m.name)
+    const cur = byName.get(key)
     if (!cur || m.version > cur.version || (m.version === cur.version && m.id > cur.id)) {
-      byName.set(m.name, m)
+      byName.set(key, m)
     }
   }
   return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name))
