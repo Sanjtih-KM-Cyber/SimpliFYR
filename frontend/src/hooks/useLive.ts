@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { getHealth } from '../api/client'
+import { getHealth, wsBase } from '../api/client'
 
 export interface LiveEvent {
   event_id: string
@@ -18,8 +18,7 @@ interface UseLiveOptions {
 }
 
 function wsUrl(source?: string): string {
-  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const url = `${proto}//${window.location.host}/api/v1/ws/live`
+  const url = `${wsBase()}/ws/live`
   return source ? `${url}?source=${encodeURIComponent(source)}` : url
 }
 

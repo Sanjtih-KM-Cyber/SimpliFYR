@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import logging
 
+from app.core.ai.cloud import GeminiProvider, GroqProvider
 from app.core.ai.heuristic import HeuristicAIProvider
+from app.core.ai.keypool import KeyPool
 from app.core.ai.ollama import OllamaAIProvider
 from app.core.config import settings
 
@@ -24,6 +26,19 @@ def get_ai_provider():
             return _provider
         except Exception as exc:  # noqa: BLE001
             logger.warning("Ollama provider unavailable (%s); using heuristic", exc)
+
+    if settings.ai_provider in ("groq", "gemini"):
+        try:
+            if settings.ai_provider == "groq":
+                pool = KeyPool(settings.groq_api_keys.split(","))
+                _provider = GroqProvider(pool, settings.groq_model)
+            else:
+                pool = KeyPool(settings.gemini_api_keys.split(","))
+                _provider = GeminiProvider(pool, settings.gemini_model)
+            logger.info("AI provider: %s (%d keys)", settings.ai_provider, len(pool))
+            return _provider
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("%s provider unavailable (%s); using heuristic", settings.ai_provider, exc)
 
     _provider = HeuristicAIProvider()
     logger.info("AI provider: heuristic")

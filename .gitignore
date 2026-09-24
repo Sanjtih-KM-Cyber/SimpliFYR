@@ -39,3 +39,4 @@ build/
 Thumbs.db
 .idea/
 .vscode/
+scripts/test_firehose.log

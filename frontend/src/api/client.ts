@@ -25,7 +25,23 @@ import type {
   Stats,
 } from './types'
 
-const BASE = '/api/v1'
+/** API root: relative in dev/docker (same-origin / Vite proxy / nginx),
+ *  absolute when the UI is hosted apart from the API (e.g. Vercel):
+ *  set VITE_API_URL=https://api.example.com/api/v1 at build time. */
+export const API_BASE = (import.meta.env.VITE_API_URL as string | undefined ?? '/api/v1').replace(/\/$/, '')
+
+const BASE = API_BASE
+
+/** WebSocket root mirroring API_BASE (http→ws, https→wss). */
+export function wsBase(): string {
+  if (API_BASE.startsWith('http')) {
+    const u = new URL(API_BASE)
+    const proto = u.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${proto}//${u.host}${u.pathname.replace(/\/$/, '')}`
+  }
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${proto}//${window.location.host}/api/v1`
+}
 
 // Auth token + environment, wired so the UI keeps working when the backend
 // runs with AUTH_ENABLED=true and multi-tenancy headers (§39-40, §60).

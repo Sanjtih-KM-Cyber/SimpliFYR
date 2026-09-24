@@ -27,9 +27,13 @@ class Settings(BaseSettings):
     kafka_ingress_topic: str = "external.logs"
     kafka_ingress_group: str = "simplifyr-ingress"
 
-    ai_provider: str = "heuristic"  # "heuristic" (offline/deterministic) or "ollama"
+    ai_provider: str = "heuristic"  # "heuristic" (offline/deterministic), "ollama" (local LLM), "groq"/"gemini" (cloud demo keys)
     ollama_url: str = "http://127.0.0.1:11434"
     ollama_model: str = "qwen2.5:0.5b"
+    groq_api_keys: str = ""  # comma-separated; rotated with per-key cooldown
+    groq_model: str = "llama-3.3-70b-versatile"
+    gemini_api_keys: str = ""  # comma-separated; rotated with per-key cooldown
+    gemini_model: str = "gemini-2.0-flash"
 
     # --- Learning / confidence-based automation ---
     # AI proposes; humans teach. When enabled, high-confidence drift proposals are
