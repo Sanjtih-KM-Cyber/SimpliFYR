@@ -36,7 +36,7 @@ export default function Settings() {
     <div>
       <TabBar
         tabs={[
-          { to: '/settings', label: 'General' },
+          { to: '/settings', label: 'General', end: true },
           { to: '/settings/audit', label: 'Audit' },
           { to: '/settings/destinations', label: 'Destinations' },
         ]}
