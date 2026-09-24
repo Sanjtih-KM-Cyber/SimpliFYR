@@ -201,6 +201,13 @@ export interface Config {
   delivery_sinks: string[]
 }
 
+export interface BatchItemResult {
+  index: number
+  status: string
+  detected_format: string
+  stored_event_id: number | null
+}
+
 export interface BatchResult {
   total: number
   processed: number
@@ -212,6 +219,7 @@ export interface BatchResult {
   duration_seconds: number
   events_per_second: number
   avg_latency_ms: number
+  results: BatchItemResult[]
 }
 
 export interface OnboardingSuggestion {

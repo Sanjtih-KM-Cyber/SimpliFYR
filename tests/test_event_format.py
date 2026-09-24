@@ -29,6 +29,29 @@ def test_search_by_index_number(client):
     assert any(h["id"] == stored for h in padded), padded
 
 
+def test_batch_results_carry_stored_ids(client):
+    res = client.post(
+        "/api/v1/process/batch",
+        data={"raw": "<134>Sep 15 10:31:44 fw01 tb1=1\n<134>Sep 15 10:31:45 fw01 tb1=2"},
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["total"] == 2
+    ids = [r["stored_event_id"] for r in body["results"]]
+    assert all(isinstance(i, int) for i in ids), body["results"]
+    assert len(set(ids)) == 2
+
+
+def test_export_ids_pins_exact_set(client):
+    one = client.post("/api/v1/ingest", data={"raw": "<134>Sep 15 10:31:44 fw01 ex1=1"}).json()
+    two = client.post("/api/v1/ingest", data={"raw": "<134>Sep 15 10:31:45 fw01 ex1=2"}).json()
+    res = client.get(f"/api/v1/export?format=json&ids={one['stored_event_id']}")
+    body = res.json()
+    assert body["meta"]["count"] == 1
+    assert [e["id"] for e in body["events"]] == [one["stored_event_id"]]
+    assert two["stored_event_id"] not in [e["id"] for e in body["events"]]
+
+
 def test_search_by_global_id(client):
     stored = _quarantined(client, 27, "Box-GlobalSearch")
     detail = client.get(f"/api/v1/events/{stored}").json()

@@ -351,6 +351,7 @@ export interface ExportParams {
   status?: string
   source?: string
   limit?: number
+  ids?: number[]
 }
 
 export interface ExportResult {
@@ -364,6 +365,7 @@ export async function exportLogs(params: ExportParams): Promise<ExportResult> {
   if (params.status) qs.set('status', params.status)
   if (params.source) qs.set('source', params.source)
   if (params.limit) qs.set('limit', String(params.limit))
+  if (params.ids?.length) qs.set('ids', params.ids.join(','))
   const res = await fetch(`${BASE}/export?${qs.toString()}`)
   if (!res.ok) {
     let detail = `Download failed: ${res.status}`

@@ -45,12 +45,15 @@ def _collect(
     statuses: list[EventStatus],
     source: str | None,
     limit: int | None,
+    ids: list[int] | None,
 ) -> list[Event]:
     stmt = select(Event).where(Event.environment == environment).order_by(Event.id.desc())
     if statuses:
         stmt = stmt.where(Event.status.in_(statuses))
     if source:
         stmt = stmt.where(Event.source == source)
+    if ids:
+        stmt = stmt.where(Event.id.in_(ids))
     if limit is not None:
         stmt = stmt.limit(limit)
     return list(db.execute(stmt).scalars().all())
@@ -76,6 +79,7 @@ def export_events(
     status: str | None = Query(default=None),
     source: str | None = Query(default=None),
     limit: int | None = Query(default=None, ge=1),
+    ids: str | None = Query(default=None, description="Comma-separated event row ids: export exactly this set"),
     environment: str = Depends(get_environment),
     db: Session = Depends(get_db),
 ):
@@ -83,7 +87,8 @@ def export_events(
 
     `limit` omitted = the whole matching set, uncapped: an export of
     normalized logs always contains every normalized log. Counts travel in
-    the filename, the JSON meta block, and X-Export-* headers.
+    the filename, the JSON meta block, and X-Export-* headers. `ids` pins the
+    export to an explicit set (e.g. one trial run's rows).
     """
     fmt = format.strip().lower()
     if fmt not in FORMATS:
@@ -92,8 +97,16 @@ def export_events(
             detail=f"Unsupported format: {format} (use one of {', '.join(FORMATS)})",
         )
     statuses = _parse_statuses(status)
+    wanted: list[int] | None = None
+    if ids:
+        try:
+            wanted = [int(p) for p in ids.split(",") if p.strip()]
+        except ValueError:
+            raise HTTPException(status_code=422, detail="ids must be comma-separated integers")
+        if len(wanted) > 10_000:
+            raise HTTPException(status_code=422, detail="ids set too large (max 10000)")
 
-    events = _collect(db, environment, statuses, source, limit)
+    events = _collect(db, environment, statuses, source, limit, wanted)
     records = [_event_record(e) for e in events]
     normalized_count = sum(1 for e in events if e.status in (EventStatus.NORMALIZED, EventStatus.OUTPUT))
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")

@@ -5,6 +5,7 @@ class BatchItemResult(BaseModel):
     index: int
     status: str
     detected_format: str
+    stored_event_id: int | None = None
 
 
 class BatchResponse(BaseModel):

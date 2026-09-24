@@ -70,6 +70,7 @@ async def process_batch(
                     index=index,
                     status=status,
                     detected_format=res["detection"].format.value,
+                    stored_event_id=res.get("stored_event_id"),
                 )
             )
         except Exception:

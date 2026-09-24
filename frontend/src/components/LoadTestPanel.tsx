@@ -47,10 +47,19 @@ export function LoadTestPanel() {
   }
 
   async function downloadSet() {
+    if (!result) return
+    // Exactly this trial's rows — never the global pile.
+    const ids = (result.results ?? [])
+      .filter((r) => (r.status === 'normalized' || r.status === 'output') && r.stored_event_id != null)
+      .map((r) => r.stored_event_id as number)
+    if (ids.length === 0) {
+      toast('This trial produced no normalized rows to download', 'info')
+      return
+    }
     setDownloading(true)
     try {
-      await exportLogs({ format: 'json', status: 'normalized,output' })
-      toast('Downloaded normalized set (JSON)', 'success')
+      const res = await exportLogs({ format: 'json', ids })
+      toast(`Downloaded this trial's ${res.total} logs (${res.normalized} normalized)`, 'success')
     } catch (e) {
       toast((e as Error).message, 'error')
     } finally {
@@ -146,7 +155,7 @@ export function LoadTestPanel() {
               disabled={downloading}
               className="rounded border border-slate-700 px-4 py-1.5 text-[12px] font-semibold text-slate-300 transition-colors hover:bg-slate-800 disabled:opacity-50"
             >
-              {downloading ? 'Bundling…' : 'Download normalized set'}
+              {downloading ? 'Bundling…' : 'Download this trial set'}
             </button>
           </div>
         </div>
