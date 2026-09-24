@@ -67,10 +67,13 @@ safetensors path. Keep `num_gpu` low (10): only ~2.8 GB VRAM is free.
 | heuristic | 0.9333 | 1.0 | 1.0 |
 | generic qwen2.5:1.5b | 0.0 | 0.75 | 0.0 |
 | simplifyr v1 (2.4k rows) | 0.9836 | 0.5 | 0.5 |
+| simplifyr v2 (2.4k rows, merged 2026-09-24) | 1.0 | 1.0 | 1.0 |
 
 v1 beat the baseline on mapping but lost drift/abstention — that failure
-analysis wrote the v2 data section above. Only a model green on all four
-may set `AI_AUTO_APPLY=true` (≥ 0.9).
+analysis wrote the v2 data section above. v2 (2026-09-24) is green on all
+four, so it may set `AI_AUTO_APPLY=true` (≥ 0.9) and serve as
+`AI_PROVIDER=ollama OLLAMA_MODEL=simplifyr:1.5b`. Only a model green on all
+four may hold those settings.
 
 ## Layout (binaries never committed)
 

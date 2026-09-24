@@ -107,15 +107,19 @@ class OllamaAIProvider:
 
 
 def _validate_response(data: dict) -> dict:
-    """Strict schema check: anything off-shape raises (caller falls back)."""
+    """Strict schema check: anything off-shape raises (caller falls back).
+
+    Entries without an input_field are model noise (e.g. "no source fields"
+    placeholders) — dropped, not fatal, matching what _to_proposal keeps.
+    """
     if not isinstance(data, dict):
         raise ValueError("Model response is not a JSON object")
     suggestions = data.get("suggestions", [])
     if not isinstance(suggestions, list):
         raise ValueError("Model response 'suggestions' is not a list")
-    for entry in suggestions:
-        if not isinstance(entry, dict) or not entry.get("input_field"):
-            raise ValueError("Model suggestion missing input_field")
+    kept = [e for e in suggestions if isinstance(e, dict) and e.get("input_field")]
+    data["suggestions"] = kept
+    for entry in kept:
         conf = entry.get("confidence", 0.0)
         if not isinstance(conf, (int, float)) or not 0.0 <= float(conf) <= 1.0:
             raise ValueError(f"Model confidence out of range: {conf!r}")

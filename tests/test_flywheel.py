@@ -133,8 +133,11 @@ def test_ollama_validation_rejects_bad_shapes():
 
     from app.core.ai.ollama import _validate_response
 
-    with pytest.raises(ValueError):
-        _validate_response({"suggestions": [{"semantic_field": "source.ip"}]})
+    # Entries without input_field are noise: dropped, not fatal.
+    dropped = _validate_response(
+        {"suggestions": [{"semantic_field": "source.ip"}, {"input_field": "", "confidence": 0}]}
+    )
+    assert dropped["suggestions"] == []
     with pytest.raises(ValueError):
         _validate_response({"suggestions": [{"input_field": "x", "confidence": 9.0}]})
     with pytest.raises(ValueError):

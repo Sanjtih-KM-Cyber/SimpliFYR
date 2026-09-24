@@ -49,6 +49,15 @@ def score_mapping(provider, record: dict) -> dict:
     """Score propose_mapping on one golden record (empty expectations = abstention)."""
     field_map, _fmt = _field_map_for(record)
     expected: dict = record.get("expected_semantic", {})
+    if not field_map:
+        # Nothing extractable: no model call is meaningful. Abstention iff
+        # nothing was expected; otherwise every expected field is a miss.
+        return {
+            "tp": 0,
+            "fp": 0,
+            "fn": len(expected),
+            "abstained": not expected,
+        }
     proposal = provider.propose_mapping(
         source=record.get("source"), field_map=field_map, sample=record["raw"]
     )
