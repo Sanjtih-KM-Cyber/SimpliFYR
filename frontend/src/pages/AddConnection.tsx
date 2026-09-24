@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { analyzeOnboarding, approveOnboarding, createOnboarding, ingest, listOutputProfiles, previewIngest } from '../api/client'
-import { SEMANTIC_FIELDS } from '../api/types'
 import type { Format, IngestResponse } from '../api/types'
 import { Code } from '../components/Code'
+import { SemanticFieldInput } from '../components/SemanticFieldInput'
 import { Spinner } from '../components/Spinner'
 import { ErrorBanner } from '../components/Status'
 import { PageHeader } from '../components/ui'
@@ -233,18 +233,10 @@ export default function AddConnection() {
                   <span className="w-full truncate rounded bg-slate-950 px-3 py-1.5 font-mono text-[11px] text-amber-500/80 border border-amber-900/20 lg:w-1/3">
                     {row.input_field}
                   </span>
-                  <select
+                  <SemanticFieldInput
                     value={row.semantic_field}
-                    onChange={(e) => updateRow(i, { semantic_field: e.target.value })}
-                    className="w-full flex-1 rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-[12px] font-mono text-cyan-400 outline-none transition-colors focus:border-cyan-500/50 lg:w-auto"
-                  >
-                    <option value="">Select Target Field…</option>
-                    {SEMANTIC_FIELDS.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(v) => updateRow(i, { semantic_field: v })}
+                  />
                   <div className="hidden lg:flex w-1/4 items-center">
                     <span className="text-[10px] text-slate-500">→ {row.semantic_field || '(UNASSIGNED)'}</span>
                   </div>

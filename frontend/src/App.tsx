@@ -5,6 +5,7 @@ import { KeyboardShortcutsPanel } from './components/KeyboardShortcutsPanel'
 import { ToastProvider } from './components/ui'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import AddConnection from './pages/AddConnection'
+import Analytics from './pages/Analytics'
 import Audit from './pages/Audit'
 import ConnectionLayout from './pages/ConnectionLayout'
 import ConnectionLive from './pages/ConnectionLive'
@@ -21,6 +22,7 @@ const NAV = [
   { to: '/', label: 'Home' },
   { to: '/connections', label: 'Connections' },
   { to: '/logs', label: 'Logs' },
+  { to: '/analytics', label: 'Analytics' },
   { to: '/settings', label: 'Settings' },
 ]
 
@@ -125,6 +127,7 @@ function Shell() {
               <Route path="live" element={<ConnectionLive />} />
             </Route>
             <Route path="/logs" element={<Logs />} />
+            <Route path="/analytics" element={<Analytics />} />
             <Route path="/needs-review" element={<NeedsReview />} />
             <Route path="/settings" element={<Settings />}>
               <Route index element={<SettingsGeneral />} />

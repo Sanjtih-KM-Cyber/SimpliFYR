@@ -12,6 +12,8 @@ interface UseLiveOptions {
   source?: string
   enabled?: boolean
   onEvent?: (msg: LiveEvent) => void
+  /** Give up after this many consecutive failures (polling fallbacks cover data). */
+  maxRetries?: number
 }
 
 function wsUrl(source?: string): string {
@@ -20,10 +22,17 @@ function wsUrl(source?: string): string {
   return source ? `${url}?source=${encodeURIComponent(source)}` : url
 }
 
-/** Live event stream over the backend WebSocket, with reconnect + heartbeat skip. */
-export function useLive({ source, enabled = true, onEvent }: UseLiveOptions) {
+/** Live event stream over the backend WebSocket, with reconnect + heartbeat skip.
+ *
+ * Retries are capped (default 8, ~2 min of backoff): when the backend is down
+ * or restarting, the hook stops hammering it instead of flooding the console
+ * with handshake errors. Pages already poll as a fallback, and remounting
+ * (navigation) starts a fresh retry budget.
+ */
+export function useLive({ source, enabled = true, onEvent, maxRetries = 8 }: UseLiveOptions) {
   const [connected, setConnected] = useState(false)
   const [lastEvent, setLastEvent] = useState<LiveEvent | null>(null)
+  const [dead, setDead] = useState(false)
   const handler = useRef(onEvent)
   useEffect(() => {
     handler.current = onEvent
@@ -38,14 +47,22 @@ export function useLive({ source, enabled = true, onEvent }: UseLiveOptions) {
 
     function connect() {
       if (closed) return
+      let url: string
       try {
-        socket = new WebSocket(wsUrl(source))
+        url = wsUrl(source)
+      } catch {
+        schedule()
+        return
+      }
+      try {
+        socket = new WebSocket(url)
       } catch {
         schedule()
         return
       }
       socket.onopen = () => {
         setConnected(true)
+        setDead(false)
         retries = 0
       }
       socket.onmessage = (ev) => {
@@ -65,13 +82,24 @@ export function useLive({ source, enabled = true, onEvent }: UseLiveOptions) {
         schedule()
       }
       socket.onerror = () => {
-        socket?.close()
+        // Handshake failures already surface as onclose; just ensure cleanup.
+        // (Deliberately no console noise here — DevTools logs the network
+        // error itself, and schedule() caps the retries.)
+        try {
+          socket?.close()
+        } catch {
+          /* already gone */
+        }
       }
     }
 
     function schedule() {
       if (closed) return
       retries += 1
+      if (retries > maxRetries) {
+        setDead(true)
+        return
+      }
       timer = setTimeout(connect, Math.min(1000 * 2 ** retries, 15000))
     }
 
@@ -79,9 +107,13 @@ export function useLive({ source, enabled = true, onEvent }: UseLiveOptions) {
     return () => {
       closed = true
       clearTimeout(timer)
-      socket?.close()
+      try {
+        socket?.close()
+      } catch {
+        /* already gone */
+      }
     }
-  }, [source, enabled])
+  }, [source, enabled, maxRetries])
 
-  return { connected, lastEvent }
+  return { connected, lastEvent, dead }
 }

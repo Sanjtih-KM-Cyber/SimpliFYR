@@ -6,8 +6,8 @@ import {
   suggestEventMapping,
 } from '../api/client'
 import type { EventDetail } from '../api/types'
-import { SEMANTIC_FIELDS } from '../api/types'
 import { ErrorBanner } from './Status'
+import { SemanticFieldInput } from './SemanticFieldInput'
 import { Modal, useToast } from './ui'
 import { useAsync } from '../hooks/useAsync'
 
@@ -125,20 +125,12 @@ export function OnboardModal({
               <span className="w-1/3 truncate rounded-xl border border-white/[0.1] bg-slate-950/80 px-3 py-2.5 font-mono text-xs text-slate-300">
                 {row.input_field}
               </span>
-              <select
+              <SemanticFieldInput
                 value={row.semantic_field}
-                onChange={(e) =>
-                  setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, semantic_field: e.target.value } : r)))
+                onChange={(v) =>
+                  setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, semantic_field: v } : r)))
                 }
-                className="input-glass flex-1 px-3.5 py-2.5 text-sm text-slate-200"
-              >
-                <option value="">Semantic field…</option>
-                {SEMANTIC_FIELDS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
           ))}
         </div>

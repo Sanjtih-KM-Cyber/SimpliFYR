@@ -13,8 +13,8 @@ import {
   retryEvent,
 } from '../api/client'
 import type { DriftDetail, EventSummary } from '../api/types'
-import { SEMANTIC_FIELDS } from '../api/types'
 import { Code } from '../components/Code'
+import { SemanticFieldInput } from '../components/SemanticFieldInput'
 import { Spinner } from '../components/Spinner'
 import { ErrorBanner } from '../components/Status'
 import { EmptyState, Modal, PageHeader, useToast } from '../components/ui'
@@ -105,18 +105,10 @@ function CorrectModal({
               {row.input_field}
             </span>
             <span className="text-[10px] text-slate-500">→</span>
-            <select
+            <SemanticFieldInput
               value={row.semantic_field}
-              onChange={(e) => updateRow(i, e.target.value)}
-              className="flex-1 rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-[12px] font-mono text-cyan-400 outline-none transition-colors focus:border-cyan-500/50"
-            >
-              <option value="">Select Semantic Field…</option>
-              {SEMANTIC_FIELDS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => updateRow(i, v)}
+            />
           </div>
         ))}
       </div>
