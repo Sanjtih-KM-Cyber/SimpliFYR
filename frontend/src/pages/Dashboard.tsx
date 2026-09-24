@@ -114,6 +114,10 @@ export default function Dashboard() {
 
       {stats.error && <div className="mb-6 rounded border border-rose-900/50 bg-rose-950/30 p-3 text-[13px] text-rose-400">{stats.error}</div>}
 
+      <div className="mb-8">
+        <LoadTestPanel />
+      </div>
+
       <section className="mb-8 grid grid-cols-2 gap-5 lg:grid-cols-4">
         <Stat label="Total Processed" value={s?.total_events.toLocaleString() ?? '—'} loading={stats.loading} />
         <Stat label="Throughput (EPS)" value={s?.events_per_second.toLocaleString() ?? '—'} loading={stats.loading} />
@@ -121,8 +125,8 @@ export default function Dashboard() {
         <Stat label="Needs Review" value={s?.quarantine_pending.toLocaleString() ?? '—'} loading={stats.loading} />
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-12">
-        <div className="space-y-6 lg:col-span-8">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-6">
 
           {attention.length > 0 && (
             <section className="rounded-2xl border border-amber-900/50 bg-amber-950/20 backdrop-blur-sm p-5 relative overflow-hidden">
@@ -192,7 +196,7 @@ export default function Dashboard() {
           </section>
         </div>
 
-        <div className="space-y-6 lg:col-span-4">
+        <div className="space-y-6">
           <section className="glass-panel rounded-2xl p-5">
             <h3 className="mb-4 text-[12px] font-semibold uppercase tracking-wider text-slate-300 border-b border-slate-800/50 pb-4">Infrastructure Health</h3>
             <div className="flex flex-col">
@@ -242,10 +246,6 @@ export default function Dashboard() {
             </Link>
           </section>
         </div>
-      </div>
-
-      <div className="mt-6">
-        <LoadTestPanel />
       </div>
     </div>
   )

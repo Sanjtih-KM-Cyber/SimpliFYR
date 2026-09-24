@@ -21,6 +21,7 @@ const NAV = [
   { to: '/', label: 'Home' },
   { to: '/connections', label: 'Connections' },
   { to: '/analytics', label: 'Analytics' },
+  { to: '/needs-review', label: 'Review Queue' },
   { to: '/settings', label: 'Settings' },
 ]
 
