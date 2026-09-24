@@ -358,7 +358,7 @@ function InspectionCard({
         <span className="rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[12px] font-bold uppercase tracking-wider text-amber-400">
           {group.format}
         </span>
-        <span className="text-[13px] font-medium text-slate-300">{group.source ?? 'unsourced'}</span>
+        <span className="text-[13px] font-medium text-slate-300">{group.source ?? 'Unassigned origin'}</span>
         <span className="rounded-full border border-slate-700 bg-slate-950 px-2.5 py-0.5 font-mono text-[11px] text-slate-400">
           × {group.ids.length} like this
         </span>
@@ -503,10 +503,10 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     return () => clearTimeout(timer)
   }, [search, source])
 
-  useLive({ source: source || undefined, onEvent: () => events.reload() })
+  useLive({ source: source || undefined, onEvent: () => { events.reload(); unsourced.reload() } })
 
   useEffect(() => {
-    const timer = setInterval(() => events.reload(), 30000)
+    const timer = setInterval(() => { events.reload(); unsourced.reload() }, 30000)
     return () => clearInterval(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -539,8 +539,21 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     )
   }
 
-  /** Quarantined rows, optionally restricted to the clicked index's type. */
-  const quarantined = all
+  /** Quarantined rows, optionally restricted to the clicked index's type.
+   *
+   *  Plus the unsourced strays (Trial runs, sourceless probes): no connection
+   *  owns them, so every connection's Inspection surfaces them as one
+   *  "Unassigned origin" group until onboarding adopts them into a source.
+   */
+  const unsourced = useAsync(
+    () =>
+      sourceFilter
+        ? listEvents({ status: 'quarantined', limit: 200 })
+        : Promise.resolve([] as EventSummary[]),
+    [sourceFilter],
+  )
+  const quarantined = [...all, ...(unsourced.data ?? []).filter((u) => u.source == null)]
+    .filter((e, i, arr) => arr.findIndex((x) => x.id === e.id) === i)
     .filter((e) => e.status === 'quarantined')
     .filter(matchesSearch)
     .filter((e) => !scope || (e.source === scope.source && formatLabel(e.detected_format) === formatLabel(scope.detected_format)))
@@ -614,6 +627,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
         'success',
       )
       events.reload()
+      unsourced.reload()
     } catch (e) {
       toast((e as Error).message, 'error')
     } finally {
@@ -632,6 +646,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
       toast(`Approved — ${res.retried.length} of ${group.ids.length} normalized`, 'success')
       mappings.reload()
       events.reload()
+      unsourced.reload()
     } catch (e) {
       toast((e as Error).message, 'error')
     } finally {
@@ -647,6 +662,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
       const res = await batchDeleteEvents(group.ids)
       toast(`Purged ${res.deleted.length} logs`, 'success')
       events.reload()
+      unsourced.reload()
     } catch (e) {
       toast((e as Error).message, 'error')
     } finally {
@@ -763,6 +779,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
         <IngestPanel
           onDone={(id) => {
             events.reload()
+            unsourced.reload()
             setSelected(id)
           }}
         />
@@ -775,13 +792,13 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
             <div className="flex items-center gap-3 rounded-xl border border-cyan-900/50 bg-cyan-950/20 px-4 py-2 text-[12px] text-cyan-300">
               <span>
                 Scoped to index <span className="font-mono font-bold">{padId(scope.id)}</span>
-                {' '}· {formatLabel(scope.detected_format)} · {scope.source ?? 'unsourced'}
+                {' '}· {formatLabel(scope.detected_format)} · {scope.source ?? 'Unassigned origin'}
               </span>
               <button
                 onClick={() => setScope(null)}
                 className="ml-auto rounded border border-cyan-900/50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider hover:bg-cyan-900/30"
               >
-                Clear scope
+                Clear scope (inspection)
               </button>
             </div>
           )}
@@ -829,7 +846,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
             <div className="mb-4 flex items-center gap-3 rounded-xl border border-cyan-900/50 bg-cyan-950/20 px-4 py-2 text-[12px] text-cyan-300">
               <span>
                 Index <span className="font-mono font-bold">{padId(scope.id)}</span>
-                {' '}· {formatLabel(scope.detected_format)} · {scope.source ?? 'unsourced'}
+                {' '}· {formatLabel(scope.detected_format)} · {scope.source ?? 'Unassigned origin'}
               </span>
             </div>
           )}
@@ -841,6 +858,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
                 siblingCount={siblingCount}
                 onChanged={() => {
                   events.reload()
+                  unsourced.reload()
                   detail.reload()
                 }}
                 onDeleted={() => setSelected(null)}

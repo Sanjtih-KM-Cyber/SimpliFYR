@@ -3,21 +3,17 @@ import {
   analyzeDrift,
   approveDrift,
   correctDrift,
-  deleteEvent,
   getDrift,
   ignoreDrift,
   listDrift,
-  listEvents,
-  onboardEvent,
   rejectDrift,
-  retryEvent,
 } from '../api/client'
-import type { DriftDetail, EventSummary } from '../api/types'
+import type { DriftDetail } from '../api/types'
 import { Code } from '../components/Code'
 import { SemanticFieldInput } from '../components/SemanticFieldInput'
 import { Spinner } from '../components/Spinner'
 import { ErrorBanner } from '../components/Status'
-import { EmptyState, Modal, PageHeader, useToast } from '../components/ui'
+import { EmptyState, Modal, PageHeader } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
 import { useLive } from '../hooks/useLive'
 
@@ -283,19 +279,9 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
     const list = await listDrift()
     return Promise.all(list.map((d) => getDrift(d.id)))
   }, [])
-  const quarantined = useAsync(
-    () =>
-      listEvents({
-        status: 'quarantined',
-        limit: 100,
-        ...(sourceFilter ? { source: sourceFilter } : {}),
-      }),
-    [sourceFilter],
-  )
 
   function reloadAll() {
     drifts.reload()
-    quarantined.reload()
   }
 
   // Stay fresh: drift approvals elsewhere (or reprocessing) change both
@@ -311,49 +297,24 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
   const rows = (drifts.data ?? []).filter(
     (d) => !sourceFilter || d.source === sourceFilter,
   )
-  const stuck = quarantined.data ?? []
-  const { toast } = useToast()
-
-  async function actOnEvent(id: number, action: 'onboard' | 'retry' | 'delete') {
-    try {
-      if (action === 'retry') {
-        const updated = await retryEvent(id)
-        toast(`Re-executing sequence — now ${updated.status}`, 'success')
-      } else if (action === 'delete') {
-        if (!window.confirm(`Delete event #${id}?`)) return
-        await deleteEvent(id)
-        toast(`Purged event #${id}`, 'success')
-      } else {
-        const res = await onboardEvent(id, {
-          connectionName: sourceFilter,
-          fields: [],
-        })
-        toast(`Mapping compiled (v${res.mapping_version}) — event ${res.event_status}`, 'success')
-      }
-      quarantined.reload()
-      drifts.reload()
-    } catch (e) {
-      toast((e as Error).message, 'error')
-    }
-  }
 
   return (
     <div className="h-full flex flex-col">
       {!sourceFilter && (
         <PageHeader
           title="Review Queue"
-          subtitle="AI intercepts unmapped telemetry. Provide structural context to refine the parser engine."
+          subtitle="Drift proposals against approved mappings — analyze, approve, correct, or ignore."
         />
       )}
 
       {drifts.loading && <div className="mt-10 flex justify-center"><Spinner /></div>}
       {drifts.error && <p className="text-[13px] font-medium text-rose-400">{drifts.error}</p>}
 
-      {!drifts.loading && !drifts.error && rows.length === 0 && stuck.length === 0 && (
+      {!drifts.loading && !drifts.error && rows.length === 0 && (
         <div className="mt-8">
           <EmptyState
             title={sourceFilter ? 'System Nominal' : 'No Anomalies Detected'}
-            description="Active parser maps match all incoming telemetry structures."
+            description="Active parser maps match all incoming telemetry structures. Quarantined payloads live under Logs → Telemetry Inspection."
           />
         </div>
       )}
@@ -363,56 +324,6 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
           <ReviewCard key={d.id} detail={d} onChanged={() => reloadAll()} />
         ))}
       </div>
-
-      {stuck.length > 0 && (
-        <section className={`${rows.length > 0 ? 'mt-10 border-t border-slate-800/50 pt-8' : 'mt-4'}`}>
-          <h3 className="mb-1 text-[13px] font-bold uppercase tracking-wider text-white">
-            Unmapped Telemetry (Quarantine){sourceFilter ? ` // ${sourceFilter}` : ''}
-          </h3>
-          <p className="mb-4 text-[12px] text-slate-400 max-w-2xl leading-relaxed">
-            These payloads did not match any active AST schemas. They require an initial baseline mapping to proceed.
-          </p>
-          <div className="data-scroll-region space-y-2">
-            {stuck.map((e: EventSummary) => (
-              <div
-                key={e.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded border border-slate-700/50 bg-slate-900/50 p-3 transition-colors hover:bg-slate-800/60 glass-panel animate-slide-up"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-1.5 w-1.5 rounded-full bg-amber-500 shadow-[0_0_5px_rgba(245,158,11,0.5)]"></div>
-                  <span className="font-mono text-[12px] text-slate-300">
-                    <span className="text-slate-500">ID:</span> {(e.id).toString().padStart(5, '0')}
-                    <span className="mx-2 text-slate-700">|</span>
-                    <span className="text-cyan-600/70">{e.event_id.slice(0, 8)}…</span>
-                    <span className="mx-2 text-slate-700">|</span>
-                    <span className="text-amber-500/80">{e.source ?? 'UNKNOWN ORIGIN'}</span>
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => actOnEvent(e.id, 'onboard')}
-                    className="rounded bg-cyan-600 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-[0_0_10px_rgba(6,182,212,0.2)] transition-colors hover:bg-cyan-500"
-                  >
-                    Establish Mapping
-                  </button>
-                  <button
-                    onClick={() => actOnEvent(e.id, 'retry')}
-                    className="rounded border border-slate-700 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
-                  >
-                    Re-Execute
-                  </button>
-                  <button
-                    onClick={() => actOnEvent(e.id, 'delete')}
-                    className="rounded border border-rose-900/40 text-rose-400 px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-rose-900/50"
-                  >
-                    Purge
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   )
 }
