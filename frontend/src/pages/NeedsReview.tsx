@@ -380,7 +380,7 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
           <p className="mb-4 text-[12px] text-slate-400 max-w-2xl leading-relaxed">
             These payloads did not match any active AST schemas. They require an initial baseline mapping to proceed.
           </p>
-          <div className="space-y-2">
+          <div className="data-scroll-region space-y-2">
             {stuck.map((e: EventSummary) => (
               <div
                 key={e.id}

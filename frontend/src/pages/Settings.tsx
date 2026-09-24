@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Outlet } from 'react-router-dom'
 import {
   getAuthToken,
   getConfig,
@@ -17,7 +18,7 @@ import { useAsync } from '../hooks/useAsync'
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between border-b border-slate-800 py-2 text-sm last:border-0">
+    <div className="flex items-center justify-between border-b border-white/[0.07] py-2.5 text-sm last:border-0">
       <span className="text-slate-400">{label}</span>
       <span className="font-mono text-slate-200">{value}</span>
     </div>
@@ -31,6 +32,25 @@ const SAMPLE = `<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 action=deny
 <134>Sep 15 10:31:48 fw01 srcip=10.1.1.5 action=deny`
 
 export default function Settings() {
+  return (
+    <div>
+      <TabBar
+        tabs={[
+          { to: '/settings', label: 'General' },
+          { to: '/settings/audit', label: 'Audit' },
+          { to: '/settings/destinations', label: 'Destinations' },
+        ]}
+      />
+      <p className="mb-6 -mt-3 text-sm text-slate-400">
+        System, security, and pipeline configuration. Power-user controls live here.
+      </p>
+
+      <Outlet />
+    </div>
+  )
+}
+
+export function SettingsGeneral() {
   const health = useAsync(() => getHealth(), [])
   const stats = useAsync(() => getStats(), [])
   const config = useAsync(() => getConfig(), [])
@@ -66,19 +86,7 @@ export default function Settings() {
 
   return (
     <div>
-      <TabBar
-        tabs={[
-          { to: '/settings', label: 'General' },
-          { to: '/settings/audit', label: 'Audit' },
-          { to: '/settings/destinations', label: 'Destinations' },
-        ]}
-      />
-      <p className="mb-6 -mt-3 text-sm text-slate-400">
-        System, security, and pipeline configuration. Power-user controls live here.
-      </p>
-
-      <div className="grid max-w-4xl gap-4 lg:grid-cols-2">
-        <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+        <section className="glass-card rounded-2xl p-5">
           <h3 className="mb-2 text-sm font-medium text-white">Runtime</h3>
           {health.loading ? (
             <Spinner />
@@ -92,7 +100,7 @@ export default function Settings() {
           )}
         </section>
 
-        <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+        <section className="glass-card rounded-2xl p-5">
           <h3 className="mb-2 text-sm font-medium text-white">Pipeline</h3>
           {stats.loading ? (
             <Spinner />
@@ -106,7 +114,7 @@ export default function Settings() {
           )}
         </section>
 
-        <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+        <section className="glass-card rounded-2xl p-5">
           <h3 className="mb-2 text-sm font-medium text-white">Security & Scaling</h3>
           {config.loading ? (
             <Spinner />
@@ -140,7 +148,7 @@ export default function Settings() {
           )}
         </section>
 
-        <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+        <section className="glass-card rounded-2xl p-5">
           <h3 className="mb-2 text-sm font-medium text-white">Authentication & Environment</h3>
           <p className="mb-2 text-xs text-slate-500">
             Bearer token (sent as Authorization header) and tenant environment (X-Environment
@@ -151,23 +159,23 @@ export default function Settings() {
             onChange={(e) => setToken(e.target.value)}
             type="password"
             placeholder="Bearer token (empty = anonymous)"
-            className="mb-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-xs text-slate-200"
+            className="input-glass mb-2 w-full px-3.5 py-2.5 font-mono text-xs text-slate-200"
           />
           <input
             value={environment}
             onChange={(e) => setEnvironmentInput(e.target.value)}
             placeholder="Environment (empty = default)"
-            className="mb-3 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+            className="input-glass mb-3 w-full px-3.5 py-2.5 text-sm text-slate-200"
           />
           <button
             onClick={saveCredentials}
-            className="rounded-md bg-indigo-700 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-600"
+            className="btn-glass bg-violet-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(139,92,246,0.9)] hover:bg-violet-400"
           >
             {savedCreds ? 'Saved ✓' : 'Save'}
           </button>
         </section>
 
-        <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+        <section className="glass-card rounded-2xl p-5">
           <h3 className="mb-2 text-sm font-medium text-white">Load Test</h3>
           <p className="mb-2 text-xs text-slate-500">
             Process a batch of events (one per line) and measure throughput.
@@ -176,18 +184,18 @@ export default function Settings() {
             value={batch}
             onChange={(e) => setBatch(e.target.value)}
             rows={5}
-            className="w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-xs text-slate-200"
+            className="input-glass w-full px-3.5 py-2.5 font-mono text-xs text-slate-200"
           />
           {error && <ErrorBanner message={error} />}
           <button
             onClick={runLoadTest}
             disabled={busy}
-            className="mt-3 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+            className="btn-glass mt-3 bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.9)] hover:bg-emerald-400"
           >
             {busy ? 'Running…' : 'Run load test'}
           </button>
           {result && (
-            <div className="mt-3 rounded-md border border-slate-800 bg-slate-950 p-3 text-xs text-slate-300">
+            <div className="surface-inset mt-3 rounded-xl p-3.5 text-xs text-slate-300">
               <p>
                 Processed <span className="font-semibold text-white">{result.processed}</span> events
                 ({result.normalized} normalized · {result.output} output · {result.quarantined}{' '}
@@ -202,6 +210,5 @@ export default function Settings() {
           )}
         </section>
       </div>
-    </div>
   )
 }

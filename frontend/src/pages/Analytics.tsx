@@ -87,8 +87,8 @@ export default function Analytics() {
 
   return (
     <div>
-      <header className="mb-6">
-        <h2 className="text-2xl font-semibold text-white">Analytics</h2>
+      <header className="mb-7 border-b border-white/[0.08] pb-5">
+        <h2 className="text-2xl font-semibold tracking-[-0.02em] text-white">Analytics</h2>
         <p className="text-sm text-slate-400">
           Threat hunting, aggregation, anomaly detection, and correlation.
         </p>
@@ -98,25 +98,25 @@ export default function Analytics() {
 
       <div className="grid gap-4 xl:grid-cols-2">
         {/* Search */}
-        <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+        <section className="glass-card rounded-2xl p-5">
           <h3 className="mb-3 text-sm font-medium text-white">Hunt / Search</h3>
           <div className="mb-3 flex flex-wrap gap-2">
             <input
               value={sourceIp}
               onChange={(e) => setSourceIp(e.target.value)}
               placeholder="Source IP (e.g. 10.0.0.1)"
-              className="w-48 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+              className="input-glass w-48 px-3.5 py-2.5 text-sm text-slate-200"
             />
             <input
               value={action}
               onChange={(e) => setAction(e.target.value)}
               placeholder="Action (deny/allow)"
-              className="w-40 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+              className="input-glass w-40 px-3.5 py-2.5 text-sm text-slate-200"
             />
             <button
               onClick={runSearch}
               disabled={searching}
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+              className="btn-glass bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.8)] hover:bg-emerald-400"
             >
               {searching ? '…' : 'Search'}
             </button>
@@ -125,7 +125,7 @@ export default function Analytics() {
             <div className="space-y-2">
               {results.length === 0 && <Empty message="No matching events." />}
               {results.map((h) => (
-                <div key={h.id} className="rounded-md border border-slate-800 bg-slate-950 p-2 text-xs">
+                <div key={h.id} className="surface-inset rounded-xl p-3 text-xs">
                   <div className="mb-1 text-slate-400">
                     #{h.id} · {formatTime(h.received_at)} · {h.source ?? 'unknown'}
                   </div>
@@ -138,13 +138,13 @@ export default function Analytics() {
         </section>
 
         {/* Aggregate */}
-        <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+        <section className="glass-card rounded-2xl p-5">
           <h3 className="mb-3 text-sm font-medium text-white">Aggregate</h3>
           <div className="mb-3 flex gap-2">
             <select
               value={groupBy}
               onChange={(e) => setGroupBy(e.target.value)}
-              className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+              className="input-glass px-3.5 py-2.5 text-sm text-slate-200"
             >
               {GROUP_OPTIONS.map((g) => (
                 <option key={g} value={g}>
@@ -155,7 +155,7 @@ export default function Analytics() {
             <button
               onClick={runAggregate}
               disabled={aggregating}
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+              className="btn-glass bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.8)] hover:bg-emerald-400"
             >
               {aggregating ? '…' : 'Aggregate'}
             </button>
@@ -173,13 +173,13 @@ export default function Analytics() {
         </section>
 
         {/* Anomalies */}
-        <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+        <section className="glass-card rounded-2xl p-5">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-medium text-white">Anomalies</h3>
             <button
               onClick={runAnomalies}
               disabled={loadingAnomalies}
-              className="rounded-md bg-amber-600 px-3 py-1.5 text-xs text-white hover:bg-amber-500 disabled:opacity-50"
+              className="btn-glass bg-amber-400 px-3.5 py-2 text-xs font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(251,191,36,0.7)] hover:bg-amber-300"
             >
               {loadingAnomalies ? '…' : 'Detect'}
             </button>
@@ -217,13 +217,13 @@ export default function Analytics() {
         </section>
 
         {/* Correlations */}
-        <section className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+        <section className="glass-card rounded-2xl p-5">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-medium text-white">Correlations</h3>
             <button
               onClick={runCorrelations}
               disabled={loadingCorrelations}
-              className="rounded-md bg-amber-600 px-3 py-1.5 text-xs text-white hover:bg-amber-500 disabled:opacity-50"
+              className="btn-glass bg-amber-400 px-3.5 py-2 text-xs font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(251,191,36,0.7)] hover:bg-amber-300"
             >
               {loadingCorrelations ? '…' : 'Run'}
             </button>
@@ -231,7 +231,7 @@ export default function Analytics() {
           <select
             value={corrRule}
             onChange={(e) => setCorrRule(e.target.value)}
-            className="mb-3 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+            className="input-glass mb-3 px-3.5 py-2.5 text-sm text-slate-200"
           >
             <option value="port_scan">Port Scan</option>
             <option value="beaconing">Beaconing</option>

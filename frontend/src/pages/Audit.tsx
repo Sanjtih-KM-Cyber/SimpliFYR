@@ -43,9 +43,9 @@ export default function Audit() {
         <EmptyState title="No audit records yet" description="Configuration-changing actions will appear here." />
       )}
 
-      <div className="overflow-hidden rounded-lg border border-slate-800">
+      <div className="overflow-hidden rounded-2xl border border-white/[0.1] bg-slate-900/55 shadow-[0_18px_44px_-34px_rgba(0,0,0,0.95)]">
         <table className="w-full text-sm">
-          <thead className="bg-slate-900 text-left text-xs uppercase text-slate-400">
+          <thead className="border-b border-white/[0.1] bg-white/[0.045] text-left text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
             <tr>
               <th className="px-3 py-2">When</th>
               <th className="px-3 py-2">Action</th>
@@ -54,14 +54,14 @@ export default function Audit() {
               <th className="px-3 py-2">Details</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800 bg-slate-950">
+          <tbody className="divide-y divide-white/[0.06] bg-slate-950/40">
             {(audit.data ?? []).map((a) => (
               <tr key={a.id}>
                 <td className="px-3 py-2 whitespace-nowrap text-slate-400">
                   {formatTime(a.created_at)}
                 </td>
                 <td className="px-3 py-2">
-                  <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-200">
+                  <span className="status-chip text-xs">
                     {a.action}
                   </span>
                 </td>

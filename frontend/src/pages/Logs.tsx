@@ -85,7 +85,7 @@ function IngestPanel({ onDone }: { onDone: (id: number) => void }) {
   }
 
   return (
-    <div className="mb-6 animate-slide-up rounded-lg border border-slate-700/50 bg-slate-900/40 p-4 shadow-xl backdrop-blur-sm">
+    <div className="mb-6 animate-slide-up rounded-2xl border border-white/[0.1] bg-slate-900/60 p-5 shadow-[0_18px_44px_-34px_rgba(0,0,0,0.95)]">
       <h3 className="mb-2 text-[13px] font-bold uppercase tracking-wide text-white">Instant Ingestion Portal</h3>
       <p className="mb-4 max-w-3xl text-[12px] text-slate-400">
         Submit raw telemetry. The system autonomously attempts structural normalization using the global context. Unrecognized signatures will be flagged for review.
@@ -518,7 +518,7 @@ export default function Logs() {
       )}
 
       {rows.length > 0 && (
-        <div className="glass-panel mt-2 rounded-lg p-[1px]">
+        <div className="data-scroll-region mt-2 rounded-2xl border border-white/[0.1] bg-slate-900/55 p-[1px] shadow-[0_18px_44px_-34px_rgba(0,0,0,0.95)]">
           <Table>
             <THead>
               <TR>

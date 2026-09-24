@@ -4,7 +4,7 @@ export function Code({ value }: { value: unknown }) {
       ? value
       : JSON.stringify(value, null, 2) ?? String(value)
   return (
-    <pre className="overflow-x-auto rounded-md bg-slate-950 p-3 text-xs text-slate-300">
+    <pre className="overflow-x-auto rounded-2xl border border-white/[0.1] bg-slate-950/85 p-4 font-mono text-xs leading-relaxed text-slate-300 shadow-inner shadow-black/20">
       <code>{text}</code>
     </pre>
   )

@@ -72,7 +72,7 @@ export default function ConnectionLive() {
 
   return (
     <div className="flex h-full flex-col">
-      <Link to={`/connections/${sourceName}`} className="mb-4 inline-block text-[11px] font-bold uppercase tracking-widest text-slate-500 hover:text-cyan-400">
+      <Link to={`/connections/${sourceName}`} className="mb-5 inline-flex rounded-lg px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 transition-colors hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/50">
         ← Exit Stream
       </Link>
 
@@ -94,7 +94,7 @@ export default function ConnectionLive() {
             actions={
               <button
                 onClick={() => setPaused((v) => !v)}
-                className={`rounded border px-5 py-2 text-[11px] font-bold uppercase tracking-wider transition-colors ${paused ? 'border-amber-900 bg-amber-950/30 text-amber-500 hover:bg-amber-900/50' : 'border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800'}`}
+                className={`btn-glass rounded-xl border px-5 py-2.5 text-[11px] font-bold uppercase tracking-wider ${paused ? 'border-amber-400/25 bg-amber-400/10 text-amber-300 hover:bg-amber-400/15' : 'border-white/[0.12] bg-white/[0.06] text-slate-200 hover:bg-white/10'}`}
               >
                 {paused ? '▶ Resume Feed' : '‖ Pause Feed'}
               </button>
@@ -108,11 +108,11 @@ export default function ConnectionLive() {
                 description={connected ? `Ingestion port open for ${c.name}. Awaiting payload.` : 'Attempting to open WebSocket interface.'}
               />
             ) : (
-              <div className="h-full max-h-[70vh] space-y-1.5 overflow-y-auto rounded-lg border border-slate-700/50 glass-card p-3 shadow-inner custom-scrollbar">
+              <div className="data-scroll-region h-full max-h-[70vh] space-y-1.5 overflow-y-auto rounded-2xl border border-white/[0.1] bg-slate-900/50 p-3 shadow-inner shadow-black/20 custom-scrollbar">
                 {events.map((e, i) => (
                   <div
                     key={`${e.event_id}-${i}`}
-                    className="flex flex-wrap items-center justify-between rounded border border-slate-800/80 bg-slate-900/40 px-4 py-2.5 transition-colors hover:border-cyan-900/50 hover:bg-cyan-950/20 glass-panel animate-slide-up"
+                    className="flex flex-wrap items-center justify-between rounded-xl border border-white/[0.08] bg-slate-950/45 px-4 py-3 transition-colors hover:border-cyan-400/20 hover:bg-cyan-400/[0.055] animate-slide-up"
                     style={{ animationDuration: '0.2s', opacity: paused ? 0.6 : 1 }}
                   >
                     <span className="font-mono text-[12px] text-cyan-600/80">{e.event_id}</span>

@@ -93,7 +93,7 @@ export function OnboardModal({
 
   return (
     <Modal open title={`Onboard event #${event.id}`} onClose={onClose}>
-      <p className="mb-3 text-xs text-slate-400">
+      <p className="mb-4 text-xs leading-relaxed text-slate-400">
         Name its connection — an existing one creates a new mapping version, a new
         name onboards a new vendor/source. The event is reprocessed immediately.
       </p>
@@ -103,7 +103,7 @@ export function OnboardModal({
         onChange={(e) => setConnection(e.target.value)}
         placeholder="Connection name (existing or new vendor)"
         list="onboard-connections"
-        className="mb-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+        className="input-glass mb-2 w-full px-3.5 py-2.5 text-sm text-slate-200"
       />
       <datalist id="onboard-connections">
         {(connections.data ?? []).map((c) => (
@@ -114,7 +114,7 @@ export function OnboardModal({
         value={mappingName}
         onChange={(e) => setMappingName(e.target.value)}
         placeholder={`Mapping name (defaults to "${connection.trim() || 'Connection'} Mapping")`}
-        className="mb-3 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+        className="input-glass mb-4 w-full px-3.5 py-2.5 text-sm text-slate-200"
       />
       {loading ? (
         <p className="text-sm text-slate-500">Suggesting mapping…</p>
@@ -122,7 +122,7 @@ export function OnboardModal({
         <div className="mb-3 space-y-2">
           {rows.map((row, i) => (
             <div key={`${row.input_field}-${i}`} className="flex gap-2">
-              <span className="w-1/3 truncate rounded-md bg-slate-950 px-3 py-2 font-mono text-xs text-slate-300">
+              <span className="w-1/3 truncate rounded-xl border border-white/[0.1] bg-slate-950/80 px-3 py-2.5 font-mono text-xs text-slate-300">
                 {row.input_field}
               </span>
               <select
@@ -130,7 +130,7 @@ export function OnboardModal({
                 onChange={(e) =>
                   setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, semantic_field: e.target.value } : r)))
                 }
-                className="flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+                className="input-glass flex-1 px-3.5 py-2.5 text-sm text-slate-200"
               >
                 <option value="">Semantic field…</option>
                 {SEMANTIC_FIELDS.map((s) => (
@@ -146,7 +146,7 @@ export function OnboardModal({
       <select
         value={profileId}
         onChange={(e) => setProfileId(e.target.value ? Number(e.target.value) : '')}
-        className="mb-4 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+        className="input-glass mb-5 w-full px-3.5 py-2.5 text-sm text-slate-200"
       >
         <option value="">No output profile (normalized only)…</option>
         {(profiles.data ?? []).map((p) => (
@@ -159,14 +159,14 @@ export function OnboardModal({
         <button
           onClick={onClose}
           disabled={busy}
-          className="rounded-md border border-slate-700 px-4 py-1.5 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+          className="btn-secondary px-4 py-2"
         >
           Cancel
         </button>
         <button
           onClick={submit}
           disabled={busy || loading}
-          className="rounded-md bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+          className="btn-glass bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.9)] hover:bg-emerald-400"
         >
           {busy ? 'Publishing…' : 'Publish mapping'}
         </button>

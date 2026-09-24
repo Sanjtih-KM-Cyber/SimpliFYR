@@ -31,7 +31,7 @@ export default function ConnectionLayout() {
 
   return (
     <div className="flex h-full flex-col">
-      <Link to="/connections" className="mb-4 inline-block text-[11px] font-bold uppercase tracking-widest text-slate-500 hover:text-cyan-400">
+      <Link to="/connections" className="mb-5 inline-flex items-center rounded-lg px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 transition-colors hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/50">
         ← Return Admin Console
       </Link>
 
@@ -40,10 +40,10 @@ export default function ConnectionLayout() {
 
       {c && (
         <>
-          <header className="mb-6 border-b border-slate-800/80 pb-5">
-            <h2 className="flex flex-wrap items-center gap-4 text-[20px] font-bold tracking-wide text-white">
+          <header className="mb-7 border-b border-white/[0.08] pb-5">
+            <h2 className="flex flex-wrap items-center gap-4 text-[20px] font-bold tracking-[-0.02em] text-white">
               {c.name}
-              <div className="h-4 w-px bg-slate-700"></div>
+              <div className="h-5 w-px bg-white/[0.12]"></div>
               <StatusBadge
                 status={
                   c.health === 'healthy'
@@ -53,7 +53,7 @@ export default function ConnectionLayout() {
                       : 'draft'
                 }
               />
-              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
                 {HEALTH_LABELS[c.health] ?? c.health}
               </span>
             </h2>

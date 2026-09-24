@@ -19,17 +19,17 @@ function LearningCurve({
 }) {
   return (
     <section className="mb-6 grid grid-cols-3 gap-4">
-      <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+      <div className="glass-card rounded-2xl p-5">
         <p className="text-xs uppercase tracking-wide text-slate-400">Approved Learnings</p>
         <p className="mt-2 text-2xl font-semibold text-white">{learnings}</p>
       </div>
-      <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+      <div className="glass-card rounded-2xl p-5">
         <p className="text-xs uppercase tracking-wide text-slate-400">Last Learning</p>
         <p className="mt-2 text-sm font-semibold text-white">
           {lastLearningAt ? new Date(lastLearningAt).toLocaleString() : '—'}
         </p>
       </div>
-      <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+      <div className="glass-card rounded-2xl p-5">
         <p className="text-xs uppercase tracking-wide text-slate-400">Automatically Handled</p>
         <p className="mt-2 text-2xl font-semibold text-white">{(autoRate * 100).toFixed(1)}%</p>
       </div>
@@ -67,7 +67,7 @@ export default function Knowledge({ sourceFilter }: { sourceFilter?: string }) {
     <div>
       {!sourceFilter && (
         <header className="mb-6">
-          <h2 className="text-2xl font-semibold text-white">Knowledge</h2>
+          <h2 className="text-2xl font-semibold tracking-[-0.02em] text-white">Knowledge</h2>
           <p className="text-sm text-slate-400">
             Versioned vendor knowledge. Software updates create new versions; old ones remain.
           </p>
@@ -96,11 +96,11 @@ export default function Knowledge({ sourceFilter }: { sourceFilter?: string }) {
 
       <div className="space-y-4">
         {[...bySource.entries()].map(([source, versions]) => (
-          <div key={source} className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+          <div key={source} className="glass-card rounded-2xl p-5">
             <h3 className="mb-2 text-sm font-semibold text-white">{source}</h3>
             <div className="space-y-2">
               {versions.map((m) => (
-                <div key={m.id} className="rounded-md border border-slate-800 bg-slate-950 p-3">
+                <div key={m.id} className="surface-inset rounded-xl p-3.5">
                   <div className="mb-1 flex items-center justify-between">
                     <span className="text-sm text-slate-200">
                       v{m.version} <span className="text-slate-500">· {m.name}</span>

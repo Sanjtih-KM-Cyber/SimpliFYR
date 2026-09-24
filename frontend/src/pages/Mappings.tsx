@@ -73,7 +73,7 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
         <div className="mb-4 flex justify-end">
           <button
             onClick={() => setShowForm((v) => !v)}
-            className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500"
+            className="btn-glass bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.8)] hover:bg-emerald-400"
           >
             {showForm ? 'Cancel' : '+ New Mapping'}
           </button>
@@ -82,27 +82,27 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
         {error && <ErrorBanner message={error} />}
 
         {showForm && (
-          <section className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
+          <section className="glass-card mb-6 rounded-2xl p-5">
             <h3 className="mb-3 text-sm font-medium text-white">New Mapping</h3>
             <div className="mb-3 grid gap-3 sm:grid-cols-2">
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Name (e.g. VendorX Firewall v1 Traffic)"
-                className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+                className="input-glass px-3.5 py-2.5 text-sm text-slate-200"
               />
               {sourceFilter ? (
                 <input
                   value={sourceFilter}
                   disabled
-                  className="rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-500"
+                  className="input-glass px-3.5 py-2.5 text-sm text-slate-500"
                 />
               ) : (
                 <input
                   value={source}
                   onChange={(e) => setSource(e.target.value)}
                   placeholder="Source (e.g. VendorX Firewall v1)"
-                  className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+                  className="input-glass px-3.5 py-2.5 text-sm text-slate-200"
                 />
               )}
             </div>
@@ -114,12 +114,12 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
                     value={row.input_field}
                     onChange={(e) => updateRow(i, { input_field: e.target.value })}
                     placeholder="Source field"
-                    className="w-1/3 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+                    className="input-glass w-1/3 px-3.5 py-2.5 text-sm text-slate-200"
                   />
                   <select
                     value={row.semantic_field}
                     onChange={(e) => updateRow(i, { semantic_field: e.target.value })}
-                    className="w-1/3 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+                    className="input-glass w-1/3 px-3.5 py-2.5 text-sm text-slate-200"
                   >
                     <option value="">Semantic field…</option>
                     {SEMANTIC_FIELDS.map((s) => (
@@ -130,7 +130,7 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
                   </select>
                   <button
                     onClick={() => setRows((prev) => prev.filter((_, idx) => idx !== i))}
-                    className="rounded-md border border-slate-700 px-3 text-slate-400 hover:text-white"
+                    className="control-icon h-auto rounded-xl px-3"
                   >
                     ✕
                   </button>
@@ -141,14 +141,14 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
             <div className="flex gap-2">
               <button
                 onClick={() => setRows((prev) => [...prev, { input_field: '', semantic_field: '' }])}
-                className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800"
+                className="btn-secondary px-3.5 py-2"
               >
                 + Add field
               </button>
               <button
                 onClick={submit}
                 disabled={submitting}
-                className="rounded-md bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+                className="btn-glass bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.8)] hover:bg-emerald-400"
               >
                 {submitting ? 'Saving…' : 'Save Mapping'}
               </button>
@@ -168,7 +168,7 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
 
         <div className="grid gap-4 lg:grid-cols-2">
           {rows_.map((m: Mapping) => (
-            <div key={m.id} className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+            <div key={m.id} className="glass-card rounded-2xl p-5">
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-white">{m.name}</h3>
                 <StatusBadge status={m.status} />

@@ -9,7 +9,7 @@ import { useLive } from '../hooks/useLive'
 
 function Stat({ label, value, loading }: { label: string; value: string | number; loading?: boolean }) {
   return (
-    <div className="glass-card rounded-lg p-5 flex flex-col justify-between">
+    <div className="glass-card rounded-2xl p-5 flex flex-col justify-between">
       <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{label}</p>
       <div className="mt-4">
         {loading ? (
@@ -24,7 +24,7 @@ function Stat({ label, value, loading }: { label: string; value: string | number
 
 function HealthIndicator({ label, ok, version }: { label: string; ok: boolean; version?: string }) {
   return (
-    <div className="flex items-center justify-between border-b border-slate-800/50 py-3 last:border-0 hover:bg-slate-800/20 px-3 -mx-3 rounded transition-colors">
+    <div className="flex items-center justify-between border-b border-white/10 py-3 last:border-0 hover:bg-white/5 px-3 -mx-3 rounded-2xl transition-colors duration-300 ease-in-out">
       <div className="flex items-center gap-3 text-[13px]">
         <span className="relative flex h-2.5 w-2.5">
           {ok && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60"></span>}
@@ -44,7 +44,7 @@ function TacticalBadge({ text, intent }: { text: string; intent: 'success' | 'wa
     neutral: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
   }
   return (
-    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${styles[intent]}`}>
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border ${styles[intent]}`}>
       {text}
     </span>
   )
@@ -103,7 +103,7 @@ export default function Dashboard() {
         </div>
         <button
           onClick={() => setQuickParse(true)}
-          className="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-cyan-600 px-5 py-2 font-medium text-white shadow-[0_0_15px_rgba(6,182,212,0.2)] transition-all hover:bg-cyan-500 hover:shadow-[0_0_20px_rgba(6,182,212,0.4)]"
+          className="btn-glass group relative overflow-hidden bg-cyan-600 px-5 py-2 font-medium text-white shadow-[0_0_15px_rgba(6,182,212,0.2)] hover:bg-cyan-500 hover:shadow-[0_0_20px_rgba(6,182,212,0.4)]"
         >
           <span className="relative text-[13px] tracking-wide">+ Quick Parse</span>
         </button>
@@ -124,14 +124,14 @@ export default function Dashboard() {
         <div className="space-y-6 lg:col-span-8">
 
           {attention.length > 0 && (
-            <section className="rounded-lg border border-amber-900/50 bg-amber-950/20 backdrop-blur-sm p-5 relative overflow-hidden">
+            <section className="rounded-2xl border border-amber-900/50 bg-amber-950/20 backdrop-blur-sm p-5 relative overflow-hidden">
               <div className="absolute top-0 left-0 w-1 h-full bg-amber-500/50"></div>
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-amber-500 uppercase tracking-wider flex items-center gap-2">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                   Action Required
                 </h3>
-                <Link to="/needs-review" className="text-[12px] font-medium text-amber-400 hover:text-amber-300 transition-colors">Review Queue &rarr;</Link>
+                <Link to="/needs-review" className="group inline-flex items-center gap-1 text-[12px] font-medium text-amber-400 transition-all duration-300 ease-in-out hover:text-amber-300">Review Queue <span className="inline-block transition-transform duration-300 ease-in-out motion-safe:group-hover:translate-x-0.5">&rarr;</span></Link>
               </div>
               <div className="divide-y divide-amber-900/30">
                 {attention.map((c) => (
@@ -148,10 +148,10 @@ export default function Dashboard() {
             </section>
           )}
 
-          <section className="glass-panel rounded-lg p-5">
+          <section className="glass-panel rounded-2xl p-5">
             <div className="mb-4 flex items-center justify-between border-b border-slate-800/50 pb-4">
               <h3 className="text-[12px] font-semibold uppercase tracking-wider text-slate-300">High Volume Connections</h3>
-              <Link to="/connections" className="text-[12px] font-medium text-cyan-400 hover:text-cyan-300 transition-colors">View All &rarr;</Link>
+              <Link to="/connections" className="group inline-flex items-center gap-1 text-[12px] font-medium text-cyan-400 transition-all duration-300 ease-in-out hover:text-cyan-300">View All <span className="inline-block transition-transform duration-300 ease-in-out motion-safe:group-hover:translate-x-0.5">&rarr;</span></Link>
             </div>
 
             <div className="overflow-x-auto">
@@ -166,7 +166,7 @@ export default function Dashboard() {
                 </thead>
                 <tbody className="divide-y divide-slate-800/50">
                   {topConnections.map((c) => (
-                    <tr key={c.id} className="group hover:bg-slate-800/20 transition-colors">
+                    <tr key={c.id} className="group hover:bg-white/5 transition-colors duration-300 ease-in-out">
                       <td className="py-3">
                         <Link to={`/connections/${encodeURIComponent(c.name)}`} className="text-slate-200 font-sans text-[13px] font-medium group-hover:text-cyan-400 transition-colors">
                           {c.name}
@@ -192,7 +192,7 @@ export default function Dashboard() {
         </div>
 
         <div className="space-y-6 lg:col-span-4">
-          <section className="glass-panel rounded-lg p-5">
+          <section className="glass-panel rounded-2xl p-5">
             <h3 className="mb-4 text-[12px] font-semibold uppercase tracking-wider text-slate-300 border-b border-slate-800/50 pb-4">Infrastructure Health</h3>
             <div className="flex flex-col">
               {health.loading ? (
@@ -206,20 +206,20 @@ export default function Dashboard() {
             </div>
           </section>
 
-          <section className="glass-panel rounded-lg p-5">
+          <section className="glass-panel rounded-2xl p-5">
             <h3 className="mb-4 text-[12px] font-semibold uppercase tracking-wider text-slate-300 border-b border-slate-800/50 pb-4">Analytics Engine Profile</h3>
             <div className="grid grid-cols-2 gap-4">
-              <div className="rounded bg-slate-900/50 px-3 py-2 border border-slate-800/50">
+              <div className="rounded-xl bg-slate-900/50 px-3 py-2 border border-white/10">
                 <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Mapping Rules</p>
                 <p className="mt-1 font-mono text-xl text-slate-200">{stats.loading ? '—' : s?.mappings}</p>
               </div>
-              <div className="rounded bg-slate-900/50 px-3 py-2 border border-slate-800/50">
+              <div className="rounded-xl bg-slate-900/50 px-3 py-2 border border-white/10">
                 <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Output Sinks</p>
                 <p className="mt-1 font-mono text-xl text-slate-200">{stats.loading ? '—' : s?.output_profiles}</p>
               </div>
             </div>
 
-            <div className="mt-4 rounded bg-slate-900/50 p-3 border border-slate-800/50">
+            <div className="mt-4 rounded-xl bg-slate-900/50 p-3 border border-white/10">
               <p className="mb-2 text-[10px] uppercase font-bold tracking-wider text-slate-500">Security Anomalies</p>
               {anomalies.loading ? (
                 <div className="h-4 w-24 animate-pulse rounded bg-slate-800"></div>
@@ -236,8 +236,8 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-            <Link to="/settings" className="mt-4 block text-center text-[12px] font-medium text-cyan-400 hover:text-cyan-300 transition-colors">
-              Manage Framework Specs &rarr;
+            <Link to="/settings" className="group mx-auto flex w-max items-center gap-1 text-[12px] font-medium text-cyan-400 transition-all duration-300 ease-in-out hover:text-cyan-300">
+              Manage Framework Specs <span className="inline-block transition-transform duration-300 ease-in-out motion-safe:group-hover:translate-x-0.5">&rarr;</span>
             </Link>
           </section>
         </div>

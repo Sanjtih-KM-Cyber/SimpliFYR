@@ -8,9 +8,9 @@ interface ToastItem {
 }
 
 const TYPE_STYLES: Record<ToastType, string> = {
-  success: 'border-emerald-500/50 bg-emerald-950/80 text-emerald-100 tactical-glow shadow-emerald-500/10',
-  error: 'border-rose-500/50 bg-rose-950/80 text-rose-100 shadow-rose-500/10',
-  info: 'border-cyan-500/50 bg-slate-900/90 text-slate-100 shadow-[0_0_15px_rgba(6,182,212,0.1)]',
+  success: 'border-emerald-400/40 bg-emerald-950/85 text-emerald-50 shadow-[0_16px_36px_-20px_rgba(16,185,129,0.8)]',
+  error: 'border-rose-400/40 bg-rose-950/85 text-rose-50 shadow-[0_16px_36px_-20px_rgba(244,63,94,0.75)]',
+  info: 'border-cyan-400/40 bg-slate-900/90 text-slate-50 shadow-[0_16px_36px_-20px_rgba(6,182,212,0.7)]',
 }
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -28,11 +28,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed bottom-4 right-4 z-[100] flex w-80 flex-col gap-2">
+      <div className="fixed bottom-5 right-5 z-[100] flex w-80 flex-col gap-2.5">
         {items.map((t) => (
           <div
             key={t.id}
-            className={`rounded-md border px-4 py-3 text-[13px] font-medium backdrop-blur-md animate-slide-up ${TYPE_STYLES[t.type]}`}
+            className={`glass-flyout animate-slide-up rounded-2xl border px-4 py-3 text-[13px] font-medium leading-relaxed ${TYPE_STYLES[t.type]}`}
           >
             {t.message}
           </div>

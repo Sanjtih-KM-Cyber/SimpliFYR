@@ -71,7 +71,7 @@ export function QuickParseModal({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal open title="Quick parse" onClose={onClose}>
-      <p className="mb-3 text-xs text-slate-400">
+      <p className="mb-4 text-xs leading-relaxed text-slate-400">
         Paste or drop logs, choose a mapping, parse immediately. The event is
         stored and routed straight to the selected mapping.
       </p>
@@ -81,13 +81,13 @@ export function QuickParseModal({ onClose }: { onClose: () => void }) {
         onChange={(e) => setRaw(e.target.value)}
         rows={5}
         placeholder="<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 dstip=8.8.8.8 proto=tcp action=deny"
-        className="mb-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-xs text-slate-200"
+        className="input-glass mb-3 w-full px-3.5 py-2.5 font-mono text-xs leading-relaxed text-slate-200"
       />
-      <div className="mb-3 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         <select
           value={mappingId}
           onChange={(e) => setMappingId(e.target.value ? Number(e.target.value) : '')}
-          className="flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+          className="input-glass flex-1 px-3.5 py-2.5 text-sm text-slate-200"
         >
           <option value="">Choose mapping…</option>
           {(mappings.data ?? []).map((m) => (
@@ -96,23 +96,23 @@ export function QuickParseModal({ onClose }: { onClose: () => void }) {
             </option>
           ))}
         </select>
-        <label className="cursor-pointer rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800">
+        <label className="btn-secondary cursor-pointer px-3.5 py-2.5 text-sm">
           Drop a file…
           <input type="file" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
         </label>
       </div>
-      <div className="mb-3 flex gap-2">
+      <div className="mb-4 flex gap-2">
         <button
           onClick={parse}
           disabled={busy || !raw.trim() || !mappingId}
-          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+          className="btn-glass bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.9)] hover:bg-emerald-400"
         >
           {busy ? 'Parsing…' : 'Parse now'}
         </button>
         {result && (result.output || result.normalized) && (
           <button
             onClick={download}
-            className="rounded-md border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+            className="btn-secondary px-4 py-2.5"
           >
             Download output
           </button>
@@ -120,7 +120,7 @@ export function QuickParseModal({ onClose }: { onClose: () => void }) {
       </div>
       {result && (
         <div>
-          <div className="mb-2 flex items-center gap-2 text-sm">
+          <div className="mb-3 flex items-center gap-2 text-sm">
             <StatusBadge status={result.status} />
             <span className="text-slate-400">
               event #{result.stored_event_id}
@@ -129,8 +129,8 @@ export function QuickParseModal({ onClose }: { onClose: () => void }) {
           </div>
           <Code value={result.output ?? result.normalized} />
           {result.provenance && (
-            <details className="mt-2">
-              <summary className="cursor-pointer text-xs text-slate-400">Provenance</summary>
+            <details className="mt-3 rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 py-2.5">
+              <summary className="cursor-pointer text-xs font-semibold text-slate-400 transition-colors hover:text-slate-200">Provenance</summary>
               <div className="mt-2">
                 <Code value={result.provenance} />
               </div>
