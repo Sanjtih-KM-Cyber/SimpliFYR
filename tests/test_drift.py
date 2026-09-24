@@ -115,3 +115,33 @@ def test_drift_not_found(client):
     assert client.get("/api/v1/drift/99999").status_code == 404
     assert client.post("/api/v1/drift/99999/analyze").status_code == 404
     assert client.post("/api/v1/drift/99999/approve").status_code == 404
+
+
+def test_same_shape_drift_merges_into_one_record(client):
+    """100 anomalies, 2 new parameters -> items per field-shape, not per event."""
+    source = _setup_source(client, "Box-Merge")
+    first = _ingest(client, source, DRIFTED_RAW)
+    second = _ingest(
+        client,
+        source,
+        DRIFTED_RAW.replace("10:31:45", "10:31:46").replace("10.1.1.5", "10.1.1.9"),
+    )
+    assert first["status"] == "quarantined"
+    assert second["status"] == "quarantined"
+    assert first["stored_event_id"] != second["stored_event_id"]
+
+    mine = [d for d in client.get("/api/v1/drift").json() if d["source"] == source]
+    assert len(mine) == 1, mine
+    detail = client.get(f"/api/v1/drift/{mine[0]['id']}").json()
+    assert detail["new_fields"] == ["decision"]
+    assert len(detail["event_ids"]) == 2
+
+
+def test_different_shape_drift_stays_separate(client):
+    source = _setup_source(client, "Box-Split")
+    _ingest(client, source, DRIFTED_RAW)
+    _ingest(client, source, DRIFTED_RAW.replace("proto=tcp", "proto=tcp extrafield=1"))
+    mine = [d for d in client.get("/api/v1/drift").json() if d["source"] == source]
+    assert len(mine) == 2, mine
+    shapes = sorted(tuple(d["new_fields"]) for d in mine)
+    assert shapes == [("decision",), ("decision", "extrafield")], shapes

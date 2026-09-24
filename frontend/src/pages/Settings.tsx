@@ -1,14 +1,5 @@
-import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
-import {
-  getAuthToken,
-  getConfig,
-  getEnvironment,
-  getHealth,
-  getStats,
-  setAuthToken,
-  setEnvironment,
-} from '../api/client'
+import { getConfig, getHealth, getStats } from '../api/client'
 import { Spinner } from '../components/Spinner'
 import { TabBar } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
@@ -45,17 +36,6 @@ export function SettingsGeneral() {
   const health = useAsync(() => getHealth(), [])
   const stats = useAsync(() => getStats(), [])
   const config = useAsync(() => getConfig(), [])
-
-  const [token, setToken] = useState(getAuthToken() ?? '')
-  const [environment, setEnvironmentInput] = useState(getEnvironment() ?? '')
-  const [savedCreds, setSavedCreds] = useState(false)
-
-  function saveCredentials() {
-    setAuthToken(token || null)
-    setEnvironment(environment || null)
-    setSavedCreds(true)
-    setTimeout(() => setSavedCreds(false), 2000)
-  }
 
   const c = config.data
 
@@ -121,33 +101,6 @@ export function SettingsGeneral() {
               />
             </>
           )}
-        </section>
-
-        <section className="glass-card rounded-2xl p-5">
-          <h3 className="mb-2 text-sm font-medium text-white">Authentication & Environment</h3>
-          <p className="mb-2 text-xs text-slate-500">
-            Bearer token (sent as Authorization header) and tenant environment (X-Environment
-            header). Required when the backend runs with AUTH_ENABLED=true.
-          </p>
-          <input
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            type="password"
-            placeholder="Bearer token (empty = anonymous)"
-            className="input-glass mb-2 w-full px-3.5 py-2.5 font-mono text-xs text-slate-200"
-          />
-          <input
-            value={environment}
-            onChange={(e) => setEnvironmentInput(e.target.value)}
-            placeholder="Environment (empty = default)"
-            className="input-glass mb-3 w-full px-3.5 py-2.5 text-sm text-slate-200"
-          />
-          <button
-            onClick={saveCredentials}
-            className="btn-glass bg-violet-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(139,92,246,0.9)] hover:bg-violet-400"
-          >
-            {savedCreds ? 'Saved ✓' : 'Save'}
-          </button>
         </section>
       </div>
   )

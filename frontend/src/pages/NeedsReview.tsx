@@ -165,6 +165,11 @@ function ReviewCard({
           <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-slate-400">#{detail.id}</span>
           <span className="mx-1 text-slate-600">|</span>
           <span className="font-mono text-[11px] text-cyan-500">{detail.source ?? 'UNTITLED'}</span>
+          {(detail.event_ids?.length ?? 0) > 1 && (
+            <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-400">
+              × {detail.event_ids.length} events
+            </span>
+          )}
         </h3>
         <StatusPill status={detail.status} />
       </div>

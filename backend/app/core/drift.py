@@ -34,6 +34,10 @@ def detect_drift(field_map: dict, mapping: MappingModel) -> tuple[set[str], set[
     return new_fields, expected - observed
 
 
+_OPEN_DRIFT = ("detected", "analyzed", "review")
+_MAX_DRIFT_EVENT_IDS = 500
+
+
 def create_drift(
     db: Session,
     *,
@@ -44,6 +48,35 @@ def create_drift(
     sample: str,
     event_id: str,
 ) -> DriftRecord:
+    """Record drift, merging into an open record with the same field shape.
+
+    A hundred anomalous events carrying the same 2 new parameters become ONE
+    item (not a hundred): same source + mapping + new-field set merges,
+    accumulating event ids. A different field shape is a different anomaly
+    and stays its own item.
+    """
+    new_set = set(new_fields)
+    open_records = (
+        db.execute(
+            select(DriftRecord).where(
+                DriftRecord.source == source,
+                DriftRecord.mapping_id == mapping_id,
+                DriftRecord.status.in_(_OPEN_DRIFT),
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for candidate in open_records:
+        if set(candidate.new_fields or []) == new_set:
+            ids = list(candidate.event_ids or [])
+            if event_id not in ids:
+                ids.append(event_id)
+            candidate.event_ids = ids[-_MAX_DRIFT_EVENT_IDS:]
+            candidate.sample = sample[:4000]
+            db.commit()
+            db.refresh(candidate)
+            return candidate
     drift = DriftRecord(
         source=source,
         mapping_id=mapping_id,
