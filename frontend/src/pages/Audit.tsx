@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { listAudit } from '../api/client'
 import { Code } from '../components/Code'
 import { Spinner } from '../components/Spinner'
-import { EmptyState, TabBar } from '../components/ui'
+import { EmptyState } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
 
 function formatTime(iso: string) {
@@ -18,13 +18,6 @@ export default function Audit() {
 
   return (
     <div>
-      <TabBar
-        tabs={[
-          { to: '/settings', label: 'General' },
-          { to: '/settings/audit', label: 'Audit' },
-          { to: '/settings/destinations', label: 'Destinations' },
-        ]}
-      />
       <p className="mb-4 -mt-3 text-sm text-slate-400">
         Every configuration-changing action, traceable.{' '}
         <Link to="/connections" className="text-slate-500 hover:text-slate-300">

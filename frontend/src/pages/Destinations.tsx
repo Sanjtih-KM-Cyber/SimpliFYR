@@ -3,7 +3,7 @@ import { createDestination, deleteDestination, listDestinations, patchDestinatio
 import type { Destination } from '../api/types'
 import { Spinner } from '../components/Spinner'
 import { ErrorBanner } from '../components/Status'
-import { EmptyState, TBody, TD, TH, THead, TR, Table, TabBar } from '../components/ui'
+import { EmptyState, TBody, TD, TH, THead, TR, Table } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
 
 const TYPES = ['console', 'http', 's3', 'kafka'] as const
@@ -66,13 +66,6 @@ export default function Destinations() {
 
   return (
     <div>
-      <TabBar
-        tabs={[
-          { to: '/settings', label: 'General' },
-          { to: '/settings/audit', label: 'Audit' },
-          { to: '/settings/destinations', label: 'Destinations' },
-        ]}
-      />
       <p className="mb-4 -mt-3 text-sm text-slate-400">
         Configure a destination once and Simplifyr continuously delivers normalized output to it.
       </p>
