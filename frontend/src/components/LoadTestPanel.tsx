@@ -67,6 +67,18 @@ export function LoadTestPanel() {
     }
   }
 
+  async function downloadAll() {
+    setDownloading(true)
+    try {
+      const res = await exportLogs({ format: 'json', status: 'normalized,output' })
+      toast(`Downloaded all ${res.total} logs (${res.normalized} normalized)`, 'success')
+    } catch (e) {
+      toast((e as Error).message, 'error')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   function adoptAsMapping() {
     try {
       sessionStorage.setItem(LOADTEST_SAMPLE_KEY, batch)
@@ -156,6 +168,14 @@ export function LoadTestPanel() {
               className="rounded border border-slate-700 px-4 py-1.5 text-[12px] font-semibold text-slate-300 transition-colors hover:bg-slate-800 disabled:opacity-50"
             >
               {downloading ? 'Bundling…' : 'Download this trial set'}
+            </button>
+            <button
+              onClick={downloadAll}
+              disabled={downloading}
+              title="Every normalized log in the system, uncapped"
+              className="rounded border border-slate-700 px-4 py-1.5 text-[12px] font-semibold text-slate-300 transition-colors hover:bg-slate-800 disabled:opacity-50"
+            >
+              Download all logs
             </button>
           </div>
         </div>

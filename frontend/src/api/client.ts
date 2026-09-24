@@ -533,3 +533,23 @@ export function getAnomalies(threshold = 3): Promise<Anomalies> {
 export function getCorrelations(rule: string, threshold = 5): Promise<Record<string, unknown>[]> {
   return request(`${BASE}/analytics/correlations?rule=${rule}&threshold=${threshold}`)
 }
+
+export interface DedupPattern {
+  format: string
+  fields: string[]
+  count: number
+  sample: string
+}
+
+export interface DedupResponse {
+  total: number
+  patterns: DedupPattern[]
+}
+
+export function dedupLogs(raw: string): Promise<DedupResponse> {
+  return request(`${BASE}/analytics/dedup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ raw }),
+  })
+}

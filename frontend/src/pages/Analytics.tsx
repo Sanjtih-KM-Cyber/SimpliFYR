@@ -1,14 +1,17 @@
 import { useState } from 'react'
 import {
   aggregateEvents,
+  dedupLogs,
   getAnomalies,
   getCorrelations,
   searchEvents,
 } from '../api/client'
 import type { AggregateRow, Anomalies, AnalyticsEvent } from '../api/types'
+import type { DedupResponse } from '../api/client'
 import { Code, Empty } from '../components/Code'
 import { Spinner } from '../components/Spinner'
 import { ErrorBanner } from '../components/Status'
+import { useToast } from '../components/ui'
 
 const GROUP_OPTIONS = ['source.ip', 'destination.ip', 'network.protocol', 'network.action', 'event.type']
 
@@ -36,6 +39,11 @@ export default function Analytics() {
   const [correlations, setCorrelations] = useState<Record<string, unknown>[] | null>(null)
   const [loadingCorrelations, setLoadingCorrelations] = useState(false)
   const [corrRule, setCorrRule] = useState('port_scan')
+
+  const [dedupRaw, setDedupRaw] = useState('')
+  const [dedup, setDedup] = useState<DedupResponse | null>(null)
+  const [deduping, setDeduping] = useState(false)
+  const { toast } = useToast()
 
   async function runSearch() {
     setSearching(true)
@@ -83,6 +91,44 @@ export default function Analytics() {
     } finally {
       setLoadingCorrelations(false)
     }
+  }
+
+  async function runDedup() {
+    if (!dedupRaw.trim()) {
+      setError('Paste logs or drop a file first')
+      return
+    }
+    setDeduping(true)
+    setError(null)
+    try {
+      setDedup(await dedupLogs(dedupRaw))
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setDeduping(false)
+    }
+  }
+
+  function onDedupFile(file: File | undefined) {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setDedupRaw(String(reader.result ?? ''))
+    reader.onerror = () => setError('Could not read file')
+    reader.readAsText(file)
+  }
+
+  function downloadDeduped() {
+    if (!dedup) return
+    const blob = new Blob([dedup.patterns.map((p) => p.sample).join('\n')], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `simplifyr-deduped-${dedup.patterns.length}patterns.txt`
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(url)
+    toast(`Downloaded ${dedup.patterns.length} pattern representatives`, 'success')
   }
 
   return (
@@ -247,6 +293,73 @@ export default function Analytics() {
                   </div>
                 ))
               )}
+            </div>
+          )}
+        </section>
+
+        {/* Deduplicate Logs */}
+        <section className="glass-card rounded-2xl p-5 xl:col-span-2">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-medium text-white">Deduplicate Logs</h3>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Paste or drop raw logs — collapses pattern-wise, first log per pattern kept. Nothing is stored.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <label className="btn-secondary cursor-pointer px-3.5 py-2 text-sm">
+                Drop a file…
+                <input type="file" className="hidden" onChange={(e) => onDedupFile(e.target.files?.[0])} />
+              </label>
+              <button
+                onClick={runDedup}
+                disabled={deduping || !dedupRaw.trim()}
+                className="btn-glass bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.8)] hover:bg-emerald-400 disabled:opacity-50"
+              >
+                {deduping ? '…' : 'Deduplicate'}
+              </button>
+            </div>
+          </div>
+          <textarea
+            value={dedupRaw}
+            onChange={(e) => setDedupRaw(e.target.value)}
+            rows={4}
+            placeholder="<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 action=deny"
+            className="input-glass mb-3 w-full px-3.5 py-2.5 font-mono text-xs text-slate-200"
+          />
+          {deduping && <Spinner />}
+          {dedup && (
+            <div>
+              <div className="mb-3 flex flex-wrap items-center gap-3">
+                <p className="text-xs text-slate-400">
+                  <span className="font-semibold text-white">{dedup.total}</span> lines →{' '}
+                  <span className="font-semibold text-white">{dedup.patterns.length}</span> patterns
+                </p>
+                <button
+                  onClick={downloadDeduped}
+                  className="rounded border border-slate-700 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-cyan-400 transition-colors hover:bg-slate-800"
+                >
+                  Download deduped
+                </button>
+              </div>
+              <div className="space-y-2">
+                {dedup.patterns.map((p, i) => (
+                  <div key={i} className="surface-inset rounded-xl p-3 text-xs">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                      <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 font-mono font-bold uppercase text-amber-400">
+                        {p.format}
+                      </span>
+                      <span className="rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 font-mono text-slate-400">
+                        × {p.count}
+                      </span>
+                      {p.fields.length > 0 && (
+                        <span className="font-mono text-slate-500">{p.fields.join(', ')}</span>
+                      )}
+                    </div>
+                    <Code value={p.sample} />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </section>

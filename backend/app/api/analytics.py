@@ -13,6 +13,9 @@ from app.schemas.analytics import (
     AnomalyHighVolume,
     AnomalyScanner,
     BeaconingFinding,
+    DedupPattern,
+    DedupRequest,
+    DedupResponse,
     PortScanFinding,
 )
 
@@ -89,3 +92,52 @@ def correlations(
         return engine.correlate(db, rule, threshold=threshold, environment=environment)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+
+
+_MAX_DEDUP_LINES = 10_000
+
+
+@router.post("/dedup", response_model=DedupResponse)
+def dedup_logs(payload: DedupRequest):
+    """Collapse pasted/dropped logs pattern-wise: one entry per structural
+    shape (format + field set), keeping the first log of each pattern.
+
+    Side-effect-free: nothing is stored, so it doubles as a pre-ingest
+    scout (how many shapes am I about to onboard?).
+    """
+    from simplifyr_parsers import detect_format, extract_fields, parse
+
+    lines = [ln.strip() for ln in payload.raw.splitlines() if ln.strip()]
+    if not lines:
+        raise HTTPException(status_code=422, detail="No log lines found in payload")
+    if len(lines) > _MAX_DEDUP_LINES:
+        raise HTTPException(status_code=422, detail="Too many lines (max 10000)")
+
+    groups: dict[tuple, DedupPattern] = {}
+    for line in lines:
+        try:
+            detection = detect_format(line)
+            fmt = detection.format.value
+        except Exception:  # noqa: BLE001
+            fmt = "unknown"
+            detection = None
+        fields: list[str] = []
+        if detection is not None:
+            try:
+                parsed = parse(detection.format, line)
+            except Exception:  # noqa: BLE001
+                parsed = None
+            if parsed is not None:
+                try:
+                    fields = sorted(extract_fields(parsed, detection.format).keys())
+                except Exception:  # noqa: BLE001
+                    fields = []
+        # Unparseable lines group by exact content: identical junk collapses,
+        # distinct junk stays visible instead of merging into one blob.
+        key = (fmt, tuple(fields)) if fields else ("__raw__", line)
+        existing = groups.get(key)
+        if existing is None:
+            groups[key] = DedupPattern(format=fmt, fields=fields, count=1, sample=line)
+        else:
+            existing.count += 1
+    return DedupResponse(total=len(lines), patterns=list(groups.values()))

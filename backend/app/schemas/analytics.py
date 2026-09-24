@@ -39,3 +39,19 @@ class BeaconingFinding(BaseModel):
     source_ip: str
     destination_ip: str
     count: int
+
+
+class DedupRequest(BaseModel):
+    raw: str
+
+
+class DedupPattern(BaseModel):
+    format: str
+    fields: list[str]
+    count: int
+    sample: str
+
+
+class DedupResponse(BaseModel):
+    total: int
+    patterns: list[DedupPattern]

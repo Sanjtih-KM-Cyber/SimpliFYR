@@ -110,3 +110,26 @@ def test_correlations_beaconing(client):
         "/api/v1/analytics/correlations", params={"rule": "beaconing", "threshold": 5}
     ).json()
     assert any(f["source_ip"] == "10.4.0.1" and f["count"] >= 5 for f in res)
+def test_dedup_groups_by_pattern_keep_first(client):
+    raw = "\n".join([
+        "<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 action=deny",
+        "<134>Sep 15 10:31:45 fw01 srcip=10.1.1.6 action=deny",
+        "<134>Sep 15 10:31:46 fw01 srcip=10.1.1.7 action=deny dstip=8.8.8.8",
+        "unparseable [[[ junk one",
+        "unparseable [[[ junk two",
+    ])
+    res = client.post("/api/v1/analytics/dedup", json={"raw": raw})
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["total"] == 5
+    patterns = body["patterns"]
+    assert len(patterns) == 4, patterns
+    by_count = sorted(p["count"] for p in patterns)
+    assert by_count == [1, 1, 1, 2], patterns
+    first = next(p for p in patterns if p["count"] == 2)
+    assert first["sample"].endswith("10.1.1.5 action=deny")
+    assert first["format"] == "syslog"
+
+
+def test_dedup_rejects_empty(client):
+    assert client.post("/api/v1/analytics/dedup", json={"raw": "   \n  "}).status_code == 422
