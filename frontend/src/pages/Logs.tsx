@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { deleteEvent, exportLogs, getEvent, ingest, listConnections, listEvents, retryEvent } from '../api/client'
+import { deleteEvent, exportLogs, getEvent, ingest, listConnections, listEvents, retryEvent, searchEventsRaw } from '../api/client'
 import type { EventDetail, EventStatus, EventSummary, IngestResponse } from '../api/types'
 import { Code } from '../components/Code'
 import { Spinner } from '../components/Spinner'
@@ -323,6 +323,8 @@ export default function Logs() {
   const vendors = useAsync(() => listConnections(), [])
   const events = useAsync(() => listEvents({ limit: 200, ...(vendor ? { source: vendor } : {}) }), [vendor])
   const [extra, setExtra] = useState<EventSummary[]>([])
+  const [serverHits, setServerHits] = useState<EventSummary[] | null>(null)
+  const [searching, setSearching] = useState(false)
   const [selected, setSelected] = useState<number | null>(null)
   const detail = useAsync(
     () => (selected ? getEvent(selected) : Promise.resolve(null)),
@@ -369,6 +371,25 @@ export default function Logs() {
     return () => window.removeEventListener(FOCUS_SEARCH_EVENT, focus)
   }, [])
 
+  // Server-side full-text hunt (debounced): searches the whole history,
+  // not just loaded rows. Short queries fall back to client filtering.
+  useEffect(() => {
+    const q = search.trim()
+    if (q.length < 2) {
+      setServerHits(null)
+      setSearching(false)
+      return
+    }
+    setSearching(true)
+    const timer = setTimeout(() => {
+      searchEventsRaw(q, vendor || undefined)
+        .then((hits) => setServerHits(hits))
+        .catch(() => setServerHits(null))
+        .finally(() => setSearching(false))
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [search, vendor])
+
   useLive({ onEvent: () => events.reload() })
 
   useEffect(() => {
@@ -377,7 +398,7 @@ export default function Logs() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const all = [...(events.data ?? []), ...extra]
+  const all = serverHits ?? [...(events.data ?? []), ...extra]
   const rows = all
     .filter((e: EventSummary) => matchesTab(e.status, tab))
     .filter((e: EventSummary) => {
@@ -443,13 +464,13 @@ export default function Logs() {
         <div className="flex items-center gap-3">
           <div className="relative">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-[1em] h-[1em] absolute left-3 top-1/2 w-6 -translate-y-1/2 border-r border-slate-700 pr-1 text-slate-500"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-            <input
-              ref={searchRef}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Query payload... ( / )"
-              className="w-64 rounded border border-slate-700 bg-slate-950 py-1.5 pl-8 pr-3 text-[13px] text-slate-200 outline-none transition-colors placeholder:text-slate-600 focus:border-cyan-500/50"
-            />
+        <input
+          ref={searchRef}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={searching ? 'Searching full history…' : 'Search full history… (press / to focus)'}
+          className="w-64 rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200"
+        />
           </div>
           <select
             value={vendor}

@@ -455,3 +455,21 @@ Open <http://localhost:5173>. The Vite dev server proxies `/api` to the backend 
   `GET /events?source=` behind the same published-knowledge path as
   onboarding (shared `core/publishing.py` — no divergent copies).
 - 253 tests passing; frontend `tsc -b && vite build` + `oxlint` clean.
+
+## Postgres-first + full-text search
+
+- **Postgres is the compose default** (`DATABASE_URL` → postgres service,
+  health-gated). SQLite stays the zero-setup dev default. Migration
+  `b2c3d4e5f6a7` enables `pg_trgm` + a GIN trigram index on `events.raw`
+  (Postgres only — SQLite migrates cleanly past it).
+- **`GET /api/v1/events/search?q=`** hunts raw payloads across the full
+  history: trigram-similarity ranked + typo-tolerant on Postgres, LIKE
+  scan with identical escaping semantics on SQLite. Status/source filters,
+  2–200 char queries, env-scoped, audited like everything else.
+- **Logs search box is server-side** (debounced): it hunts the whole
+  history, not just loaded rows; vendor filter and bulk export respect it.
+- **Proof:** `tests/test_postgres_search.py` runs against live Postgres
+  when `TEST_POSTGRES_URL` is set (extension, index, exact + typo search);
+  skipped otherwise so dev stays dependency-free.
+- 260 tests passing (+3 PG-gated); frontend `tsc -b && vite build` +
+  `oxlint` clean.

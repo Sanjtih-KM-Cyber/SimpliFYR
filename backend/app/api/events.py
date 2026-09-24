@@ -65,6 +65,59 @@ def list_events(
     return [_to_summary(e) for e in events]
 
 
+@router.get("/search", response_model=list[EventSummary])
+def search_events(
+    q: str = Query(default=..., min_length=2, max_length=200),
+    status: EventStatus | None = None,
+    source: str | None = None,
+    limit: int = Query(default=50, ge=1, le=500),
+    environment: str = Depends(get_environment),
+    db: Session = Depends(get_db),
+):
+    """Full-text hunt over raw payloads (PG trigram-ranked, SQLite LIKE).
+
+    Postgres uses pg_trgm similarity (typo-tolerant, GIN-indexed) blended
+    with ILIKE so exact substrings always match; SQLite falls back to a
+    LIKE scan with identical semantics minus ranking.
+    """
+    from sqlalchemy import func
+
+    term = q.strip()
+    if not term:
+        raise HTTPException(status_code=422, detail="Query is empty")
+    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    pattern = f"%{escaped}%"
+
+    stmt = select(Event).where(Event.environment == environment)
+    if status is not None:
+        stmt = stmt.where(Event.status == status)
+    if source:
+        stmt = stmt.where(Event.source == source)
+
+    if db.get_bind().dialect.name == "postgresql":
+        rank = func.similarity(Event.raw, term).label("rank")
+        stmt = (
+            stmt.add_columns(rank)
+            .where(
+                (func.similarity(Event.raw, term) >= 0.1)
+                | (Event.raw.ilike(pattern, escape="\\"))
+            )
+            .order_by(rank.desc(), Event.id.desc())
+        )
+        rows = [row[0] for row in db.execute(stmt.limit(limit)).all()]
+    else:
+        rows = (
+            db.execute(
+                stmt.where(Event.raw.like(pattern, escape="\\"))
+                .order_by(Event.id.desc())
+                .limit(limit)
+            )
+            .scalars()
+            .all()
+        )
+    return [_to_summary(e) for e in rows]
+
+
 @router.get("/{event_id}", response_model=EventDetail)
 def get_event(event_id: int, db: Session = Depends(get_db)):
     event = db.get(Event, event_id)

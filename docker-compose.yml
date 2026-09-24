@@ -1,4 +1,10 @@
 # Simplifyr — development/production compose stack.
+# Postgres-first: the api service runs against PostgreSQL here (SQLite stays
+# the zero-setup dev default outside compose). pg_trgm is enabled by migration
+# for trigram-ranked full-text search. Prove it any time with:
+#   docker compose up -d postgres
+#   TEST_POSTGRES_URL=postgresql+psycopg2://simplifyr:simplifyr@127.0.0.1:5432/simplifyr \
+#     pytest tests/test_postgres_search.py -q
 # The app runs standalone without Docker (SQLite + in-process workers); this compose
 # provides the scale- and integration-oriented deployment (Postgres, Redis, MinIO,
 # Kafka, and an optional local AI runtime).

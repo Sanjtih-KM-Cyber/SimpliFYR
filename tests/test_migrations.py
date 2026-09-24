@@ -18,7 +18,7 @@ def test_migrations_reach_head_with_phase10_schema(tmp_path):
     try:
         with engine.connect() as conn:
             head = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
-        assert head == "a1b2c3d4e5f7", f"expected head a1b2c3d4e5f7, got {head!r}"
+        assert head == "b2c3d4e5f6a7", f"expected head b2c3d4e5f6a7, got {head!r}"
 
         cols = {c["name"] for c in inspect(engine).get_columns("events")}
         for required in ("processing_ms", "raw_hash", "environment", "raw_ref", "provenance"):

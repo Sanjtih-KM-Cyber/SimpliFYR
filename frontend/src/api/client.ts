@@ -183,6 +183,13 @@ export function listEvents(params: ListEventsParams = {}): Promise<EventSummary[
   return request(`${BASE}/events${query ? `?${query}` : ''}`)
 }
 
+/** Server-side full-text hunt over raw payloads (trigram-ranked on Postgres). */
+export function searchEventsRaw(query: string, source?: string): Promise<EventSummary[]> {
+  const qs = new URLSearchParams({ q: query })
+  if (source) qs.set('source', source)
+  return request(`${BASE}/events/search?${qs.toString()}`)
+}
+
 export function getEvent(id: number): Promise<EventDetail> {
   return request(`${BASE}/events/${id}`)
 }
