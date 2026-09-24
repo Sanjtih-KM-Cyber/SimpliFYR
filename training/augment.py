@@ -27,9 +27,12 @@ SEED = 20260923
 TARGET_PAIRS = 2400
 
 # Canonical concept -> accepted input spellings (first is canonical).
+# NOTE (eval 2026-09-24): the v1 model missed bare-word inputs ("source",
+# "destination") and hallucinated on empty field lists — both variants below
+# exist because of those measured gaps.
 CONCEPTS: dict[str, list[str]] = {
-    "source.ip": ["srcip", "srcIP", "source_ip", "sourceAddress", "src", "sip"],
-    "destination.ip": ["dstip", "dstIP", "destination_ip", "destinationAddress", "dst", "dip"],
+    "source.ip": ["srcip", "srcIP", "source_ip", "sourceAddress", "src", "sip", "source"],
+    "destination.ip": ["dstip", "dstIP", "destination_ip", "destinationAddress", "dst", "dip", "destination"],
     "source.port": ["srcport", "sport", "sourcePort", "source_port"],
     "destination.port": ["dstport", "dport", "destinationPort", "destination_port"],
     "network.protocol": ["proto", "protocol"],
@@ -150,13 +153,25 @@ def main() -> None:
 
     # 3) Abstention pairs: unknown fields must map to "".
     unknowns = ["foo", "bar", "blarg", "qux", "zzz_custom", "vendor_cookie"]
-    while len(out) < TARGET_PAIRS:
+    while len(out) < TARGET_PAIRS - 60:
         fields = rng.sample(unknowns, rng.randint(1, 3))
         out.append(_record(rng, i, "synthetic-abstain", "Unknown",
                            rng.choice(FORMATS), fields,
                            _kv_sample(rng, fields),
                            {f: "" for f in fields}))
         i += 1
+
+    # 4) Empty-field abstention: no mappable fields -> no suggestions, ever.
+    # (Eval 2026-09-24: the model hallucinated a suggestion from [].)
+    # Crossed husks x formats x sources so all 60 survive dedup.
+    husks = ["", "heartbeat", "keepalive", "---", "ping"]
+    combos = [(h, f, s) for h in husks for f in ("raw", "syslog") for s in ("Unknown", "Idle Box", "Heartbeat")]
+    ci = 0
+    while len(out) < TARGET_PAIRS:
+        h, f, s = combos[ci % len(combos)]
+        out.append(_record(rng, i, "synthetic-abstain-empty", s, f, [], h, {}))
+        i += 1
+        ci += 1
 
     dest = ROOT / "training" / "data" / "augmented.jsonl"
     dest.parent.mkdir(parents=True, exist_ok=True)
