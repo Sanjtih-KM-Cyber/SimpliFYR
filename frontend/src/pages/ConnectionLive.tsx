@@ -1,19 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getConnection } from '../api/client'
-import type { ConnectionSummary, EventStatus } from '../api/types'
+import type { ConnectionSummary } from '../api/types'
 import { Spinner } from '../components/Spinner'
 import { StatusBadge } from '../components/Status'
 import { EmptyState, PageHeader } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
-
-interface LiveEvent {
-  event_id: string
-  source: string | null
-  status: EventStatus | string
-  received_at: string
-  environment: string
-}
+import { useLive, type LiveEvent } from '../hooks/useLive'
 
 function formatTime(iso: string): string {
   try {
@@ -29,46 +22,15 @@ export default function ConnectionLive() {
   const c: ConnectionSummary | null = connection.data
 
   const [events, setEvents] = useState<LiveEvent[]>([])
-  const [connected, setConnected] = useState(false)
   const [paused, setPaused] = useState(false)
-  const pausedRef = useRef(false)
 
-  useEffect(() => {
-    pausedRef.current = paused
-  }, [paused])
-
-  useEffect(() => {
-    if (!sourceName) return
-    let ws: WebSocket | null = null
-    let closedByUser = false
-
-    function connect() {
-      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const url = `${proto}//${window.location.host}/api/v1/ws/live?source=${encodeURIComponent(sourceName)}`
-      ws = new WebSocket(url)
-      ws.onopen = () => setConnected(true)
-      ws.onmessage = (e) => {
-        try {
-          const msg = JSON.parse(e.data)
-          if (msg.type === 'ping' || pausedRef.current) return
-          setEvents((prev) => [msg as LiveEvent, ...prev].slice(0, 100))
-        } catch {
-          return
-        }
-      }
-      ws.onclose = () => {
-        setConnected(false)
-        if (!closedByUser) setTimeout(connect, 3000)
-      }
-      ws.onerror = () => ws?.close()
-    }
-
-    connect()
-    return () => {
-      closedByUser = true
-      ws?.close()
-    }
-  }, [sourceName])
+  // Single shared socket implementation: health-gated + retry-capped, so a
+  // down backend shows Disconnected instead of spamming handshake errors.
+  const { connected } = useLive({
+    source: sourceName || undefined,
+    enabled: !paused && sourceName !== '',
+    onEvent: (msg) => setEvents((prev) => [msg, ...prev].slice(0, 100)),
+  })
 
   return (
     <div className="flex h-full flex-col">

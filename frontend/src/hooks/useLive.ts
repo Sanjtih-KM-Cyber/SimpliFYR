@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { getHealth } from '../api/client'
 
 export interface LiveEvent {
   event_id: string
@@ -103,7 +104,16 @@ export function useLive({ source, enabled = true, onEvent, maxRetries = 8 }: Use
       timer = setTimeout(connect, Math.min(1000 * 2 ** retries, 15000))
     }
 
-    connect()
+    // Health-gate: when the backend is down there is no handshake to
+    // attempt — skip socket creation entirely (zero console errors) and
+    // report dead. Polling fallbacks keep data fresh; remounting retries.
+    getHealth()
+      .then(() => {
+        if (!closed) connect()
+      })
+      .catch(() => {
+        if (!closed) setDead(true)
+      })
     return () => {
       closed = true
       clearTimeout(timer)

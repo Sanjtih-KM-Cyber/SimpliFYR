@@ -30,8 +30,8 @@ export function KeyboardShortcutsPanel({
   return (
     <Modal open={open} title="Keyboard Shortcuts" onClose={onClose} width="max-w-md">
       <div className="space-y-1.5">
-        {SHORTCUTS.map((s) => (
-          <div key={s.action} className="flex items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-sm transition-all duration-300 ease-in-out hover:border-white/[0.06] hover:bg-white/[0.045]">
+          {SHORTCUTS.map((s, idx) => (
+          <div key={`${s.keys.join('+')}-${idx}`} className="flex items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-sm transition-all duration-300 ease-in-out hover:border-white/[0.06] hover:bg-white/[0.045]">
             <span className="text-[13px] font-medium text-slate-300">{s.action}</span>
             <span className="flex items-center gap-1.5">
               {s.keys.map((k, i) => (
