@@ -396,16 +396,17 @@ function InspectionCard({
   )
 }
 
-/** The single export home: downloads the whole normalized set (uncapped),
- *  in any format. Counts come back in the file and the toast. */
-function IndexExport({ source }: { source: string }) {
+/** The single export home: downloads the whole normalized set (uncapped,
+ *  every source — never scoped), in any format. Counts come back in the
+ *  file and the toast. */
+function IndexExport() {
   const { toast } = useToast()
   const [downloading, setDownloading] = useState<string | null>(null)
 
   async function download(format: 'json' | 'ndjson' | 'csv') {
     setDownloading(format)
     try {
-      const res = await exportLogs({ format, status: 'normalized,output', source: source || undefined })
+      const res = await exportLogs({ format, status: 'normalized,output' })
       toast(`Downloaded ${res.total} logs (${res.normalized} normalized)`, 'success')
     } catch (e) {
       toast((e as Error).message, 'error')
@@ -834,7 +835,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
           )}
           {selected && detail.data ? (
             <>
-              <IndexExport source={source} />
+              <IndexExport />
               <Detail
                 detail={detail.data}
                 siblingCount={siblingCount}

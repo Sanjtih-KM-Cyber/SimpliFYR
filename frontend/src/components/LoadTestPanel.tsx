@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { exportLogs, processBatch } from '../api/client'
+import { exportLogs, listMappings, processBatch } from '../api/client'
 import type { BatchResult } from '../api/types'
+import { useAsync } from '../hooks/useAsync'
 import { ErrorBanner } from './Status'
 import { useToast } from './ui'
 
@@ -20,17 +21,23 @@ export const LOADTEST_SAMPLE_KEY = 'simplifyr.loadtest.sample'
  * Connection wizard as a new mapping draft, or download and walk away). */
 export function LoadTestPanel() {
   const { toast } = useToast()
+  const mappings = useAsync(() => listMappings(), [])
   const [batch, setBatch] = useState(SAMPLE)
+  const [mappingId, setMappingId] = useState<number | ''>('')
   const [result, setResult] = useState<BatchResult | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState(false)
 
+  const chosen = (mappings.data ?? []).find((m) => m.id === mappingId) ?? null
+
   async function runLoadTest() {
     setBusy(true)
     setError(null)
     try {
-      setResult(await processBatch({ raw: batch }))
+      setResult(
+        await processBatch({ raw: batch, ...(mappingId === '' ? {} : { mappingId }) }),
+      )
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -73,13 +80,34 @@ export function LoadTestPanel() {
         className="input-glass w-full px-3.5 py-2.5 font-mono text-xs text-slate-200"
       />
       {error && <ErrorBanner message={error} />}
-      <button
-        onClick={runLoadTest}
-        disabled={busy}
-        className="btn-glass mt-3 bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.9)] hover:bg-emerald-400"
-      >
-        {busy ? 'Running…' : 'Run load test'}
-      </button>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button
+          onClick={runLoadTest}
+          disabled={busy}
+          className="btn-glass bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.9)] hover:bg-emerald-400"
+        >
+          {busy ? 'Running…' : 'Run load test'}
+        </button>
+        <select
+          value={mappingId}
+          onChange={(e) => setMappingId(e.target.value === '' ? '' : Number(e.target.value))}
+          title="Run the batch through an existing mapping"
+          className="input-glass px-3 py-2.5 text-xs text-slate-200"
+        >
+          <option value="">Auto-resolve mapping…</option>
+          {(mappings.data ?? []).map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name} · {m.source ?? 'global'} · {m.status} (v{m.version})
+            </option>
+          ))}
+        </select>
+      </div>
+      {chosen && (
+        <p className="mt-2 text-xs text-slate-500">
+          Running through <span className="font-semibold text-slate-300">{chosen.name}</span> — lines it
+          covers normalize; the rest quarantines for adoption below.
+        </p>
+      )}
       {result && (
         <div className="surface-inset mt-3 rounded-xl p-3.5 text-xs text-slate-300">
           <p>
