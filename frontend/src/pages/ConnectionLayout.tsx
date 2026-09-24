@@ -70,6 +70,7 @@ export default function ConnectionLayout() {
                 label: 'DRIFT QUEUE',
                 badge: (c.open_drift ?? 0) + (c.events_by_status?.quarantined ?? 0),
               },
+              { to: `/connections/${sourceName}/logs`, label: 'LOGS' },
             ]}
           />
 

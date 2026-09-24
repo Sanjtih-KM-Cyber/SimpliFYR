@@ -6,13 +6,10 @@ import {
   getEnvironment,
   getHealth,
   getStats,
-  processBatch,
   setAuthToken,
   setEnvironment,
 } from '../api/client'
-import type { BatchResult } from '../api/types'
 import { Spinner } from '../components/Spinner'
-import { ErrorBanner } from '../components/Status'
 import { TabBar } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
 
@@ -24,12 +21,6 @@ function Row({ label, value }: { label: string; value: string }) {
     </div>
   )
 }
-
-const SAMPLE = `<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 action=deny
-<134>Sep 15 10:31:45 fw01 srcip=10.1.1.5 action=deny
-<134>Sep 15 10:31:46 fw01 srcip=10.1.1.5 action=deny
-<134>Sep 15 10:31:47 fw01 srcip=10.1.1.5 action=deny
-<134>Sep 15 10:31:48 fw01 srcip=10.1.1.5 action=deny`
 
 export default function Settings() {
   return (
@@ -55,25 +46,9 @@ export function SettingsGeneral() {
   const stats = useAsync(() => getStats(), [])
   const config = useAsync(() => getConfig(), [])
 
-  const [batch, setBatch] = useState(SAMPLE)
-  const [result, setResult] = useState<BatchResult | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [token, setToken] = useState(getAuthToken() ?? '')
   const [environment, setEnvironmentInput] = useState(getEnvironment() ?? '')
   const [savedCreds, setSavedCreds] = useState(false)
-
-  async function runLoadTest() {
-    setBusy(true)
-    setError(null)
-    try {
-      setResult(await processBatch({ raw: batch }))
-    } catch (e) {
-      setError((e as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
 
   function saveCredentials() {
     setAuthToken(token || null)
@@ -173,41 +148,6 @@ export function SettingsGeneral() {
           >
             {savedCreds ? 'Saved ✓' : 'Save'}
           </button>
-        </section>
-
-        <section className="glass-card rounded-2xl p-5">
-          <h3 className="mb-2 text-sm font-medium text-white">Load Test</h3>
-          <p className="mb-2 text-xs text-slate-500">
-            Process a batch of events (one per line) and measure throughput.
-          </p>
-          <textarea
-            value={batch}
-            onChange={(e) => setBatch(e.target.value)}
-            rows={5}
-            className="input-glass w-full px-3.5 py-2.5 font-mono text-xs text-slate-200"
-          />
-          {error && <ErrorBanner message={error} />}
-          <button
-            onClick={runLoadTest}
-            disabled={busy}
-            className="btn-glass mt-3 bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.9)] hover:bg-emerald-400"
-          >
-            {busy ? 'Running…' : 'Run load test'}
-          </button>
-          {result && (
-            <div className="surface-inset mt-3 rounded-xl p-3.5 text-xs text-slate-300">
-              <p>
-                Processed <span className="font-semibold text-white">{result.processed}</span> events
-                ({result.normalized} normalized · {result.output} output · {result.quarantined}{' '}
-                quarantined · {result.dlq} dlq · {result.failed} failed)
-              </p>
-              <p className="mt-1">
-                <span className="font-semibold text-white">{result.events_per_second}</span> events/sec ·{' '}
-                <span className="font-semibold text-white">{result.avg_latency_ms}</span> ms avg latency ·
-                {result.duration_seconds}s
-              </p>
-            </div>
-          )}
         </section>
       </div>
   )

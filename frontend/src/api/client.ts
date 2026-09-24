@@ -202,6 +202,31 @@ export function retryEvent(id: number): Promise<EventDetail> {
   return request(`${BASE}/events/${id}/retry`, { method: 'POST' })
 }
 
+export interface BatchRetryResult {
+  retried: number[]
+  skipped: Record<string, string>
+}
+
+export function batchRetryEvents(ids: number[]): Promise<BatchRetryResult> {
+  return request(`${BASE}/events/batch-retry`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  })
+}
+
+export interface BatchDeleteResult {
+  deleted: number[]
+}
+
+export function batchDeleteEvents(ids: number[]): Promise<BatchDeleteResult> {
+  return request(`${BASE}/events/batch-delete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  })
+}
+
 export interface EventSuggestion {
   input_field: string
   semantic_field: string

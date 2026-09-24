@@ -227,6 +227,7 @@ class Event(Base):
     raw: Mapped[str] = mapped_column(Text, nullable=False)
     raw_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     raw_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    detected_format: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     parsed: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     normalized: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     output: Mapped[dict | None] = mapped_column(JSON, nullable=True)

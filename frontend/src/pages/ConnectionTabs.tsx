@@ -1,5 +1,6 @@
 import { useParams } from 'react-router-dom'
 import Knowledge from './Knowledge'
+import Logs from './Logs'
 import Mappings from './Mappings'
 import NeedsReview from './NeedsReview'
 import Outputs from './Outputs'
@@ -23,4 +24,15 @@ export function ConnectionLearning() {
 
 export function ConnectionNeedsReview() {
   return <NeedsReview sourceFilter={useSourceName()} />
+}
+
+export function ConnectionLogs() {
+  const raw = useSourceName()
+  let name = raw
+  try {
+    name = decodeURIComponent(raw)
+  } catch {
+    name = raw
+  }
+  return <Logs sourceFilter={name} />
 }

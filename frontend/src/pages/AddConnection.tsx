@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { analyzeOnboarding, approveOnboarding, createOnboarding, ingest, listOutputProfiles, previewIngest } from '../api/client'
 import type { Format, IngestResponse } from '../api/types'
 import { Code } from '../components/Code'
+import { LOADTEST_SAMPLE_KEY } from '../components/LoadTestPanel'
 import { SemanticFieldInput } from '../components/SemanticFieldInput'
 import { Spinner } from '../components/Spinner'
 import { ErrorBanner } from '../components/Status'
@@ -31,7 +32,20 @@ const SAMPLE = '<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 dstip=8.8.8.8 proto=tcp
 
 export default function AddConnection() {
   const profiles = useAsync(() => listOutputProfiles(), [])
-  const [raw, setRaw] = useState(SAMPLE)
+  // Adopted load-test batch (one-shot): the Dashboard load test stashes its
+  // sample here via "Adopt as new mapping" so the wizard starts from it.
+  const [raw, setRaw] = useState(() => {
+    try {
+      const adopted = sessionStorage.getItem(LOADTEST_SAMPLE_KEY)
+      if (adopted) {
+        sessionStorage.removeItem(LOADTEST_SAMPLE_KEY)
+        return adopted
+      }
+    } catch {
+      /* storage unavailable — fall through to the default sample */
+    }
+    return SAMPLE
+  })
   const [connectionName, setConnectionName] = useState('')
   const [analysis, setAnalysis] = useState<IngestResponse | null>(null)
   const [analyzing, setAnalyzing] = useState(false)

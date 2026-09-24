@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { isAnyModalOpen } from '../components/ui/modal-registry'
 
 export const FOCUS_SEARCH_EVENT = 'simplifyr:focus-search'
-
 function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   return (
@@ -47,7 +46,7 @@ export function useKeyboardShortcuts(onToggleShortcuts: () => void) {
           navigate('/connections')
           break
         case '3':
-          navigate('/logs')
+          navigate('/analytics')
           break
         case '4':
           navigate('/settings')
@@ -62,8 +61,7 @@ export function useKeyboardShortcuts(onToggleShortcuts: () => void) {
           break
         case '/':
           e.preventDefault()
-          navigate('/logs')
-          window.dispatchEvent(new CustomEvent(FOCUS_SEARCH_EVENT))
+          navigate('/connections')
           break
         case '?':
           onToggleShortcuts()

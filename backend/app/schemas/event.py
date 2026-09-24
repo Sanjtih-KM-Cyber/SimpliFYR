@@ -13,6 +13,7 @@ class EventSummary(BaseModel):
     source_id: int | None = None
     source: str | None = None
     raw_hash: str
+    detected_format: str | None = None
 
 
 class EventViews(BaseModel):

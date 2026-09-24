@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -32,6 +33,7 @@ def _to_summary(event: Event) -> EventSummary:
         source_id=event.source_id,
         source=event.source,
         raw_hash=event.raw_hash,
+        detected_format=event.detected_format,
     )
 
 
@@ -87,6 +89,9 @@ def search_events(
         raise HTTPException(status_code=422, detail="Query is empty")
     escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     pattern = f"%{escaped}%"
+    # A bare number is an index (row id) lookup: match the id exactly in
+    # addition to the raw-payload hunt so "000123" finds index 123.
+    wanted_id: int | None = int(term) if term.isdigit() else None
 
     stmt = select(Event).where(Event.environment == environment)
     if status is not None:
@@ -96,21 +101,24 @@ def search_events(
 
     if db.get_bind().dialect.name == "postgresql":
         rank = func.similarity(Event.raw, term).label("rank")
+        raw_match = (func.similarity(Event.raw, term) >= 0.1) | (
+            Event.raw.ilike(pattern, escape="\\")
+        )
+        if wanted_id is not None:
+            raw_match = raw_match | (Event.id == wanted_id)
         stmt = (
             stmt.add_columns(rank)
-            .where(
-                (func.similarity(Event.raw, term) >= 0.1)
-                | (Event.raw.ilike(pattern, escape="\\"))
-            )
+            .where(raw_match)
             .order_by(rank.desc(), Event.id.desc())
         )
         rows = [row[0] for row in db.execute(stmt.limit(limit)).all()]
     else:
+        raw_match = Event.raw.like(pattern, escape="\\")
+        if wanted_id is not None:
+            raw_match = raw_match | (Event.id == wanted_id)
         rows = (
             db.execute(
-                stmt.where(Event.raw.like(pattern, escape="\\"))
-                .order_by(Event.id.desc())
-                .limit(limit)
+                stmt.where(raw_match).order_by(Event.id.desc()).limit(limit)
             )
             .scalars()
             .all()
@@ -322,3 +330,72 @@ def delete_event(event_id: int, db: Session = Depends(get_db)):
         log_action(adb, action="delete", entity_type="event", entity_id=event_id, before=before)
         adb.commit()
     return None
+
+
+class EventBatchRequest(BaseModel):
+    ids: list[int]
+
+
+class EventBatchRetryResponse(BaseModel):
+    retried: list[int]
+    skipped: dict[int, str]
+
+
+class EventBatchDeleteResponse(BaseModel):
+    deleted: list[int]
+
+
+@router.post("/batch-retry", response_model=EventBatchRetryResponse, dependencies=[Depends(require_write)])
+def batch_retry_events(payload: EventBatchRequest, db: Session = Depends(get_db)):
+    """Reprocess a set of dlq/quarantined events (Telemetry Inspection group actions).
+
+    Non-retryable ids are reported in `skipped`, never failed: approve-one /
+    approve-all flows pass whole groups and let the engine decide per row.
+    """
+    engine = ProcessingEngine(db)
+    retried: list[int] = []
+    skipped: dict[int, str] = {}
+    for event_id in dict.fromkeys(payload.ids):
+        event = db.get(Event, event_id)
+        if event is None:
+            skipped[event_id] = "not found"
+            continue
+        if event.status not in _RETRYABLE:
+            skipped[event_id] = f"status={event.status}"
+            continue
+        engine.reprocess(event)
+        retried.append(event_id)
+    return EventBatchRetryResponse(retried=retried, skipped=skipped)
+
+
+@router.post("/batch-delete", response_model=EventBatchDeleteResponse, dependencies=[Depends(require_write)])
+def batch_delete_events(payload: EventBatchRequest, db: Session = Depends(get_db)):
+    """Purge a set of events and their raw files (Telemetry Inspection purge-all)."""
+    from app.core.audit import log_action
+
+    deleted: list[int] = []
+    for event_id in dict.fromkeys(payload.ids):
+        event = db.get(Event, event_id)
+        if event is None:
+            continue
+        if event.raw_ref:
+            try:
+                get_raw_store().delete(event.raw_ref)
+            except Exception:  # noqa: BLE001
+                pass
+        db.delete(event)
+        deleted.append(event_id)
+    db.commit()
+    if deleted:
+        from app.core.database import SessionLocal as _SessionLocal
+
+        with _SessionLocal() as adb:
+            log_action(
+                adb,
+                action="batch-delete",
+                entity_type="event",
+                entity_id=0,
+                after={"ids": deleted, "count": len(deleted)},
+            )
+            adb.commit()
+    return EventBatchDeleteResponse(deleted=deleted)

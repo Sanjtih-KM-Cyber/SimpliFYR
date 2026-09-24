@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getAnomalies, getHealth, getStats, listConnections } from '../api/client'
+import { LoadTestPanel } from '../components/LoadTestPanel'
 import { QuickParseModal } from '../components/QuickParseModal'
 import { Spinner } from '../components/Spinner'
 import { useToast } from '../components/ui'
@@ -236,11 +237,15 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-            <Link to="/settings" className="group mx-auto flex w-max items-center gap-1 text-[12px] font-medium text-cyan-400 transition-all duration-300 ease-in-out hover:text-cyan-300">
-              Manage Framework Specs <span className="inline-block transition-transform duration-300 ease-in-out motion-safe:group-hover:translate-x-0.5">&rarr;</span>
+            <Link to="/analytics" className="group mx-auto flex w-max items-center gap-1 text-[12px] font-medium text-cyan-400 transition-all duration-300 ease-in-out hover:text-cyan-300">
+              Hunt Anomalies <span className="inline-block transition-transform duration-300 ease-in-out motion-safe:group-hover:translate-x-0.5">&rarr;</span>
             </Link>
           </section>
         </div>
+      </div>
+
+      <div className="mt-6">
+        <LoadTestPanel />
       </div>
     </div>
   )

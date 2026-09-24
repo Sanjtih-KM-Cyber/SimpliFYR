@@ -1,5 +1,17 @@
-import { useEffect, useRef, useState } from 'react'
-import { deleteEvent, exportLogs, getEvent, ingest, listConnections, listEvents, retryEvent, searchEventsRaw } from '../api/client'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  batchDeleteEvents,
+  batchRetryEvents,
+  deleteEvent,
+  exportLogs,
+  getEvent,
+  ingest,
+  listConnections,
+  listEvents,
+  listMappings,
+  retryEvent,
+  searchEventsRaw,
+} from '../api/client'
 import type { EventDetail, EventStatus, EventSummary, IngestResponse } from '../api/types'
 import { Code } from '../components/Code'
 import { Spinner } from '../components/Spinner'
@@ -11,25 +23,22 @@ import { FOCUS_SEARCH_EVENT } from '../hooks/useKeyboardShortcuts'
 import { useAsync } from '../hooks/useAsync'
 import { useLive } from '../hooks/useLive'
 
-type LogTab = 'all' | 'normalized' | 'review' | 'failed'
+type LogTab = 'normalized' | 'inspection' | 'failed'
 
 const TABS: { key: LogTab; label: string }[] = [
-  { key: 'all', label: 'All' },
   { key: 'normalized', label: 'Normalized' },
-  { key: 'review', label: 'Needs Review' },
+  { key: 'inspection', label: 'Telemetry Inspection' },
   { key: 'failed', label: 'Failed' },
 ]
 
-const TAB_STATUSES: Record<LogTab, EventStatus[] | null> = {
-  all: null,
+const TAB_STATUSES: Record<LogTab, EventStatus[]> = {
   normalized: ['normalized', 'output'],
-  review: ['quarantined'],
+  inspection: ['quarantined'],
   failed: ['dlq'],
 }
 
 function matchesTab(status: EventStatus, tab: LogTab): boolean {
-  const statuses = TAB_STATUSES[tab]
-  return statuses === null || statuses.includes(status)
+  return TAB_STATUSES[tab].includes(status)
 }
 
 function formatTime(iso: string) {
@@ -38,6 +47,22 @@ function formatTime(iso: string) {
   } catch {
     return iso
   }
+}
+
+function padId(id: number): string {
+  return id.toString().padStart(6, '0')
+}
+
+/** Index-number matching: "123" and "000123" both find index 123. */
+function matchesId(e: EventSummary, q: string): boolean {
+  if (!/^\d+$/.test(q)) return false
+  const stripped = q.replace(/^0+/, '')
+  if (stripped === '') return padId(e.id).includes(q)
+  return String(e.id).includes(stripped) || padId(e.id).includes(q)
+}
+
+function formatLabel(fmt: string | null): string {
+  return fmt ?? 'unknown'
 }
 
 function IngestPanel({ onDone }: { onDone: (id: number) => void }) {
@@ -192,7 +217,7 @@ function Detail({ detail, onChanged, onDeleted }: { detail: EventDetail; onChang
     <div className="mt-4 animate-slide-up rounded-lg border border-slate-700/50 glass-card p-5">
       <div className="mb-4 flex items-center justify-between border-b border-slate-800/80 pb-3">
         <h4 className="flex items-center gap-2 text-[14px] font-bold text-white">
-          Telemetry Inspection
+          Index Detail
           <span className="rounded border border-cyan-500/20 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[11px] text-cyan-500">{detail.event_id}</span>
         </h4>
         <span className="flex items-center gap-3">
@@ -314,22 +339,97 @@ function Detail({ detail, onChanged, onDeleted }: { detail: EventDetail; onChang
   )
 }
 
-export default function Logs() {
-  const [tab, setTab] = useState<LogTab>('all')
+interface QuarantineGroup {
+  format: string
+  source: string | null
+  ids: number[]
+  repId: number
+}
+
+function InspectionCard({
+  group,
+  rep,
+  issue,
+  hasMapping,
+  busy,
+  onApprove,
+  onPurge,
+}: {
+  group: QuarantineGroup
+  rep: EventDetail | null
+  issue: string
+  hasMapping: boolean
+  busy: boolean
+  onApprove: () => void
+  onPurge: () => void
+}) {
+  return (
+    <div className="animate-slide-up rounded-2xl border border-amber-900/40 bg-slate-900/60 p-5 shadow-[0_18px_44px_-34px_rgba(0,0,0,0.95)]">
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <span className="rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[12px] font-bold uppercase tracking-wider text-amber-400">
+          {group.format}
+        </span>
+        <span className="text-[13px] font-medium text-slate-300">{group.source ?? 'unsourced'}</span>
+        <span className="rounded-full border border-slate-700 bg-slate-950 px-2.5 py-0.5 font-mono text-[11px] text-slate-400">
+          × {group.ids.length} like this
+        </span>
+        <span className="ml-auto flex gap-2">
+          <button
+            onClick={onApprove}
+            disabled={busy}
+            title={hasMapping ? 'Retry all with the existing mapping' : 'Establish a mapping, then normalize all'}
+            className="rounded bg-cyan-600 px-4 py-1.5 text-[12px] font-bold text-white transition-colors hover:bg-cyan-500 disabled:opacity-50"
+          >
+            {busy ? 'Working…' : `Approve all (${group.ids.length})`}
+          </button>
+          <button
+            onClick={onPurge}
+            disabled={busy}
+            title="Delete every log of this type"
+            className="rounded border border-rose-900/50 bg-rose-950/20 px-4 py-1.5 text-[12px] font-semibold text-rose-400 transition-colors hover:bg-rose-900/50 disabled:opacity-50"
+          >
+            Purge all
+          </button>
+        </span>
+      </div>
+      <p className="mb-2 text-[12px] text-slate-400">
+        <span className="font-semibold uppercase tracking-wider text-amber-500/80">Issue — </span>
+        {issue}
+      </p>
+      <div className="overflow-hidden rounded border border-slate-800 bg-slate-950 p-3">
+        {rep ? (
+          <Code value={rep.views.raw} />
+        ) : (
+          <p className="font-mono text-[11px] text-slate-600">Loading representative log…</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
+  const [tab, setTab] = useState<LogTab>('normalized')
   const [ingesting, setIngesting] = useState(false)
   const [search, setSearch] = useState('')
   const [vendor, setVendor] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
   const vendors = useAsync(() => listConnections(), [])
-  const events = useAsync(() => listEvents({ limit: 200, ...(vendor ? { source: vendor } : {}) }), [vendor])
+  const source = sourceFilter ?? vendor
+  const events = useAsync(
+    () => listEvents({ limit: 200, ...(source ? { source } : {}) }),
+    [source],
+  )
   const [extra, setExtra] = useState<EventSummary[]>([])
   const [serverHits, setServerHits] = useState<EventSummary[] | null>(null)
   const [searching, setSearching] = useState(false)
   const [selected, setSelected] = useState<number | null>(null)
+  /** Index-scope: clicking a Normalized index restricts Inspection + Failed to that index's type. */
+  const [scope, setScope] = useState<EventSummary | null>(null)
   const detail = useAsync(
     () => (selected ? getEvent(selected) : Promise.resolve(null)),
     [selected],
   )
+  const mappings = useAsync(() => listMappings(), [])
   const { toast } = useToast()
 
   const [downloading, setDownloading] = useState(false)
@@ -340,8 +440,8 @@ export default function Logs() {
       const statuses = TAB_STATUSES[tab]
       await exportLogs({
         format,
-        status: statuses ? statuses.join(',') : undefined,
-        source: vendor || undefined,
+        status: statuses.join(','),
+        source: source || undefined,
       })
       toast(`Downloaded logs (${format.toUpperCase()})`, 'success')
     } catch (e) {
@@ -353,7 +453,7 @@ export default function Logs() {
 
   async function loadMore() {
     try {
-      const more = await listEvents({ limit: 200, offset: all.length, ...(vendor ? { source: vendor } : {}) })
+      const more = await listEvents({ limit: 200, offset: all.length, ...(source ? { source } : {}) })
       if (more.length === 0) {
         toast('No older logs — you have the full history', 'info')
         return
@@ -382,15 +482,15 @@ export default function Logs() {
     }
     setSearching(true)
     const timer = setTimeout(() => {
-      searchEventsRaw(q, vendor || undefined)
+      searchEventsRaw(q, source || undefined)
         .then((hits) => setServerHits(hits))
         .catch(() => setServerHits(null))
         .finally(() => setSearching(false))
     }, 400)
     return () => clearTimeout(timer)
-  }, [search, vendor])
+  }, [search, source])
 
-  useLive({ onEvent: () => events.reload() })
+  useLive({ source: source || undefined, onEvent: () => events.reload() })
 
   useEffect(() => {
     const timer = setInterval(() => events.reload(), 30000)
@@ -399,21 +499,154 @@ export default function Logs() {
   }, [])
 
   const all = serverHits ?? [...(events.data ?? []), ...extra]
+
+  function matchesSearch(e: EventSummary): boolean {
+    const q = search.trim()
+    if (!q) return true
+    if (serverHits) return true // server already filtered
+    const lq = q.toLowerCase()
+    return (
+      e.event_id.toLowerCase().includes(lq) ||
+      (e.source_id !== null && String(e.source_id).includes(q)) ||
+      matchesId(e, q)
+    )
+  }
+
+  /** Quarantined rows, optionally restricted to the clicked index's type. */
+  const quarantined = all
+    .filter((e) => e.status === 'quarantined')
+    .filter(matchesSearch)
+    .filter((e) => !scope || (e.source === scope.source && formatLabel(e.detected_format) === formatLabel(scope.detected_format)))
+
+  const groups: QuarantineGroup[] = useMemo(() => {
+    const byKey = new Map<string, QuarantineGroup>()
+    for (const e of quarantined) {
+      const format = formatLabel(e.detected_format)
+      const key = `${format}::${e.source ?? ''}`
+      const g = byKey.get(key)
+      if (g) {
+        g.ids.push(e.id)
+      } else {
+        byKey.set(key, { format, source: e.source, ids: [e.id], repId: e.id })
+      }
+    }
+    return [...byKey.values()]
+  }, [quarantined])
+
+  // Representative detail per group (one fetch per type, not per log).
+  const [reps, setReps] = useState<Record<string, EventDetail>>({})
+  useEffect(() => {
+    let cancelled = false
+    const missing = groups.filter((g) => reps[`${g.format}::${g.source ?? ''}`] === undefined)
+    if (missing.length === 0) return
+    Promise.all(missing.map((g) => getEvent(g.repId).catch(() => null))).then((details) => {
+      if (cancelled) return
+      setReps((prev) => {
+        const next = { ...prev }
+        missing.forEach((g, i) => {
+          if (details[i]) next[`${g.format}::${g.source ?? ''}`] = details[i] as EventDetail
+        })
+        return next
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groups])
+
+  const [groupBusy, setGroupBusy] = useState<string | null>(null)
+  const [onboarding, setOnboarding] = useState<QuarantineGroup | null>(null)
+
+  function mappingFor(sourceName: string | null): boolean {
+    return (mappings.data ?? []).some(
+      (m) => m.source === sourceName && (m.status === 'approved' || m.status === 'published'),
+    )
+  }
+
+  function issueFor(group: QuarantineGroup): string {
+    if (mappingFor(group.source)) {
+      return 'Schema drift — these fields no longer match the approved mapping. Approving retries every log of this type through it.'
+    }
+    return 'No approved mapping resolves this format yet. Approving establishes one and normalizes every log of this type.'
+  }
+
+  async function approveGroup(group: QuarantineGroup) {
+    const key = `${group.format}::${group.source ?? ''}`
+    if (!mappingFor(group.source)) {
+      setOnboarding(group) // establish mapping first, then retry-all on done
+      return
+    }
+    setGroupBusy(key)
+    try {
+      const res = await batchRetryEvents(group.ids)
+      toast(
+        res.retried.length > 0
+          ? `Approved — ${res.retried.length} normalized${res.skipped && Object.keys(res.skipped).length > 0 ? ` (${Object.keys(res.skipped).length} already resolved)` : ''}`
+          : 'Nothing left to approve — all already resolved',
+        'success',
+      )
+      events.reload()
+    } catch (e) {
+      toast((e as Error).message, 'error')
+    } finally {
+      setGroupBusy(null)
+    }
+  }
+
+  async function approveAfterOnboard(group: QuarantineGroup) {
+    const key = `${group.format}::${group.source ?? ''}`
+    setOnboarding(null)
+    setGroupBusy(key)
+    try {
+      // The representative was onboarded (mapping published); the rest of
+      // the type leaves quarantine with one retry-all.
+      const res = await batchRetryEvents(group.ids)
+      toast(`Approved — ${res.retried.length} of ${group.ids.length} normalized`, 'success')
+      mappings.reload()
+      events.reload()
+    } catch (e) {
+      toast((e as Error).message, 'error')
+    } finally {
+      setGroupBusy(null)
+    }
+  }
+
+  async function purgeGroup(group: QuarantineGroup) {
+    if (!window.confirm(`Purge all ${group.ids.length} ${group.format} logs${group.source ? ` from ${group.source}` : ''}?`)) return
+    const key = `${group.format}::${group.source ?? ''}`
+    setGroupBusy(key)
+    try {
+      const res = await batchDeleteEvents(group.ids)
+      toast(`Purged ${res.deleted.length} logs`, 'success')
+      events.reload()
+    } catch (e) {
+      toast((e as Error).message, 'error')
+    } finally {
+      setGroupBusy(null)
+    }
+  }
+
   const rows = all
     .filter((e: EventSummary) => matchesTab(e.status, tab))
+    .filter(matchesSearch)
     .filter((e: EventSummary) => {
-      if (!search.trim()) return true
-      const q = search.trim().toLowerCase()
-      return (
-        e.event_id.toLowerCase().includes(q) ||
-        (e.source_id !== null && String(e.source_id).includes(q))
-      )
+      if (!scope || tab === 'normalized') return true
+      return e.source === scope.source && formatLabel(e.detected_format) === formatLabel(scope.detected_format)
     })
+
+  function selectIndex(e: EventSummary) {
+    setSelected(e.id)
+    // Clicking a Normalized index scopes the sibling tabs to its type.
+    setScope(e)
+  }
+
+  const onboardingRep = onboarding ? reps[`${onboarding.format}::${onboarding.source ?? ''}`] : undefined
 
   return (
     <div className="flex h-full flex-col">
       <PageHeader
-        title="Telemetry Data"
+        title={sourceFilter ? `Logs · ${sourceFilter}` : 'Telemetry Data'}
         subtitle="The unified indexing interface — query, inspect, and trace live stream payloads."
         actions={
           <select
@@ -468,27 +701,29 @@ export default function Logs() {
           ref={searchRef}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder={searching ? 'Searching full history…' : 'Search full history… (press / to focus)'}
+          placeholder={searching ? 'Searching full history…' : 'Search index, id, history…'}
           className="w-64 rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200"
         />
           </div>
-          <select
-            value={vendor}
-            onChange={(e) => {
-              setVendor(e.target.value)
-              setExtra([])
-              setSelected(null)
-            }}
-            title="Filter by node / connection"
-            className="rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-[13px] text-slate-300 outline-none focus:border-cyan-500/50"
-          >
-            <option value="">Global context…</option>
-            {(vendors.data ?? []).map((c) => (
-              <option key={c.id} value={c.name}>
-                {c.name} ({c.events_processed})
-              </option>
-            ))}
-          </select>
+          {!sourceFilter && (
+            <select
+              value={vendor}
+              onChange={(e) => {
+                setVendor(e.target.value)
+                setExtra([])
+                setSelected(null)
+              }}
+              title="Filter by node / connection"
+              className="rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-[13px] text-slate-300 outline-none focus:border-cyan-500/50"
+            >
+              <option value="">Global context…</option>
+              {(vendors.data ?? []).map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.name} ({c.events_processed})
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
@@ -504,7 +739,48 @@ export default function Logs() {
         />
       )}
 
-      {!events.loading && !events.error && rows.length === 0 && (
+      {/* Telemetry Inspection workbench FIRST: one card per type, approve/purge acts on all. */}
+      {tab === 'inspection' && (
+        <div className="mb-6 space-y-4">
+          {scope && (
+            <div className="flex items-center gap-3 rounded-xl border border-cyan-900/50 bg-cyan-950/20 px-4 py-2 text-[12px] text-cyan-300">
+              <span>
+                Scoped to index <span className="font-mono font-bold">{padId(scope.id)}</span>
+                {' '}· {formatLabel(scope.detected_format)} · {scope.source ?? 'unsourced'}
+              </span>
+              <button
+                onClick={() => setScope(null)}
+                className="ml-auto rounded border border-cyan-900/50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider hover:bg-cyan-900/30"
+              >
+                Clear scope
+              </button>
+            </div>
+          )}
+          {groups.length === 0 && !events.loading && (
+            <EmptyState
+              title="Nothing awaiting inspection"
+              description={scope ? 'No quarantined logs of the scoped type.' : 'Quarantined logs will appear here grouped by type.'}
+            />
+          )}
+          {groups.map((g) => {
+            const key = `${g.format}::${g.source ?? ''}`
+            return (
+              <InspectionCard
+                key={key}
+                group={g}
+                rep={reps[key] ?? null}
+                issue={issueFor(g)}
+                hasMapping={mappingFor(g.source)}
+                busy={groupBusy === key}
+                onApprove={() => approveGroup(g)}
+                onPurge={() => purgeGroup(g)}
+              />
+            )
+          })}
+        </div>
+      )}
+
+      {tab !== 'inspection' && !events.loading && !events.error && rows.length === 0 && (
         <div className="mt-8">
           <EmptyState
             title={all.length === 0 ? 'Telemetry Empty' : 'No Results'}
@@ -517,7 +793,7 @@ export default function Logs() {
         </div>
       )}
 
-      {rows.length > 0 && (
+      {tab !== 'inspection' && rows.length > 0 && (
         <div className="data-scroll-region mt-2 rounded-2xl border border-white/[0.1] bg-slate-900/55 p-[1px] shadow-[0_18px_44px_-34px_rgba(0,0,0,0.95)]">
           <Table>
             <THead>
@@ -530,9 +806,9 @@ export default function Logs() {
             </THead>
             <TBody>
               {rows.map((e) => (
-                <TR key={e.id} onClick={() => setSelected(e.id)}>
+                <TR key={e.id} onClick={() => selectIndex(e)}>
                   <TD className={selected === e.id ? 'bg-cyan-950/20 font-bold text-cyan-400' : 'text-slate-300'}>
-                    {(e.id).toString().padStart(6, '0')}
+                    {padId(e.id)}
                   </TD>
                   <TD className={selected === e.id ? 'bg-cyan-950/20' : ''}>
                     <StatusBadge status={e.status} />
@@ -546,7 +822,7 @@ export default function Logs() {
         </div>
       )}
 
-      {selected && detail.data && (
+      {tab !== 'inspection' && selected && detail.data && (
         <Detail
           detail={detail.data}
           onChanged={() => {
@@ -557,7 +833,7 @@ export default function Logs() {
         />
       )}
 
-      {rows.length >= 200 && (
+      {tab !== 'inspection' && rows.length >= 200 && (
         <div className="mt-8 border-t border-slate-800/50 pt-5 text-center">
           <button
             onClick={loadMore}
@@ -567,7 +843,15 @@ export default function Logs() {
           </button>
         </div>
       )}
-      {selected && detail.loading && <div className="mt-8 flex justify-center"><Spinner /></div>}
+      {tab !== 'inspection' && selected && detail.loading && <div className="mt-8 flex justify-center"><Spinner /></div>}
+
+      {onboarding && onboardingRep && (
+        <OnboardModal
+          event={onboardingRep}
+          onClose={() => setOnboarding(null)}
+          onDone={() => approveAfterOnboard(onboarding)}
+        />
+      )}
     </div>
   )
 }

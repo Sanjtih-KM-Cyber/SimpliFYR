@@ -54,6 +54,7 @@ export interface EventSummary {
   source_id: number | null
   source: string | null
   raw_hash: string
+  detected_format: string | null
 }
 
 export interface EventDetail extends EventSummary {

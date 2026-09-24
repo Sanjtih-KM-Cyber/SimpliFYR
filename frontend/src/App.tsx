@@ -10,18 +10,16 @@ import Audit from './pages/Audit'
 import ConnectionLayout from './pages/ConnectionLayout'
 import ConnectionLive from './pages/ConnectionLive'
 import ConnectionOverview from './pages/ConnectionOverview'
-import { ConnectionLearning, ConnectionMappings, ConnectionNeedsReview, ConnectionOutputs } from './pages/ConnectionTabs'
+import { ConnectionLearning, ConnectionLogs, ConnectionMappings, ConnectionNeedsReview, ConnectionOutputs } from './pages/ConnectionTabs'
 import Connections from './pages/Connections'
 import Dashboard from './pages/Dashboard'
 import Destinations from './pages/Destinations'
-import Logs from './pages/Logs'
 import NeedsReview from './pages/NeedsReview'
 import Settings, { SettingsGeneral } from './pages/Settings'
 
 const NAV = [
   { to: '/', label: 'Home' },
   { to: '/connections', label: 'Connections' },
-  { to: '/logs', label: 'Logs' },
   { to: '/analytics', label: 'Analytics' },
   { to: '/settings', label: 'Settings' },
 ]
@@ -124,9 +122,9 @@ function Shell() {
               <Route path="output" element={<ConnectionOutputs />} />
               <Route path="learning" element={<ConnectionLearning />} />
               <Route path="needs-review" element={<ConnectionNeedsReview />} />
+              <Route path="logs" element={<ConnectionLogs />} />
               <Route path="live" element={<ConnectionLive />} />
             </Route>
-            <Route path="/logs" element={<Logs />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/needs-review" element={<NeedsReview />} />
             <Route path="/settings" element={<Settings />}>

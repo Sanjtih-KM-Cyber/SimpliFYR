@@ -225,6 +225,7 @@ class ProcessingEngine:
 
         event.source = source
         event.parsed = parsed
+        event.detected_format = detection.format.value
 
         normalized = provenance = output = None
         if parse_failed:

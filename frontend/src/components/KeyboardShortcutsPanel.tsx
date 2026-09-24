@@ -3,11 +3,11 @@ import { Modal } from './ui/Modal'
 const SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ['1'], action: 'Home' },
   { keys: ['2'], action: 'Connections' },
-  { keys: ['3'], action: 'Logs' },
+  { keys: ['3'], action: 'Analytics' },
   { keys: ['4'], action: 'Settings' },
   { keys: ['N'], action: 'New Connection' },
   { keys: ['R'], action: 'Needs Review' },
-  { keys: ['/'], action: 'Search logs' },
+  { keys: ['/'], action: 'Connections' },
   { keys: ['Esc'], action: 'Close / Back' },
   { keys: ['Ctrl', 'I'], action: 'Toggle this panel' },
 ]
