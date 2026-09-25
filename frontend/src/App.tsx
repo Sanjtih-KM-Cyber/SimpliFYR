@@ -6,15 +6,15 @@ import { ToastProvider } from './components/ui'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import AddConnection from './pages/AddConnection'
 import Analytics from './pages/Analytics'
-import Audit from './pages/Audit'
 import ConnectionLayout from './pages/ConnectionLayout'
 import ConnectionLive from './pages/ConnectionLive'
 import ConnectionOverview from './pages/ConnectionOverview'
-import { ConnectionLearning, ConnectionLogs, ConnectionMappings, ConnectionOutputs } from './pages/ConnectionTabs'
+import { ConnectionLearning, ConnectionLogs, ConnectionMappings } from './pages/ConnectionTabs'
 import Connections from './pages/Connections'
 import Dashboard from './pages/Dashboard'
 import Destinations from './pages/Destinations'
 import NeedsReview from './pages/NeedsReview'
+import Profiles from './pages/Profiles'
 import Settings, { SettingsGeneral } from './pages/Settings'
 
 const NAV = [
@@ -120,7 +120,6 @@ function Shell() {
             <Route path="/connections/:sourceName" element={<ConnectionLayout />}>
               <Route index element={<ConnectionOverview />} />
               <Route path="mappings" element={<ConnectionMappings />} />
-              <Route path="output" element={<ConnectionOutputs />} />
               <Route path="learning" element={<ConnectionLearning />} />
               <Route path="logs" element={<ConnectionLogs />} />
               <Route path="live" element={<ConnectionLive />} />
@@ -129,7 +128,7 @@ function Shell() {
             <Route path="/needs-review" element={<NeedsReview />} />
             <Route path="/settings" element={<Settings />}>
               <Route index element={<SettingsGeneral />} />
-              <Route path="audit" element={<Audit />} />
+              <Route path="profiles" element={<Profiles />} />
               <Route path="destinations" element={<Destinations />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

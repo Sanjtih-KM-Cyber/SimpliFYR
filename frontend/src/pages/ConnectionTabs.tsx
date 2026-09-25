@@ -2,7 +2,6 @@ import { useParams } from 'react-router-dom'
 import Knowledge from './Knowledge'
 import Logs from './Logs'
 import Mappings from './Mappings'
-import Outputs from './Outputs'
 
 function useSourceName(): string {
   const { sourceName = '' } = useParams()
@@ -11,10 +10,6 @@ function useSourceName(): string {
 
 export function ConnectionMappings() {
   return <Mappings sourceFilter={useSourceName()} />
-}
-
-export function ConnectionOutputs() {
-  return <Outputs embedded sourceName={useSourceName()} />
 }
 
 export function ConnectionLearning() {

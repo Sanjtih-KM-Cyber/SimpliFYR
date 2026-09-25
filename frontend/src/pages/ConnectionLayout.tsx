@@ -63,8 +63,8 @@ export default function ConnectionLayout() {
             tabs={[
               { to: `/connections/${sourceName}`, label: 'OVERVIEW', end: true },
               { to: `/connections/${sourceName}/mappings`, label: 'SCHEMA MAP' },
-              { to: `/connections/${sourceName}/output`, label: 'DESTINATIONS' },
               { to: `/connections/${sourceName}/learning`, label: 'AI KNOWLEDGE' },
+              { to: `/connections/${sourceName}/live`, label: 'LIVE LOGS' },
               { to: `/connections/${sourceName}/logs`, label: 'LOGS' },
             ]}
           />

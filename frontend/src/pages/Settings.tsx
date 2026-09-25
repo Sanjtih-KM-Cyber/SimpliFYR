@@ -19,7 +19,7 @@ export default function Settings() {
       <TabBar
         tabs={[
           { to: '/settings', label: 'General', end: true },
-          { to: '/settings/audit', label: 'Audit' },
+          { to: '/settings/profiles', label: 'Profiles' },
           { to: '/settings/destinations', label: 'Destinations' },
         ]}
       />

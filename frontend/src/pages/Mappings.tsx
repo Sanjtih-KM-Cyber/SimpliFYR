@@ -72,19 +72,20 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
     }
     return [...byKey.values()].map((versions) => {
       const sorted = [...versions].sort((a, b) => b.version - a.version || b.id - a.id)
-      return { latest: sorted[0], count: sorted.length, ids: sorted.map((m) => m.id) }
+      return { key: normalizeMappingName(sorted[0].name), latest: sorted[0], versions: sorted }
     })
   }, [rows_])
 
   const { toast } = useToast()
-  const [deleting, setDeleting] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<number | string | null>(null)
+  const [expanded, setExpanded] = useState<string | null>(null)
 
-  async function deleteGroup(key: string, ids: number[], name: string) {
-    if (!window.confirm(`Delete mapping "${name}" and all ${ids.length} version(s)? Bound recipes unbind; drift history detaches.`)) return
+  async function deleteVersions(key: string | number, ids: number[], label: string) {
+    if (!window.confirm(`Delete ${label}? Bound recipes unbind; drift history detaches.`)) return
     setDeleting(key)
     try {
       for (const id of ids) await deleteMapping(id)
-      toast(`Deleted mapping "${name}"`, 'success')
+      toast(`Deleted ${label}`, 'success')
       mappings.reload()
     } catch (e) {
       toast((e as Error).message, 'error')
@@ -194,7 +195,8 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
         <div className="grid gap-4 lg:grid-cols-2">
           {groups.map((g) => {
             const m = g.latest
-            const key = normalizeMappingName(m.name)
+            const key = g.key
+            const open = expanded === key
             return (
               <div key={key} className="glass-card rounded-2xl p-5">
                 <div className="mb-2 flex items-center justify-between gap-2">
@@ -203,16 +205,22 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
                     <span className="rounded border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-cyan-400">
                       v{m.version}
                     </span>
-                    {g.count > 1 && (
-                      <span className="rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 font-mono text-[10px] text-slate-400">
-                        {g.count} versions
-                      </span>
+                    {g.versions.length > 1 && (
+                      <button
+                        onClick={() => setExpanded(open ? null : key)}
+                        title={open ? 'Hide version history' : 'Show all versions'}
+                        className="rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 font-mono text-[10px] text-slate-400 hover:border-cyan-900/50 hover:text-cyan-300"
+                      >
+                        {g.versions.length} versions {open ? '▾' : '▸'}
+                      </button>
                     )}
                   </h3>
                   <span className="flex items-center gap-2">
                     <StatusBadge status={m.status} />
                     <button
-                      onClick={() => deleteGroup(key, g.ids, m.name)}
+                      onClick={() =>
+                        deleteVersions(key, g.versions.map((v) => v.id), `mapping "${m.name}" and all ${g.versions.length} version(s)`)
+                      }
                       disabled={deleting === key}
                       title={`Delete "${m.name}" and all its versions`}
                       className="rounded border border-rose-900/50 bg-rose-950/20 px-2 py-0.5 text-[11px] font-semibold text-rose-400 transition-colors hover:bg-rose-900/50 disabled:opacity-50"
@@ -229,6 +237,38 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
                     value={m.fields.map((f) => `${f.input_field} → ${f.semantic_field}`).join('\n')}
                   />
                 </div>
+                {open && (
+                  <div className="mt-3 space-y-2 border-t border-slate-800 pt-3">
+                    {g.versions.map((v) => (
+                      <details key={v.id} className="group rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                        <summary className="flex cursor-pointer select-none items-center gap-2 text-[12px]">
+                          <span className="mr-1 inline-block opacity-50 transition-transform group-open:rotate-90">▶</span>
+                          <span className="font-mono font-bold text-slate-200">{v.name}</span>
+                          <span className="rounded border border-cyan-500/30 bg-cyan-500/10 px-1 py-0.5 font-mono text-[10px] font-bold text-cyan-400">
+                            v{v.version}
+                          </span>
+                          <StatusBadge status={v.status} />
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault()
+                              deleteVersions(v.id, [v.id], `"${v.name}" (v${v.version})`)
+                            }}
+                            disabled={deleting === v.id}
+                            title={`Delete "${v.name}" only`}
+                            className="ml-auto rounded border border-rose-900/50 bg-rose-950/20 px-2 py-0.5 text-[10px] font-semibold text-rose-400 transition-colors hover:bg-rose-900/50 disabled:opacity-50"
+                          >
+                            {deleting === v.id ? '…' : 'Delete this version'}
+                          </button>
+                        </summary>
+                        <div className="mt-2 max-h-40 overflow-auto border-l border-slate-800 pl-3">
+                          <Code
+                            value={v.fields.map((f) => `${f.input_field} → ${f.semantic_field}`).join('\n')}
+                          />
+                        </div>
+                      </details>
+                    ))}
+                  </div>
+                )}
               </div>
             )
           })}
