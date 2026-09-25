@@ -99,9 +99,15 @@ function ConnectionCard({ c, onDeleted }: { c: ConnectionSummary; onDeleted: () 
               onClick={remove}
               disabled={deleting}
               title={`Remove vendor "${c.name}" and all its data`}
-              className="rounded border border-transparent px-1.5 py-0.5 text-[14px] leading-none text-slate-600 opacity-0 transition-all hover:border-rose-900/50 hover:bg-rose-950/30 hover:text-rose-400 disabled:opacity-50 group-hover:opacity-100"
+              className="rounded p-1 text-slate-600 opacity-0 transition-all hover:bg-rose-950/30 hover:text-rose-400 disabled:opacity-50 group-hover:opacity-100"
             >
-              {deleting ? '…' : '✕'}
+              {deleting ? (
+                <span className="text-[12px]">…</span>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0h10" />
+                </svg>
+              )}
             </button>
             {needsReview ? (
               <span className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-500">
