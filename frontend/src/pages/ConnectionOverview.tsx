@@ -54,7 +54,7 @@ export default function ConnectionOverview() {
         </section>
 
         <section className="animate-slide-up rounded-lg border border-slate-700/50 p-5 glass-card" style={{ animationDelay: '100ms' }}>
-          <h3 className="mb-4 text-[12px] font-bold uppercase tracking-widest text-white border-b border-slate-800/80 pb-2">Destinations Profile Link</h3>
+          <h3 className="mb-4 text-[12px] font-bold uppercase tracking-widest text-white border-b border-slate-800/80 pb-2">Output Profile</h3>
           {c.output_profile ? (
             <div className="flex flex-wrap items-center justify-between gap-3 text-[13px]">
               <span className="text-slate-400">

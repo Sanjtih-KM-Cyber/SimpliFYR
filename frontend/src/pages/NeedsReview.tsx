@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   analyzeDrift,
   approveDrift,
@@ -299,36 +299,96 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceFilter])
 
-  const rows = (drifts.data ?? []).filter(
+  const [view, setView] = useState<'open' | 'resolved'>('open')
+
+  const all = (drifts.data ?? []).filter(
     (d) => !sourceFilter || d.source === sourceFilter,
   )
+  const open = all.filter((d) => d.status === 'detected' || d.status === 'analyzed' || d.status === 'review')
+  const resolved = all.filter((d) => d.status === 'approved' || d.status === 'rejected' || d.status === 'ignored')
+
+  /** Open items grouped under their source: one anomaly shape, one decision. */
+  const openGroups = useMemo(() => {
+    const bySource = new Map<string, typeof open>()
+    for (const d of open) {
+      const key = d.source ?? 'Unassigned origin'
+      const g = bySource.get(key)
+      if (g) g.push(d)
+      else bySource.set(key, [d])
+    }
+    return [...bySource.entries()]
+  }, [open])
+
+  const shown = view === 'open' ? open : resolved
 
   return (
     <div className="h-full flex flex-col">
       {!sourceFilter && (
         <PageHeader
           title="Review Queue"
-          subtitle="Drift proposals against approved mappings — analyze, approve, correct, or ignore."
+          subtitle="One decision per new shape: approve the AI names, correct them, or dismiss as noise."
         />
       )}
+
+      <div className="mb-5 flex items-center gap-1.5">
+        {(['open', 'resolved'] as const).map((v) => {
+          const n = v === 'open' ? open.length : resolved.length
+          return (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`rounded px-3 py-1.5 text-[13px] font-medium capitalize transition-all ${view === v
+                  ? 'border border-slate-700 bg-slate-800 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.15)]'
+                  : 'border border-transparent text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                }`}
+            >
+              {v} ({n})
+            </button>
+          )
+        })}
+      </div>
 
       {drifts.loading && <div className="mt-10 flex justify-center"><Spinner /></div>}
       {drifts.error && <p className="text-[13px] font-medium text-rose-400">{drifts.error}</p>}
 
-      {!drifts.loading && !drifts.error && rows.length === 0 && (
+      {!drifts.loading && !drifts.error && shown.length === 0 && (
         <div className="mt-8">
           <EmptyState
-            title={sourceFilter ? 'System Nominal' : 'No Anomalies Detected'}
-            description="Active parser maps match all incoming telemetry structures. Quarantined payloads live under Logs → Telemetry Inspection."
+            title={view === 'open' ? (sourceFilter ? 'System Nominal' : 'Nothing awaiting review') : 'No resolved items'}
+            description={
+              view === 'open'
+                ? 'Active parser maps match all incoming telemetry structures. Quarantined payloads live under Logs → Telemetry Inspection.'
+                : 'Approved, rejected, and ignored proposals will appear here.'
+            }
           />
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {rows.map((d) => (
-          <ReviewCard key={d.id} detail={d} onChanged={() => reloadAll()} />
-        ))}
-      </div>
+      {view === 'open' ? (
+        <div className="space-y-8">
+          {openGroups.map(([source, items]) => (
+            <section key={source}>
+              <h3 className="mb-3 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                <span className="font-mono text-cyan-500">{source}</span>
+                <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] text-amber-400">
+                  {items.length} open
+                </span>
+              </h3>
+              <div className="grid gap-4 lg:grid-cols-2">
+                {items.map((d) => (
+                  <ReviewCard key={d.id} detail={d} onChanged={() => reloadAll()} />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {resolved.map((d) => (
+            <ReviewCard key={d.id} detail={d} onChanged={() => reloadAll()} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

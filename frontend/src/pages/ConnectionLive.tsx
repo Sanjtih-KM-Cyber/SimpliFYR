@@ -67,14 +67,7 @@ export default function ConnectionLive() {
         <div className="animate-slide-up flex h-full flex-col">
           <PageHeader
             title="Live Telemetry Sink"
-            subtitle={
-              <span className="flex items-center gap-2 mt-2">
-                <span className={`inline-block h-2.5 w-2.5 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.8)] ${connected ? 'animate-[pulse_1s_ease-in-out_infinite] bg-emerald-500' : 'bg-rose-500 shadow-[0_0_10px_rgba(225,29,72,0.8)]'}`} />
-                <span className="font-bold text-[12px] uppercase tracking-wider">{connected ? 'Transmission Active' : 'Disconnected'}</span>
-                <span className="text-slate-600 font-bold">///</span>
-                <span className="text-slate-400 font-mono text-[10px] uppercase tracking-widest">Pipeline: {c.name}</span>
-              </span>
-            }
+            subtitle={`${connected ? '● Live' : '○ Connecting'} — streaming ${c.name} as it arrives`}
             actions={
               <span className="flex gap-2">
                 <button

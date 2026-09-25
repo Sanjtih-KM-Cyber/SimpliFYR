@@ -15,9 +15,24 @@ from app.models import MappingField, MappingStatus
 # comparing event structure so they never produce false drift signals.
 META_KEYS = {"timestamp", "hostname", "pri", "message", "event_id", "received_at", "id"}
 
+# Event-envelope internals: ingesting an exported event (or any payload shaped
+# like one) must not read its wrapper keys as "new log fields".
+INTERNAL_KEYS = {
+    "normalized",
+    "output",
+    "parsed",
+    "provenance",
+    "raw_hash",
+    "raw_ref",
+    "status",
+    "views",
+    "source",
+    "source_id",
+}
+
 
 def meaningful_fields(field_map: dict) -> set[str]:
-    return {k for k in field_map if k not in META_KEYS}
+    return {k for k in field_map if k not in META_KEYS and k not in INTERNAL_KEYS}
 
 
 def detect_drift(field_map: dict, mapping: MappingModel) -> tuple[set[str], set[str]] | None:

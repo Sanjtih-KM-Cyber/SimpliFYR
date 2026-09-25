@@ -145,3 +145,36 @@ def test_different_shape_drift_stays_separate(client):
     assert len(mine) == 2, mine
     shapes = sorted(tuple(d["new_fields"]) for d in mine)
     assert shapes == [("decision",), ("decision", "extrafield")], shapes
+
+
+def test_export_shaped_payload_creates_no_junk_drift(client):
+    """Re-ingesting an exported event must not read wrapper keys as fields."""
+    import json
+
+    source = _setup_source(client, "Box-ExportLoop")
+    exported = {
+        "id": 1,
+        "event_id": "abc",
+        "status": "normalized",
+        "received_at": "2026-09-24T00:00:00+00:00",
+        "source": source,
+        "source_id": 9,
+        "raw_hash": "x",
+        "raw_ref": None,
+        "raw": "srcip=10.0.0.1 action=deny",
+        "parsed": {"fields": {"srcip": "10.0.0.1"}},
+        "normalized": {"source": {"ip": "10.0.0.1"}},
+        "output": None,
+        "provenance": {},
+        "views": {"raw": "srcip=10.0.0.1 action=deny"},
+    }
+    body = _ingest(client, source, json.dumps(exported))
+    assert body["status"] in ("quarantined", "normalized", "output", "dlq"), body
+    internals = {
+        "normalized", "output", "parsed", "provenance", "raw_hash",
+        "raw_ref", "status", "views", "source", "source_id",
+    }
+    for d in client.get("/api/v1/drift").json():
+        if d["source"] != source:
+            continue
+        assert not (set(d["new_fields"]) & internals), d
