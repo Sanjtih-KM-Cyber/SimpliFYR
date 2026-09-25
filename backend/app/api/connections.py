@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.datetimes import as_utc
 from app.core.environment import get_environment
-from app.core.security import require_auth, require_write
+
 from app.models import DriftRecord, Event, Mapping, Recipe
 from app.schemas.connection import (
     ConnectionDetail,
@@ -19,7 +19,7 @@ from app.schemas.connection import (
 from app.schemas.drift import DriftSummary
 
 router = APIRouter(
-    prefix="/connections", tags=["connections"], dependencies=[Depends(require_auth)]
+    prefix="/connections", tags=["connections"]
 )
 
 # Drift record statuses that mean "a human still needs to look at this".
@@ -263,7 +263,7 @@ def get_connection(
     )
 
 
-@router.delete("/{source_name}", status_code=204, dependencies=[Depends(require_write)])
+@router.delete("/{source_name}", status_code=204)
 def delete_connection(
     source_name: str,
     environment: str = Depends(get_environment),

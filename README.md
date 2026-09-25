@@ -117,15 +117,16 @@ sample-data/        Golden fixtures · docs/  design notes
 ## 📜 Build history (condensed)
 
 Phases 0–10 took it from monorepo + envelope + parsers → engine → drift + heuristic
-AI → hardening (auth/RBAC, retention, Alembic, Postgres, Kafka/S3/Redis backends,
+AI → hardening (retention, Alembic, Postgres, Kafka/S3/Redis backends,
 delivery sinks, multi-tenancy) → **Phase 5 AI flywheel**: training-data pipeline,
 golden eval gate, v1 fine-tune (F1 .9836, drift/abstain failed) → v2 data →
 **v2 green on all four (1.0/1.0/1.0)**, now serving. Recent UX: index-scoped Logs
 inside connections, grouped quarantine/drift, trial-run + dedupe tooling.
+(Role auth was removed — single-user tool, API is open; rate limiting retained.)
 
 ## 🔑 Config in 30 seconds
 
 `.env.example` documents everything; the knobs that matter: `DATABASE_URL`,
-`AI_PROVIDER` (`heuristic`/`ollama`), `OLLAMA_MODEL`, `AI_AUTO_APPLY` (≥0.9-gated
-drift automation — v2 cleared it), `AUTH_ENABLED`, retention tiers, syslog ports.
-`GET /api/v1/config` shows the live non-secret config; the Settings page mirrors it.
+`AI_PROVIDER` (`heuristic`/`ollama`/`groq`/`gemini`), `OLLAMA_MODEL`, `AI_AUTO_APPLY` (≥0.9-gated
+drift automation — v2 cleared it), retention tiers, syslog ports.
+`GET /api/v1/config` shows the live config; the Settings page mirrors it.

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.core import analytics as engine
 from app.core.database import get_db
 from app.core.environment import get_environment
-from app.core.security import require_auth
+
 from app.models import EventStatus
 from app.schemas.analytics import (
     AggregateRow,
@@ -22,7 +22,7 @@ from app.schemas.analytics import (
 router = APIRouter(
     prefix="/analytics",
     tags=["analytics"],
-    dependencies=[Depends(require_auth)],
+
 )
 
 _GROUPABLE = (

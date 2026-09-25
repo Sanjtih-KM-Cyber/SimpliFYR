@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
 from app.core.database import get_db
-from app.core.security import require_auth, require_write
+
 from app.models import OutputProfile
 from app.schemas.output_profile import OutputProfileCreate, OutputProfileResponse
 from output_profiles import OutputProfile as PkgProfile
@@ -12,7 +12,7 @@ from output_profiles import OutputProfile as PkgProfile
 router = APIRouter(
     prefix="/output-profiles",
     tags=["output-profiles"],
-    dependencies=[Depends(require_auth)],
+
 )
 
 
@@ -61,7 +61,7 @@ def get_output_profile(profile_id: int, db: Session = Depends(get_db)):
     return _db_to_response(profile)
 
 
-@router.post("", response_model=OutputProfileResponse, status_code=201, dependencies=[Depends(require_write)])
+@router.post("", response_model=OutputProfileResponse, status_code=201)
 def create_output_profile(payload: OutputProfileCreate, db: Session = Depends(get_db)):
     schema = {
         "include_all": payload.include_all,

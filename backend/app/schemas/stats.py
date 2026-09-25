@@ -26,7 +26,6 @@ class AuditEntry(BaseModel):
 
 
 class ConfigResponse(BaseModel):
-    auth_enabled: bool
     ai_provider: str
     ai_auto_apply: bool
     ai_auto_apply_threshold: float

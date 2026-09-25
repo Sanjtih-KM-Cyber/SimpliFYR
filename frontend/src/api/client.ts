@@ -43,9 +43,8 @@ export function wsBase(): string {
   return `${proto}//${window.location.host}/api/v1`
 }
 
-// Auth token + environment, wired so the UI keeps working when the backend
-// runs with AUTH_ENABLED=true and multi-tenancy headers (§39-40, §60).
-// Persisted to localStorage; Settings page exposes both.
+// Tenant environment header (multi-tenancy; defaults server-side).
+// Persisted to localStorage for sticky tenant selection.
 function loadStored(key: string): string | null {
   try {
     if (typeof localStorage === 'undefined') return null;
@@ -65,17 +64,7 @@ function storeValue(key: string, value: string | null) {
   }
 }
 
-let authToken: string | null = loadStored('simplifyr.token');
 let activeEnvironment: string | null = loadStored('simplifyr.environment');
-
-export function setAuthToken(token: string | null) {
-  authToken = token && token.trim() ? token.trim() : null;
-  storeValue('simplifyr.token', authToken);
-}
-
-export function getAuthToken(): string | null {
-  return authToken;
-}
 
 export function setEnvironment(name: string | null) {
   activeEnvironment = name && name.trim() ? name.trim() : null;
@@ -88,9 +77,6 @@ export function getEnvironment(): string | null {
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const headers = new Headers(options?.headers);
-  if (authToken && !headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${authToken}`);
-  }
   if (activeEnvironment && !headers.has('X-Environment')) {
     headers.set('X-Environment', activeEnvironment);
   }

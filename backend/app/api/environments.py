@@ -4,10 +4,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import require_auth, require_write
+
 from app.models import Environment
 
-router = APIRouter(prefix="/environments", tags=["environments"], dependencies=[Depends(require_auth)])
+router = APIRouter(prefix="/environments", tags=["environments"])
 
 
 class EnvironmentCreate(BaseModel):
@@ -36,7 +36,7 @@ def list_environments(db: Session = Depends(get_db)):
     ]
 
 
-@router.post("", response_model=EnvironmentResponse, status_code=201, dependencies=[Depends(require_write)])
+@router.post("", response_model=EnvironmentResponse, status_code=201)
 def create_environment(payload: EnvironmentCreate, db: Session = Depends(get_db)):
     existing = db.execute(
         select(Environment).where(Environment.name == payload.name)

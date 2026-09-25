@@ -9,7 +9,7 @@ from app.core.datetimes import as_utc
 from app.core.engine import ProcessingEngine
 from app.core.environment import get_environment
 from app.core.raw_store import get_raw_store
-from app.core.security import require_auth, require_write
+
 from app.core.config import settings
 from app.models import Event, EventStatus
 from app.schemas.event import (
@@ -21,7 +21,7 @@ from app.schemas.event import (
     EventViews,
 )
 
-router = APIRouter(prefix="/events", tags=["events"], dependencies=[Depends(require_auth)])
+router = APIRouter(prefix="/events", tags=["events"])
 
 
 def _to_summary(event: Event) -> EventSummary:
@@ -168,7 +168,7 @@ def get_event_raw(event_id: int, db: Session = Depends(get_db)):
 _RETRYABLE = (EventStatus.DLQ, EventStatus.QUARANTINED)
 
 
-@router.post("/{event_id}/retry", response_model=EventDetail, dependencies=[Depends(require_write)])
+@router.post("/{event_id}/retry", response_model=EventDetail)
 def retry_event(event_id: int, db: Session = Depends(get_db)):
     """Re-run a dead-lettered or quarantined event through the engine.
 
@@ -244,7 +244,7 @@ def suggest_event_mapping(event_id: int, db: Session = Depends(get_db)):
     ]
 
 
-@router.post("/{event_id}/onboard", response_model=EventOnboardResponse, dependencies=[Depends(require_write)])
+@router.post("/{event_id}/onboard", response_model=EventOnboardResponse)
 def onboard_event(event_id: int, payload: EventOnboardRequest, db: Session = Depends(get_db)):
     """Give a quarantined event a home: create/extend the mapping for its
     connection (existing source = new version, new name = new vendor/source),
@@ -310,7 +310,7 @@ def onboard_event(event_id: int, payload: EventOnboardRequest, db: Session = Dep
     )
 
 
-@router.delete("/{event_id}", status_code=204, dependencies=[Depends(require_write)])
+@router.delete("/{event_id}", status_code=204)
 def delete_event(event_id: int, db: Session = Depends(get_db)):
     """Delete an event and its raw file (e.g. junk probes). Audited."""
     from app.core.audit import log_action
@@ -348,7 +348,7 @@ class EventBatchDeleteResponse(BaseModel):
     deleted: list[int]
 
 
-@router.post("/batch-retry", response_model=EventBatchRetryResponse, dependencies=[Depends(require_write)])
+@router.post("/batch-retry", response_model=EventBatchRetryResponse)
 def batch_retry_events(payload: EventBatchRequest, db: Session = Depends(get_db)):
     """Reprocess a set of dlq/quarantined events (Telemetry Inspection group actions).
 
@@ -371,7 +371,7 @@ def batch_retry_events(payload: EventBatchRequest, db: Session = Depends(get_db)
     return EventBatchRetryResponse(retried=retried, skipped=skipped)
 
 
-@router.post("/batch-delete", response_model=EventBatchDeleteResponse, dependencies=[Depends(require_write)])
+@router.post("/batch-delete", response_model=EventBatchDeleteResponse)
 def batch_delete_events(payload: EventBatchRequest, db: Session = Depends(get_db)):
     """Purge a set of events and their raw files (Telemetry Inspection purge-all)."""
     from app.core.audit import log_action

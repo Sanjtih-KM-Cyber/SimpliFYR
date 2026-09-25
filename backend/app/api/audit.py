@@ -4,11 +4,11 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.datetimes import as_utc
-from app.core.security import require_auth
+
 from app.models import AuditLog
 from app.schemas.stats import AuditEntry
 
-router = APIRouter(prefix="/audit", tags=["audit"], dependencies=[Depends(require_auth)])
+router = APIRouter(prefix="/audit", tags=["audit"])
 
 
 @router.get("", response_model=list[AuditEntry])

@@ -6,7 +6,7 @@ from app.core.audit import log_action
 from app.core.database import get_db
 from app.core.datetimes import as_utc
 from app.core.destination_delivery import invalidate_destination_sinks
-from app.core.security import require_auth, require_write
+
 from app.models import Destination
 from app.schemas.destination import (
     DestinationCreate,
@@ -16,7 +16,7 @@ from app.schemas.destination import (
 )
 
 router = APIRouter(
-    prefix="/destinations", tags=["destinations"], dependencies=[Depends(require_auth)]
+    prefix="/destinations", tags=["destinations"]
 )
 
 
@@ -52,7 +52,7 @@ def get_destination(destination_id: int, db: Session = Depends(get_db)):
     "",
     response_model=DestinationResponse,
     status_code=201,
-    dependencies=[Depends(require_write)],
+
 )
 def create_destination(payload: DestinationCreate, db: Session = Depends(get_db)):
     try:
@@ -84,7 +84,7 @@ def create_destination(payload: DestinationCreate, db: Session = Depends(get_db)
 @router.patch(
     "/{destination_id}",
     response_model=DestinationResponse,
-    dependencies=[Depends(require_write)],
+
 )
 def update_destination(
     destination_id: int, payload: DestinationUpdate, db: Session = Depends(get_db)
@@ -116,7 +116,7 @@ def update_destination(
 
 
 @router.delete(
-    "/{destination_id}", status_code=204, dependencies=[Depends(require_write)]
+    "/{destination_id}", status_code=204
 )
 def delete_destination(destination_id: int, db: Session = Depends(get_db)):
     destination = _get_destination(db, destination_id)

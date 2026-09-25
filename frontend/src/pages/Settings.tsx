@@ -70,12 +70,11 @@ export function SettingsGeneral() {
         </section>
 
         <section className="glass-card rounded-2xl p-5">
-          <h3 className="mb-2 text-sm font-medium text-white">Security & Scaling</h3>
+          <h3 className="mb-2 text-sm font-medium text-white">Scaling</h3>
           {config.loading ? (
             <Spinner />
           ) : (
             <>
-              <Row label="Authentication" value={c?.auth_enabled ? 'enabled' : 'disabled (dev)'} />
               <Row label="Pipeline" value={`${c?.pipeline_backend ?? '—'} · ${c?.pipeline_workers ?? '—'} worker(s)`} />
               <Row label="Raw Store" value={c?.raw_store_backend ?? '—'} />
               <Row label="Cache" value={c?.cache_backend ?? '—'} />

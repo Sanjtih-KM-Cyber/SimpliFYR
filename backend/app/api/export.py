@@ -11,10 +11,10 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.datetimes import as_utc_iso
 from app.core.environment import get_environment
-from app.core.security import require_auth
+
 from app.models import Event, EventStatus
 
-router = APIRouter(prefix="/export", tags=["export"], dependencies=[Depends(require_auth)])
+router = APIRouter(prefix="/export", tags=["export"])
 
 FORMATS = ("json", "ndjson", "csv")
 _MEDIA_TYPES = {

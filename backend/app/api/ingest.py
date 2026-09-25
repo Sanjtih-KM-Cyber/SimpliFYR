@@ -5,7 +5,7 @@ from app.core.database import get_db
 from app.core.engine import ProcessingEngine
 from app.core.environment import get_environment
 from app.core.ratelimit import check_rate_limit
-from app.core.security import require_write
+
 from app.models import Mapping as MappingModel
 from app.models import OutputProfile
 from app.schemas.ingest import DetectionSchema, EnvelopeSchema, IngestResponse, IngestSourceSchema, PreviewResponse
@@ -14,7 +14,7 @@ from simplifyr_parsers import Format, detect_format, parse
 router = APIRouter(
     prefix="/ingest",
     tags=["ingest"],
-    dependencies=[Depends(require_write), Depends(check_rate_limit)],
+    dependencies=[Depends(check_rate_limit)],
 )
 
 MAX_PAYLOAD = 1_000_000  # 1 MB

@@ -13,7 +13,7 @@ from app.core.database import get_db
 from app.core.datetimes import as_utc
 from app.core.drift import _analyze_and_decide, apply_corrections, apply_drift, reprocess_quarantined
 from app.core.environment import get_environment
-from app.core.security import require_auth, require_write
+
 from app.models import Approval, ApprovalStatus, DriftRecord, Mapping as MappingModel
 from app.schemas.drift import (
     DriftApproveResponse,
@@ -22,7 +22,7 @@ from app.schemas.drift import (
     DriftSummary,
 )
 
-router = APIRouter(prefix="/drift", tags=["drift"], dependencies=[Depends(require_auth)])
+router = APIRouter(prefix="/drift", tags=["drift"])
 
 _OPEN_STATUSES = ("detected", "analyzed", "review")
 
@@ -139,7 +139,7 @@ def get_drift(drift_id: int, db: Session = Depends(get_db)):
     return _to_detail(_get_drift(db, drift_id))
 
 
-@router.post("/{drift_id}/analyze", response_model=DriftDetail, dependencies=[Depends(require_write)])
+@router.post("/{drift_id}/analyze", response_model=DriftDetail)
 def analyze_drift(drift_id: int, db: Session = Depends(get_db)):
     drift = _get_drift(db, drift_id)
     if drift.status in ("approved", "rejected", "ignored"):
@@ -159,7 +159,7 @@ def analyze_drift(drift_id: int, db: Session = Depends(get_db)):
     return _to_detail(drift)
 
 
-@router.post("/{drift_id}/approve", response_model=DriftApproveResponse, dependencies=[Depends(require_write)])
+@router.post("/{drift_id}/approve", response_model=DriftApproveResponse)
 def approve_drift(drift_id: int, db: Session = Depends(get_db)):
     drift = _get_drift(db, drift_id)
     if drift.status == "rejected":
@@ -212,7 +212,7 @@ def approve_drift(drift_id: int, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/{drift_id}/reject", response_model=DriftDetail, dependencies=[Depends(require_write)])
+@router.post("/{drift_id}/reject", response_model=DriftDetail)
 def reject_drift(drift_id: int, db: Session = Depends(get_db)):
     drift = _get_drift(db, drift_id)
     if drift.status in ("approved", "ignored"):
@@ -230,7 +230,7 @@ def reject_drift(drift_id: int, db: Session = Depends(get_db)):
 
 
 @router.post(
-    "/{drift_id}/correct", response_model=DriftApproveResponse, dependencies=[Depends(require_write)]
+    "/{drift_id}/correct", response_model=DriftApproveResponse
 )
 def correct_drift(drift_id: int, payload: CorrectPayload, db: Session = Depends(get_db)):
     """Human correction: teach the system the right interpretation.
@@ -299,7 +299,7 @@ def correct_drift(drift_id: int, payload: CorrectPayload, db: Session = Depends(
     )
 
 
-@router.post("/{drift_id}/ignore", response_model=DriftDetail, dependencies=[Depends(require_write)])
+@router.post("/{drift_id}/ignore", response_model=DriftDetail)
 def ignore_drift(drift_id: int, db: Session = Depends(get_db)):
     """Ignore a drift: no mapping change, the record is resolved as noise."""
     drift = _get_drift(db, drift_id)

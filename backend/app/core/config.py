@@ -82,14 +82,7 @@ class Settings(BaseSettings):
     sink_s3_prefix: str = "output/"
     sink_kafka_topic: str = "simplifyr.output"
 
-    # --- Security ---
-    auth_enabled: bool = False
-    api_keys: dict[str, str] = {}  # role -> token (hashed in memory at load; see security.py)
-    auth_backend: str = "tokens"  # "tokens" | "oidc"
-    oidc_issuer: str | None = None
-    oidc_audience: str | None = None
-    oidc_jwks_url: str | None = None  # defaults to {issuer}/.well-known/jwks.json
-    oidc_role_claim: str = "roles"
+    # --- Limits (no user accounts: single-user tool, API is open) ---
     rate_limit_per_minute: int = 0  # 0 = unlimited (applies to ingest)
     trust_proxy_headers: bool = False  # honor X-Forwarded-For only behind a known proxy
     max_raw_bytes: int = 1_000_000  # cap for GET /events/{id}/raw responses

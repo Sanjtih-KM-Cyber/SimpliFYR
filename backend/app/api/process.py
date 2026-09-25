@@ -7,15 +7,15 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.engine import ProcessingEngine
-from app.core.security import require_auth, require_write
+
 from app.schemas.process import BatchItemResult, BatchResponse
 
-router = APIRouter(prefix="/process", tags=["process"], dependencies=[Depends(require_auth)])
+router = APIRouter(prefix="/process", tags=["process"])
 
 MAX_BATCH = 100_000
 
 
-@router.post("/batch", response_model=BatchResponse, dependencies=[Depends(require_write)])
+@router.post("/batch", response_model=BatchResponse)
 async def process_batch(
     db: Session = Depends(get_db),
     file: UploadFile | None = File(default=None),

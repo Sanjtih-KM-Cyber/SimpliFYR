@@ -7,12 +7,12 @@ from app.core.database import get_db
 from app.core.datetimes import as_utc
 from app.core.environment import get_environment
 from app.core.mapping_cache import invalidate_active_mapping
-from app.core.security import require_auth, require_write
+
 from app.models import Mapping as MappingModel
 from app.models import OutputProfile, Recipe
 from app.schemas.recipe import RecipeCreate, RecipeResponse
 
-router = APIRouter(prefix="/recipes", tags=["recipes"], dependencies=[Depends(require_auth)])
+router = APIRouter(prefix="/recipes", tags=["recipes"])
 
 
 def _db_to_response(recipe: Recipe) -> RecipeResponse:
@@ -60,7 +60,7 @@ def get_recipe(recipe_id: int, db: Session = Depends(get_db)):
 
 
 @router.post(
-    "", response_model=RecipeResponse, status_code=201, dependencies=[Depends(require_write)]
+    "", response_model=RecipeResponse, status_code=201
 )
 def create_recipe(
     payload: RecipeCreate,
@@ -116,7 +116,7 @@ def create_recipe(
     return _db_to_response(recipe)
 
 
-@router.delete("/{recipe_id}", status_code=204, dependencies=[Depends(require_write)])
+@router.delete("/{recipe_id}", status_code=204)
 def delete_recipe(recipe_id: int, db: Session = Depends(get_db)):
     recipe = db.get(Recipe, recipe_id)
     if recipe is None:

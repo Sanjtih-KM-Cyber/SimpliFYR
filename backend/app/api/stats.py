@@ -6,15 +6,14 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core import security
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.environment import get_environment
-from app.core.security import require_auth
+
 from app.models import DriftRecord, Event, Mapping, OutputProfile
 from app.schemas.stats import ConfigResponse, StatsResponse
 
-router = APIRouter(tags=["stats"], dependencies=[Depends(require_auth)])
+router = APIRouter(tags=["stats"])
 
 
 @router.get("/stats", response_model=StatsResponse)
@@ -103,7 +102,6 @@ def get_stats(
 def get_config():
     """Non-secret runtime configuration (never exposes tokens/keys)."""
     return ConfigResponse(
-        auth_enabled=security.auth_status(),
         ai_provider=settings.ai_provider,
         ai_auto_apply=settings.ai_auto_apply,
         ai_auto_apply_threshold=settings.ai_auto_apply_threshold,

@@ -1,93 +1,25 @@
-# Uses the module-scoped `client` fixture from conftest.py (isolated DB + raw storage).
-import hashlib
-
+# Infrastructure guards that survived the auth removal (no accounts, no roles):
+# rate limiting (incl. proxy-header trust + fail-open) and the raw size cap.
+# Uses the module-scoped `client` fixture from conftest.py.
 import pytest
-
-from app.core import security
-from app.core.security import set_auth
-
-KEYS = {"admin": "admintoken", "operator": "optoken", "analyst": "antoken"}
 
 
 @pytest.fixture(autouse=True)
-def _open_auth():
-    set_auth(False)
-    yield
-    set_auth(False)
+def _open_limits():
+    from app.core.config import settings
     from app.core.ratelimit import set_rate_limit
 
     set_rate_limit(0)
-    security.settings.trust_proxy_headers = False
-    security.settings.auth_backend = "tokens"
-    security.settings.max_raw_bytes = 1_000_000
-
-
-def _auth(token: str) -> dict:
-    return {"Authorization": f"Bearer {token}"}
-
-
-def test_tokens_stored_as_hashes_not_plaintext():
-    set_auth(True, {"admin": "s3cret-value"})
-    stored = security._api_key_hashes["admin"]
-    assert stored != "s3cret-value"
-    assert stored == hashlib.sha256("s3cret-value".encode()).hexdigest()
-
-
-def test_valid_and_invalid_tokens_with_hashing(client):
-    set_auth(True, KEYS)
-    assert client.get("/api/v1/events", headers=_auth("optoken")).status_code == 200
-    assert client.get("/api/v1/events", headers=_auth("nope")).status_code == 401
-
-
-def test_rotate_keys_admin_only_and_invalidates_old(client):
-    set_auth(True, KEYS)
-    # Analyst cannot rotate.
-    assert (
-        client.post(
-            "/api/v1/system/rotate-keys", json={"role": "operator"}, headers=_auth("antoken")
-        ).status_code
-        == 403
-    )
-    assert (
-        client.post(
-            "/api/v1/system/rotate-keys", json={"role": "root"}, headers=_auth("admintoken")
-        ).status_code
-        == 422
-    )
-    res = client.post(
-        "/api/v1/system/rotate-keys", json={"role": "operator"}, headers=_auth("admintoken")
-    )
-    assert res.status_code == 200
-    new_token = res.json()["token"]
-    assert new_token != "optoken"
-
-    # New token works for writes; old token is dead.
-    assert (
-        client.post(
-            "/api/v1/mappings",
-            json={"name": "R", "source": "R", "fields": []},
-            headers=_auth(new_token),
-        ).status_code
-        == 201
-    )
-    assert client.get("/api/v1/events", headers=_auth("optoken")).status_code == 401
-
-    # Rotation itself is audited (without the secret).
-    audit = client.get("/api/v1/audit", headers=_auth("admintoken")).json()
-    assert any(a["action"] == "rotate_key" and a["entity_type"] == "role" for a in audit)
-
-
-def test_oidc_backend_without_pyjwt_is_503(client):
-    security.settings.auth_backend = "oidc"
-    set_auth(True, {})
-    try:
-        res = client.get("/api/v1/events", headers=_auth("anything"))
-        assert res.status_code == 503
-    finally:
-        security.settings.auth_backend = "tokens"
+    settings.trust_proxy_headers = False
+    settings.max_raw_bytes = 1_000_000
+    yield
+    set_rate_limit(0)
+    settings.trust_proxy_headers = False
+    settings.max_raw_bytes = 1_000_000
 
 
 def test_rate_limit_trusts_forwarded_header_only_when_enabled(client):
+    from app.core.config import settings
     from app.core.ratelimit import set_rate_limit
 
     set_rate_limit(1)
@@ -97,7 +29,7 @@ def test_rate_limit_trusts_forwarded_header_only_when_enabled(client):
         assert client.post("/api/v1/ingest", data={"raw": "b"}, headers={"X-Forwarded-For": "2.2.2.2"}).status_code == 429
 
         set_rate_limit(10)
-        security.settings.trust_proxy_headers = True
+        settings.trust_proxy_headers = True
         # Trusted: distinct forwarded clients get independent budgets.
         for i in range(10):
             assert (
@@ -114,7 +46,7 @@ def test_rate_limit_trusts_forwarded_header_only_when_enabled(client):
         )
     finally:
         set_rate_limit(0)
-        security.settings.trust_proxy_headers = False
+        settings.trust_proxy_headers = False
 
 
 def test_rate_limit_fails_open_on_cache_outage(client, monkeypatch):
@@ -135,10 +67,12 @@ def test_rate_limit_fails_open_on_cache_outage(client, monkeypatch):
 
 
 def test_raw_endpoint_size_cap(client):
-    security.settings.max_raw_bytes = 10
+    from app.core.config import settings
+
+    settings.max_raw_bytes = 10
     try:
         res = client.post("/api/v1/ingest", data={"raw": "x" * 100})
         stored = res.json()["stored_event_id"]
         assert client.get(f"/api/v1/events/{stored}/raw").status_code == 413
     finally:
-        security.settings.max_raw_bytes = 1_000_000
+        settings.max_raw_bytes = 1_000_000

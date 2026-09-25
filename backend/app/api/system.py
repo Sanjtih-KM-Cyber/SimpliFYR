@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import require_admin, require_auth, require_write
+
 from app.models import Environment, Mapping, OutputProfile
 
-router = APIRouter(prefix="/system", tags=["system"], dependencies=[Depends(require_auth)])
+router = APIRouter(prefix="/system", tags=["system"])
 
 
 class ExportPayload(BaseModel):
@@ -18,38 +18,7 @@ class ExportPayload(BaseModel):
     output_profiles: list[dict]
 
 
-class RotateKeysRequest(BaseModel):
-    role: str
-
-
-class RotateKeysResponse(BaseModel):
-    role: str
-    token: str
-
-@router.post("/rotate-keys", response_model=RotateKeysResponse, dependencies=[Depends(require_admin)])
-def rotate_keys(payload: RotateKeysRequest, db: Session = Depends(get_db)):
-    """Rotate a role's API token (admin only). Only the hash is stored; the
-    plaintext is returned once and must be saved by the caller."""
-    from app.core.audit import log_action
-    from app.core.security import READ_ROLES, rotate_token
-
-    if payload.role not in READ_ROLES:
-        raise HTTPException(status_code=422, detail=f"Unknown role {payload.role!r}")
-    token = rotate_token(payload.role)
-    # Audit the rotation without ever persisting the secret itself.
-    # Roles have no table; entity_id is the stable role index (documented).
-    log_action(
-        db,
-        action="rotate_key",
-        entity_type="role",
-        entity_id=list(READ_ROLES).index(payload.role),
-        after={"role": payload.role},
-    )
-    db.commit()
-    return RotateKeysResponse(role=payload.role, token=token)
-
-
-@router.get("/export-training", dependencies=[Depends(require_write)])
+@router.get("/export-training")
 def export_training(limit: int = 1000, db: Session = Depends(get_db)):
     """Export instruction-tuning JSONL for the AI flywheel (Phase 5.1).
 
@@ -102,7 +71,7 @@ def export_config(db: Session = Depends(get_db)):
     )
 
 
-@router.post("/import", dependencies=[Depends(require_write)])
+@router.post("/import")
 def import_config(payload: ExportPayload, db: Session = Depends(get_db)):
     """Restore environments, mappings, and output profiles from an export payload."""
     from app.models import MappingField

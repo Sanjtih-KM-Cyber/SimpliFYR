@@ -7,7 +7,7 @@ from app.core.audit import log_action
 from app.core.database import get_db
 from app.core.engine import ProcessingEngine
 from app.core.environment import get_environment
-from app.core.security import require_auth, require_write
+
 from app.core.sources import get_or_create_source, resolve_environment
 from app.models import (
     Approval,
@@ -28,7 +28,7 @@ from simplifyr_parsers import detect_format, extract_fields, parse
 router = APIRouter(
     prefix="/onboarding",
     tags=["onboarding"],
-    dependencies=[Depends(require_auth)],
+
 )
 
 MAX_SAMPLE = 1_000_000
@@ -56,7 +56,7 @@ def _check_sample(raw: str) -> str:
     return raw
 
 
-@router.post("", response_model=OnboardingResponse, status_code=201, dependencies=[Depends(require_write)])
+@router.post("", response_model=OnboardingResponse, status_code=201)
 def create_onboarding(
     payload: OnboardingCreate,
     environment: str = Depends(get_environment),
@@ -97,7 +97,7 @@ def get_onboarding(onboarding_id: int, db: Session = Depends(get_db)):
     return _to_response(onboarding)
 
 
-@router.post("/{onboarding_id}/analyze", response_model=OnboardingAnalyzeResponse, dependencies=[Depends(require_write)])
+@router.post("/{onboarding_id}/analyze", response_model=OnboardingAnalyzeResponse)
 def analyze_onboarding_by_id(onboarding_id: int, db: Session = Depends(get_db)):
     """Side-effect-free analysis: detect + parse + AI proposal, stored on the row."""
     onboarding = db.get(Onboarding, onboarding_id)
@@ -146,7 +146,7 @@ def analyze_onboarding_by_id(onboarding_id: int, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/{onboarding_id}/approve", response_model=OnboardingApproveResponse, dependencies=[Depends(require_write)])
+@router.post("/{onboarding_id}/approve", response_model=OnboardingApproveResponse)
 def approve_onboarding(
     onboarding_id: int,
     payload: OnboardingApprove,
@@ -240,7 +240,7 @@ def approve_onboarding(
     )
 
 
-@router.post("/analyze", response_model=OnboardingAnalyzeResponse, dependencies=[Depends(require_write)])
+@router.post("/analyze", response_model=OnboardingAnalyzeResponse)
 def analyze_onboarding(
     raw: str = Form(...),
     source: str | None = Form(default=None),

@@ -13,7 +13,7 @@ from app.core.audit import log_action
 from app.core.database import get_db
 from app.core.datetimes import as_utc
 from app.core.environment import get_environment
-from app.core.security import require_auth, require_write
+
 from app.core.sources import ensure_source_version, resolve_environment
 from app.models import Product, Source, SourceVersion, Vendor
 from app.schemas.catalog import (
@@ -28,7 +28,7 @@ from app.schemas.catalog import (
     VersionResponse,
 )
 
-router = APIRouter(prefix="/catalog", tags=["catalog"], dependencies=[Depends(require_auth)])
+router = APIRouter(prefix="/catalog", tags=["catalog"])
 
 
 def _env_id(db: Session, environment: str) -> int:
@@ -48,7 +48,7 @@ def list_vendors(environment: str = Depends(get_environment), db: Session = Depe
     return [VendorResponse(id=v.id, name=v.name, environment_id=v.environment_id, created_at=as_utc(v.created_at)) for v in rows]
 
 
-@router.post("/vendors", response_model=VendorResponse, status_code=201, dependencies=[Depends(require_write)])
+@router.post("/vendors", response_model=VendorResponse, status_code=201)
 def create_vendor(payload: VendorCreate, environment: str = Depends(get_environment), db: Session = Depends(get_db)):
     name = payload.name.strip()
     if not name:
@@ -75,7 +75,7 @@ def list_products(vendor_id: int | None = None, db: Session = Depends(get_db)):
     return [ProductResponse(id=p.id, name=p.name, vendor_id=p.vendor_id, created_at=as_utc(p.created_at)) for p in rows]
 
 
-@router.post("/products", response_model=ProductResponse, status_code=201, dependencies=[Depends(require_write)])
+@router.post("/products", response_model=ProductResponse, status_code=201)
 def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
     name = payload.name.strip()
     if not name:
@@ -105,7 +105,7 @@ def list_sources(environment: str = Depends(get_environment), db: Session = Depe
     return [_source_to_response(s) for s in rows]
 
 
-@router.post("/sources", response_model=SourceResponse, status_code=201, dependencies=[Depends(require_write)])
+@router.post("/sources", response_model=SourceResponse, status_code=201)
 def create_source(payload: SourceCreate, environment: str = Depends(get_environment), db: Session = Depends(get_db)):
     name = payload.name.strip()
     if not name:
@@ -129,7 +129,7 @@ def get_source(source_id: int, db: Session = Depends(get_db)):
     return _source_to_response(_get_source(db, source_id))
 
 
-@router.patch("/sources/{source_id}", response_model=SourceResponse, dependencies=[Depends(require_write)])
+@router.patch("/sources/{source_id}", response_model=SourceResponse)
 def update_source(source_id: int, payload: SourceStatusUpdate, db: Session = Depends(get_db)):
     source = _get_source(db, source_id)
     before = {"status": str(source.status), "address": source.address}
@@ -173,7 +173,7 @@ def list_versions(source_id: int, db: Session = Depends(get_db)):
     return [_version_to_response(v) for v in rows]
 
 
-@router.post("/sources/{source_id}/versions", response_model=VersionResponse, status_code=201, dependencies=[Depends(require_write)])
+@router.post("/sources/{source_id}/versions", response_model=VersionResponse, status_code=201)
 def create_version(source_id: int, payload: VersionCreate, db: Session = Depends(get_db)):
     source = _get_source(db, source_id)
     version = payload.version.strip()

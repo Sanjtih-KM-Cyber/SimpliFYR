@@ -179,7 +179,6 @@ export interface AuditEntry {
 }
 
 export interface Config {
-  auth_enabled: boolean
   ai_provider: string
   pipeline_workers: number
   pipeline_max_queue: number

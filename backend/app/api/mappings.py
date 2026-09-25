@@ -7,12 +7,12 @@ from app.core.audit import log_action
 from app.core.database import get_db
 from app.core.datetimes import as_utc
 from app.core.environment import get_environment
-from app.core.security import require_auth, require_write
+
 from app.models import Mapping as MappingModel
 from app.models import Approval, ApprovalStatus, MappingField, MappingStatus, SourceVersion
 from app.schemas.mapping import MappingCreate, MappingResponse
 
-router = APIRouter(prefix="/mappings", tags=["mappings"], dependencies=[Depends(require_auth)])
+router = APIRouter(prefix="/mappings", tags=["mappings"])
 
 
 class MappingStatusUpdate(BaseModel):
@@ -68,7 +68,7 @@ def get_mapping(mapping_id: int, db: Session = Depends(get_db)):
     return _db_to_response(mapping)
 
 
-@router.post("", response_model=MappingResponse, status_code=201, dependencies=[Depends(require_write)])
+@router.post("", response_model=MappingResponse, status_code=201)
 def create_mapping(
     payload: MappingCreate,
     environment: str = Depends(get_environment),
@@ -132,7 +132,7 @@ def _status_key(status) -> str:
     return getattr(status, "value", status)
 
 
-@router.patch("/{mapping_id}", response_model=MappingResponse, dependencies=[Depends(require_write)])
+@router.patch("/{mapping_id}", response_model=MappingResponse)
 def update_mapping_status(
     mapping_id: int, payload: MappingStatusUpdate, db: Session = Depends(get_db)
 ):
@@ -178,7 +178,7 @@ def update_mapping_status(
     return _db_to_response(mapping)
 
 
-@router.delete("/{mapping_id}", status_code=204, dependencies=[Depends(require_write)])
+@router.delete("/{mapping_id}", status_code=204)
 def delete_mapping(mapping_id: int, db: Session = Depends(get_db)):
     """Delete a mapping version and its fields (Schema Map delete).
 
