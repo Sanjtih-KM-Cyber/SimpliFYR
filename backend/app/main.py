@@ -99,7 +99,9 @@ async def lifespan(app: FastAPI):
         from app.adapters.file_watcher import start_file_watcher
 
         file_watcher = start_file_watcher(
-            settings.file_watch_path, interval=settings.file_watch_interval_seconds
+            settings.file_watch_path,
+            interval=settings.file_watch_interval_seconds,
+            source=settings.file_watch_source,
         )
         print(f"file watcher tailing {settings.file_watch_path}")
 

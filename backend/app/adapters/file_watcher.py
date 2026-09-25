@@ -67,23 +67,26 @@ class FileWatcher:
             self._offset = fh.tell()
 
 
-def build_file_handler():
+def build_file_handler(source: str | None = None):
     """Return a callback that wraps a tailed line for the processing pipeline."""
     from app.core import pipeline
 
     def handle(payload: str, path: str) -> None:
-        pipeline.enqueue(
-            {
-                "payload": payload,
-                "ingestion_type": "file",
-                "address": path,
-                "content_type": "text/plain",
-            }
-        )
+        item = {
+            "payload": payload,
+            "ingestion_type": "file",
+            "address": path,
+            "content_type": "text/plain",
+        }
+        if source:
+            item["source"] = source
+        pipeline.enqueue(item)
 
     return handle
 
 
-def start_file_watcher(path: str | Path, interval: float = 1.0) -> FileWatcher:
+def start_file_watcher(
+    path: str | Path, interval: float = 1.0, source: str | None = None
+) -> FileWatcher:
     """Start tailing `path` into the pipeline; call `.stop()` to shut down."""
-    return FileWatcher(path, build_file_handler(), interval=interval).start()
+    return FileWatcher(path, build_file_handler(source), interval=interval).start()

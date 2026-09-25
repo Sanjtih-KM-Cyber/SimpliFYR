@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     file_watch_enabled: bool = False
     file_watch_path: str = "./data/inbox/app.log"
     file_watch_interval_seconds: float = 1.0
+    file_watch_source: str | None = None
 
     kafka_ingress_enabled: bool = False
     kafka_ingress_topic: str = "external.logs"
