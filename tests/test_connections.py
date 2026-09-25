@@ -66,3 +66,36 @@ def test_connection_detail(client):
 def test_connection_detail_unknown_404(client):
     res = client.get("/api/v1/connections/does-not-exist")
     assert res.status_code == 404
+
+
+def test_delete_connection_wipes_vendor(client):
+    source = "Box-Delete-Me"
+    created = client.post(
+        "/api/v1/mappings",
+        json={
+            "name": "Delete Me Mapping",
+            "source": source,
+            "fields": [{"input_field": "d1", "semantic_field": "source.ip"}],
+        },
+    ).json()
+    client.post("/api/v1/ingest", data={"raw": "delete me payload", "source": source})
+    assert any(c["name"] == source for c in client.get("/api/v1/connections").json())
+
+    res = client.delete(f"/api/v1/connections/{source}")
+    assert res.status_code == 204, res.text
+    assert not any(c["name"] == source for c in client.get("/api/v1/connections").json())
+    assert client.get(f"/api/v1/connections/{source}").status_code == 404
+    assert client.get(f"/api/v1/mappings/{created['id']}").status_code == 404
+    assert client.get("/api/v1/events", params={"source": source}).json() == []
+
+    audit = client.get("/api/v1/audit").json()
+    assert any(
+        a["action"] == "delete"
+        and a["entity_type"] == "connection"
+        and (a.get("before") or {}).get("source") == source
+        for a in audit
+    )
+
+
+def test_delete_connection_404(client):
+    assert client.delete("/api/v1/connections/does-not-exist").status_code == 404

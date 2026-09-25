@@ -302,6 +302,10 @@ export function getConnection(name: string): Promise<ConnectionDetail> {
   return request(`${BASE}/connections/${encodeURIComponent(name)}`)
 }
 
+export async function deleteConnection(name: string): Promise<void> {
+  await request(`${BASE}/connections/${encodeURIComponent(name)}`, { method: 'DELETE' })
+}
+
 export function listRecipes(): Promise<Recipe[]> {
   return request(`${BASE}/recipes`)
 }

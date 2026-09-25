@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.datetimes import as_utc
 from app.core.environment import get_environment
-from app.core.security import require_auth
+from app.core.security import require_auth, require_write
 from app.models import DriftRecord, Event, Mapping, Recipe
 from app.schemas.connection import (
     ConnectionDetail,
@@ -261,3 +261,74 @@ def get_connection(
             for d in open_drift
         ],
     )
+
+
+@router.delete("/{source_name}", status_code=204, dependencies=[Depends(require_write)])
+def delete_connection(
+    source_name: str,
+    environment: str = Depends(get_environment),
+    db: Session = Depends(get_db),
+):
+    """Remove a vendor wholesale: events (+raw files), mappings, recipe,
+    drift records, and catalog rows. The connection disappears from the
+    Integration Hub; the action is audited."""
+    from app.core.audit import log_action
+    from app.core.raw_store import get_raw_store
+    from app.core.sources import resolve_environment
+    from app.models import Mapping as MappingModel, Source
+
+    env_id = resolve_environment(db, environment).id
+
+    names = (
+        db.execute(
+            select(Source).where(Source.name == source_name, Source.environment_id == env_id)
+        )
+        .scalars()
+        .all()
+    )
+    has_events = (
+        db.execute(
+            select(Event.id).where(Event.environment == environment, Event.source == source_name).limit(1)
+        ).first()
+        is not None
+    )
+    has_mappings = (
+        db.execute(select(MappingModel.id).where(MappingModel.source == source_name).limit(1)).first()
+        is not None
+    )
+    if not names and not has_events and not has_mappings:
+        raise HTTPException(status_code=404, detail="Connection not found")
+
+    counts: dict[str, int] = {"events": 0, "mappings": 0, "drift": 0, "recipes": 0}
+    store = get_raw_store()
+    for event in db.execute(
+        select(Event).where(Event.environment == environment, Event.source == source_name)
+    ).scalars().all():
+        if event.raw_ref:
+            try:
+                store.delete(event.raw_ref)
+            except Exception:  # noqa: BLE001
+                pass
+        db.delete(event)
+        counts["events"] += 1
+    for recipe in db.execute(select(Recipe).where(Recipe.source == source_name)).scalars().all():
+        db.delete(recipe)
+        counts["recipes"] += 1
+    for drift in db.execute(select(DriftRecord).where(DriftRecord.source == source_name)).scalars().all():
+        db.delete(drift)
+        counts["drift"] += 1
+    for mapping in db.execute(select(MappingModel).where(MappingModel.source == source_name)).scalars().all():
+        db.delete(mapping)  # fields cascade via delete-orphan
+        counts["mappings"] += 1
+    for source in names:
+        db.delete(source)  # versions cascade via delete-orphan
+    db.commit()
+    log_action(
+        db,
+        action="delete",
+        entity_type="connection",
+        entity_id=0,
+        before={"source": source_name, **counts},
+    )
+    db.commit()
+    return None

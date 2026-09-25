@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, type MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { getConfig, listConnections } from '../api/client'
+import { deleteConnection, getConfig, listConnections } from '../api/client'
 import type { ConnectionSummary } from '../api/types'
 import { Spinner } from '../components/Spinner'
 import { QuickParseModal } from '../components/QuickParseModal'
-import { EmptyState, Modal, PageHeader } from '../components/ui'
+import { EmptyState, Modal, PageHeader, useToast } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
 
 function ConnectLiveModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -55,10 +55,33 @@ function ConnectLiveModal({ open, onClose }: { open: boolean; onClose: () => voi
   )
 }
 
-function ConnectionCard({ c }: { c: ConnectionSummary }) {
+function ConnectionCard({ c, onDeleted }: { c: ConnectionSummary; onDeleted: () => void }) {
   const needsReview = c.health === 'needs_review'
   const isHealthy = c.health === 'healthy'
   const activeRate = (c.normalization_rate * 100).toFixed(1)
+  const [deleting, setDeleting] = useState(false)
+  const { toast } = useToast()
+
+  async function remove(e: MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (
+      !window.confirm(
+        `Remove vendor "${c.name}" and everything under it (events, mappings, recipe, drift)?`,
+      )
+    )
+      return
+    setDeleting(true)
+    try {
+      await deleteConnection(c.name)
+      toast(`Removed vendor "${c.name}"`, 'success')
+      onDeleted()
+    } catch (err) {
+      toast((err as Error).message, 'error')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   return (
     <Link to={`/connections/${encodeURIComponent(c.name)}`} className="group flex flex-col justify-between glass-card rounded-lg p-5 hover:shadow-[0_4px_20px_rgba(0,0,0,0.5)] transition-all">
@@ -71,7 +94,15 @@ function ConnectionCard({ c }: { c: ConnectionSummary }) {
               {c.mapping?.name ?? 'No Integration Defined'}
             </p>
           </div>
-          <div className="flex shrink-0">
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              onClick={remove}
+              disabled={deleting}
+              title={`Remove vendor "${c.name}" and all its data`}
+              className="rounded border border-transparent px-1.5 py-0.5 text-[14px] leading-none text-slate-600 opacity-0 transition-all hover:border-rose-900/50 hover:bg-rose-950/30 hover:text-rose-400 disabled:opacity-50 group-hover:opacity-100"
+            >
+              {deleting ? '…' : '✕'}
+            </button>
             {needsReview ? (
               <span className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-500">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
@@ -165,7 +196,7 @@ export default function Connections() {
       {rows.length > 0 && (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 mt-2 auto-rows-max">
           {rows.map((c) => (
-            <ConnectionCard key={c.id} c={c} />
+            <ConnectionCard key={c.id} c={c} onDeleted={() => connections.reload()} />
           ))}
         </div>
       )}
