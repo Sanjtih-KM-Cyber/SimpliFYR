@@ -99,7 +99,7 @@ function ConnectionCard({ c, onDeleted }: { c: ConnectionSummary; onDeleted: () 
               onClick={remove}
               disabled={deleting}
               title={`Remove vendor "${c.name}" and all its data`}
-              className="rounded p-1 text-slate-600 opacity-0 transition-all hover:bg-rose-950/30 hover:text-rose-400 disabled:opacity-50 group-hover:opacity-100"
+              className="rounded p-1 text-slate-500 transition-all hover:bg-rose-950/30 hover:text-rose-400 disabled:opacity-50"
             >
               {deleting ? (
                 <span className="text-[12px]">…</span>
