@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { exportLogs, listMappings, processBatch } from '../api/client'
+import { exportLogs, listConnections, listMappings, processBatch } from '../api/client'
 import type { BatchResult } from '../api/types'
 import { latestMappings } from '../api/types'
 import { useAsync } from '../hooks/useAsync'
@@ -23,7 +23,9 @@ export const LOADTEST_SAMPLE_KEY = 'simplifyr.loadtest.sample'
 export function LoadTestPanel() {
   const { toast } = useToast()
   const mappings = useAsync(() => listMappings(), [])
+  const connections = useAsync(() => listConnections(), [])
   const [batch, setBatch] = useState(SAMPLE)
+  const [source, setSource] = useState('')
   const [mappingId, setMappingId] = useState<number | ''>('')
   const [result, setResult] = useState<BatchResult | null>(null)
   const [busy, setBusy] = useState(false)
@@ -37,7 +39,11 @@ export function LoadTestPanel() {
     setError(null)
     try {
       setResult(
-        await processBatch({ raw: batch, ...(mappingId === '' ? {} : { mappingId }) }),
+        await processBatch({
+          raw: batch,
+          ...(source ? { source } : {}),
+          ...(mappingId === '' ? {} : { mappingId }),
+        }),
       )
     } catch (e) {
       setError((e as Error).message)
@@ -91,9 +97,9 @@ export function LoadTestPanel() {
     <section className="glass-card rounded-2xl p-5">
       <h3 className="mb-2 text-sm font-medium text-white">Trial Run</h3>
       <p className="mb-2 text-xs text-slate-500">
-        Process a batch of events (one per line) and measure throughput. Matching
-        lines auto-normalize through existing mappings; new shapes can be adopted
-        as a mapping or downloaded.
+        Process a batch of events (one per line) and measure throughput. Pick
+        the connection and its mapping auto-resolves — matching lines
+        normalize; new shapes can be adopted as a mapping or downloaded.
       </p>
       <textarea
         value={batch}
@@ -120,6 +126,19 @@ export function LoadTestPanel() {
           {latestMappings(mappings.data ?? []).map((m) => (
             <option key={m.id} value={m.id}>
               {m.name} · {m.source ?? 'global'} · {m.status} (v{m.version})
+            </option>
+          ))}
+        </select>
+        <select
+          value={source}
+          onChange={(e) => setSource(e.target.value)}
+          title="Attribute the batch to a connection (its mapping auto-resolves)"
+          className="input-glass px-3 py-2.5 text-xs text-slate-200"
+        >
+          <option value="">No source (unassigned)…</option>
+          {(connections.data ?? []).map((c) => (
+            <option key={c.id} value={c.name}>
+              {c.name}
             </option>
           ))}
         </select>

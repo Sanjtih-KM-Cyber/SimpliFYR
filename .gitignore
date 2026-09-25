@@ -40,3 +40,5 @@ Thumbs.db
 .idea/
 .vscode/
 scripts/test_firehose.log
+
+scripts/test_100.log
