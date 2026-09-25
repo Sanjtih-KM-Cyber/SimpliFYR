@@ -300,6 +300,7 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
   }, [sourceFilter])
 
   const [view, setView] = useState<'open' | 'resolved'>('open')
+  const [resolvedVendor, setResolvedVendor] = useState<string | null>(null)
 
   const all = (drifts.data ?? []).filter(
     (d) => !sourceFilter || d.source === sourceFilter,
@@ -319,6 +320,23 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
     return [...bySource.entries()]
   }, [open])
 
+  /** Resolved vendors: pick one to see its history. */
+  const resolvedVendors = useMemo(() => {
+    const bySource = new Map<string, { total: number; approved: number; rejected: number; ignored: number }>()
+    for (const d of resolved) {
+      const key = d.source ?? 'Unassigned origin'
+      const g = bySource.get(key) ?? { total: 0, approved: 0, rejected: 0, ignored: 0 }
+      g.total += 1
+      if (d.status === 'approved') g.approved += 1
+      else if (d.status === 'rejected') g.rejected += 1
+      else g.ignored += 1
+      bySource.set(key, g)
+    }
+    return [...bySource.entries()].sort((a, b) => b[1].total - a[1].total)
+  }, [resolved])
+
+  const resolvedShown = resolvedVendor ? resolved.filter((d) => (d.source ?? 'Unassigned origin') === resolvedVendor) : []
+
   const shown = view === 'open' ? open : resolved
 
   return (
@@ -336,7 +354,10 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
           return (
             <button
               key={v}
-              onClick={() => setView(v)}
+              onClick={() => {
+                setView(v)
+                setResolvedVendor(null)
+              }}
               className={`rounded px-3 py-1.5 text-[13px] font-medium capitalize transition-all ${view === v
                   ? 'border border-slate-700 bg-slate-800 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.15)]'
                   : 'border border-transparent text-slate-400 hover:bg-slate-900 hover:text-slate-200'
@@ -382,11 +403,50 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
             </section>
           ))}
         </div>
-      ) : (
+      ) : resolvedVendor === null ? (
         <div className="grid gap-4 lg:grid-cols-2">
-          {resolved.map((d) => (
-            <ReviewCard key={d.id} detail={d} onChanged={() => reloadAll()} />
+          {resolvedVendors.map(([source, counts]) => (
+            <button
+              key={source}
+              onClick={() => setResolvedVendor(source)}
+              className="glass-card group flex items-center justify-between rounded-2xl p-5 text-left transition-all hover:border-cyan-400/20"
+            >
+              <div>
+                <p className="font-mono text-[15px] font-semibold text-white group-hover:text-cyan-300">{source}</p>
+                <p className="mt-1 flex gap-2 font-mono text-[11px]">
+                  <span className="text-emerald-400">{counts.approved} approved</span>
+                  <span className="text-rose-400">{counts.rejected} rejected</span>
+                  <span className="text-slate-500">{counts.ignored} ignored</span>
+                </p>
+              </div>
+              <span className="flex items-center gap-2">
+                <span className="rounded-full border border-slate-700 bg-slate-950 px-2.5 py-0.5 font-mono text-[11px] text-slate-300">
+                  {counts.total}
+                </span>
+                <span className="text-slate-600 transition-transform group-hover:translate-x-0.5 group-hover:text-cyan-300">→</span>
+              </span>
+            </button>
           ))}
+        </div>
+      ) : (
+        <div>
+          <div className="mb-4 flex items-center gap-3">
+            <button
+              onClick={() => setResolvedVendor(null)}
+              className="rounded border border-slate-700 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+            >
+              ← Vendors
+            </button>
+            <h3 className="font-mono text-[14px] font-semibold text-white">{resolvedVendor}</h3>
+            <span className="rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 font-mono text-[11px] text-slate-400">
+              {resolvedShown.length} resolved
+            </span>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {resolvedShown.map((d) => (
+              <ReviewCard key={d.id} detail={d} onChanged={() => reloadAll()} />
+            ))}
+          </div>
         </div>
       )}
     </div>
