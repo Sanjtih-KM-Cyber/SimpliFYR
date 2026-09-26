@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { createMapping, deleteMapping, listMappings } from '../api/client'
 import { normalizeMappingName } from '../api/types'
 import type { Mapping } from '../api/types'
-import { Code } from '../components/Code'
+import { Arrow } from '../components/Arrow'
 import { SemanticFieldInput } from '../components/SemanticFieldInput'
 import { Spinner } from '../components/Spinner'
 import { ErrorBanner, StatusBadge } from '../components/Status'
@@ -61,7 +61,6 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
     (m: Mapping) => !sourceFilter || m.source === sourceFilter,
   )
 
-  /** One card per mapping lineage (name ignoring v-suffixes, latest first). */
   const groups = useMemo(() => {
     const byKey = new Map<string, Mapping[]>()
     for (const m of rows_) {
@@ -107,7 +106,7 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
         <div className="mb-4 flex justify-end">
           <button
             onClick={() => setShowForm((v) => !v)}
-            className="btn-glass bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.8)] hover:bg-emerald-400"
+            className="btn-primary"
           >
             {showForm ? 'Cancel' : '+ New Mapping'}
           </button>
@@ -116,27 +115,27 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
         {error && <ErrorBanner message={error} />}
 
         {showForm && (
-          <section className="glass-card mb-6 rounded-2xl p-5">
-            <h3 className="mb-3 text-sm font-medium text-white">New Mapping</h3>
+          <section className="glass-card mb-6 rounded-xl p-5 animate-slide-up">
+            <h3 className="mb-3 text-label-lg font-semibold text-on-surface">New Mapping</h3>
             <div className="mb-3 grid gap-3 sm:grid-cols-2">
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Name (e.g. VendorX Firewall v1 Traffic)"
-                className="input-glass px-3.5 py-2.5 text-sm text-slate-200"
+                className="input-glass px-3.5 py-2.5 text-body-sm text-on-surface"
               />
               {sourceFilter ? (
                 <input
                   value={sourceFilter}
                   disabled
-                  className="input-glass px-3.5 py-2.5 text-sm text-slate-500"
+                  className="input-glass px-3.5 py-2.5 text-body-sm text-on-surface-variant/60"
                 />
               ) : (
                 <input
                   value={source}
                   onChange={(e) => setSource(e.target.value)}
                   placeholder="Source (e.g. VendorX Firewall v1)"
-                  className="input-glass px-3.5 py-2.5 text-sm text-slate-200"
+                  className="input-glass px-3.5 py-2.5 text-body-sm text-on-surface"
                 />
               )}
             </div>
@@ -148,7 +147,7 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
                     value={row.input_field}
                     onChange={(e) => updateRow(i, { input_field: e.target.value })}
                     placeholder="Source field"
-                    className="input-glass w-1/3 px-3.5 py-2.5 text-sm text-slate-200"
+                    className="input-glass w-1/3 px-3.5 py-2.5 text-body-sm text-on-surface"
                   />
                   <SemanticFieldInput
                     value={row.semantic_field}
@@ -174,7 +173,7 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
               <button
                 onClick={submit}
                 disabled={submitting}
-                className="btn-glass bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.8)] hover:bg-emerald-400"
+                className="btn-primary"
               >
                 {submitting ? 'Saving…' : 'Save Mapping'}
               </button>
@@ -183,7 +182,7 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
         )}
 
         {mappings.loading && <Spinner />}
-        {mappings.error && <p className="text-sm text-red-400">{mappings.error}</p>}
+        {mappings.error && <p className="text-body-sm text-error">{mappings.error}</p>}
 
         {!mappings.loading && !mappings.error && groups.length === 0 && (
           <EmptyState
@@ -198,18 +197,18 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
             const key = g.key
             const open = expanded === key
             return (
-              <div key={key} className="glass-card rounded-2xl p-5">
+              <div key={key} className="glass-card rounded-xl p-5 animate-slide-up">
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+                  <h3 className="flex items-center gap-2 text-label-lg font-semibold text-on-surface">
                     {m.name}
-                    <span className="rounded border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-cyan-400">
+                    <span className="surface-inset rounded px-1.5 py-0.5 font-mono text-label-sm font-bold text-primary">
                       v{m.version}
                     </span>
                     {g.versions.length > 1 && (
                       <button
                         onClick={() => setExpanded(open ? null : key)}
                         title={open ? 'Hide version history' : 'Show all versions'}
-                        className="rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 font-mono text-[10px] text-slate-400 hover:border-cyan-900/50 hover:text-cyan-300"
+                        className="surface-inset rounded-full border border-outline-variant/50 px-2 py-0.5 font-mono text-label-sm text-on-surface-variant hover:border-primary/30 hover:text-primary"
                       >
                         {g.versions.length} versions {open ? '▾' : '▸'}
                       </button>
@@ -223,28 +222,35 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
                       }
                       disabled={deleting === key}
                       title={`Delete "${m.name}" and all its versions`}
-                      className="rounded border border-rose-900/50 bg-rose-950/20 px-2 py-0.5 text-[11px] font-semibold text-rose-400 transition-colors hover:bg-rose-900/50 disabled:opacity-50"
+                      className="btn-text text-error text-label-sm"
                     >
                       {deleting === key ? '…' : 'Delete'}
                     </button>
                   </span>
                 </div>
-                <p className="mb-3 text-xs text-slate-500">
+                <p className="mb-3 text-body-sm text-on-surface-variant">
                   {m.source ?? 'No source'} · v{m.version} · {m.event_family}
                 </p>
-                <div className="max-h-48 overflow-auto">
-                  <Code
-                    value={m.fields.map((f) => `${f.input_field} → ${f.semantic_field}`).join('\n')}
-                  />
-                </div>
+                <div className="surface-inset rounded-xl max-h-48 overflow-auto font-mono text-mono-sm">
+                    {m.fields.map((f, i) => (
+                      <div key={i} className="flex items-center gap-2 py-0.5 text-on-surface-variant">
+                        <span className="text-warning/80">{f.input_field}</span>
+                        <Arrow variant="mapping" size="sm" />
+                        <span className="text-primary">{f.semantic_field}</span>
+                        {f.transformation && (
+                          <span className="text-on-surface-variant/60 text-mono-xs">({JSON.stringify(f.transformation)})</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 {open && (
-                  <div className="mt-3 space-y-2 border-t border-slate-800 pt-3">
+                  <div className="mt-3 space-y-2 border-t border-outline-variant/50 pt-3">
                     {g.versions.map((v) => (
-                      <details key={v.id} className="group rounded-lg border border-slate-800 bg-slate-950/60 p-3">
-                        <summary className="flex cursor-pointer select-none items-center gap-2 text-[12px]">
+                      <details key={v.id} className="surface-inset rounded-xl p-3 animate-slide-up">
+                        <summary className="flex cursor-pointer select-none items-center gap-2 text-body-sm">
                           <span className="mr-1 inline-block opacity-50 transition-transform group-open:rotate-90">▶</span>
-                          <span className="font-mono font-bold text-slate-200">{v.name}</span>
-                          <span className="rounded border border-cyan-500/30 bg-cyan-500/10 px-1 py-0.5 font-mono text-[10px] font-bold text-cyan-400">
+                          <span className="font-mono font-bold text-on-surface">{v.name}</span>
+                          <span className="surface-inset rounded px-1 py-0.5 font-mono text-label-sm font-bold text-primary">
                             v{v.version}
                           </span>
                           <StatusBadge status={v.status} />
@@ -255,16 +261,23 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
                             }}
                             disabled={deleting === v.id}
                             title={`Delete "${v.name}" only`}
-                            className="ml-auto rounded border border-rose-900/50 bg-rose-950/20 px-2 py-0.5 text-[10px] font-semibold text-rose-400 transition-colors hover:bg-rose-900/50 disabled:opacity-50"
+                            className="ml-auto btn-text text-error text-label-sm"
                           >
                             {deleting === v.id ? '…' : 'Delete this version'}
                           </button>
                         </summary>
-                        <div className="mt-2 max-h-40 overflow-auto border-l border-slate-800 pl-3">
-                          <Code
-                            value={v.fields.map((f) => `${f.input_field} → ${f.semantic_field}`).join('\n')}
-                          />
+                        <div className="mt-2 surface-inset rounded-xl max-h-40 overflow-auto border-l border-outline-variant/50 pl-3 font-mono text-mono-sm">
+                      {v.fields.map((f, i) => (
+                        <div key={i} className="flex items-center gap-2 py-0.5 text-on-surface-variant">
+                          <span className="text-warning/80">{f.input_field}</span>
+                          <Arrow variant="mapping" size="sm" />
+                          <span className="text-primary">{f.semantic_field}</span>
+                          {f.transformation && (
+                            <span className="text-on-surface-variant/60 text-mono-xs">({JSON.stringify(f.transformation)})</span>
+                          )}
                         </div>
+                      ))}
+                    </div>
                       </details>
                     ))}
                   </div>

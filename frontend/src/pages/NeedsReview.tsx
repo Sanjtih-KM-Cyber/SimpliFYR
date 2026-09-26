@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   analyzeDrift,
   approveDrift,
@@ -13,6 +13,7 @@ import { Code } from '../components/Code'
 import { SemanticFieldInput } from '../components/SemanticFieldInput'
 import { Spinner } from '../components/Spinner'
 import { ErrorBanner } from '../components/Status'
+import { Arrow } from '../components/Arrow'
 import { EmptyState, Modal, PageHeader } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
 import { useLive } from '../hooks/useLive'
@@ -27,18 +28,18 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  detected: 'bg-amber-950/30 text-amber-400 border-amber-900/50',
-  analyzed: 'bg-cyan-950/30 text-cyan-400 border-cyan-900/50',
-  review: 'bg-rose-950/30 text-rose-400 border-rose-900/50',
-  approved: 'bg-emerald-950/30 text-emerald-400 border-emerald-900/50',
-  rejected: 'bg-rose-950/30 text-rose-500 border-rose-900/40',
-  ignored: 'bg-slate-800/40 text-slate-400 border-slate-700/50',
+  detected: 'border-warning/30 bg-warning-container/20 text-warning',
+  analyzed: 'border-info/30 bg-info-container/20 text-info',
+  review: 'border-error/30 bg-error-container/20 text-error',
+  approved: 'border-success/30 bg-success-container/20 text-success',
+  rejected: 'border-error/30 bg-error-container/20 text-error',
+  ignored: 'border-outline/30 bg-surface-variant text-on-surface-variant',
 }
 
 function StatusPill({ status }: { status: string }) {
-  const color = STATUS_COLORS[status] ?? 'bg-slate-800/40 text-slate-400 border-slate-700/50'
+  const color = STATUS_COLORS[status] ?? 'border-outline/30 bg-surface-variant text-on-surface-variant'
   return (
-    <span className={`rounded-sm border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${color}`}>
+    <span className={`inline-flex items-center rounded-sm border px-2 py-0.5 text-label-sm font-bold uppercase tracking-widest ${color}`}>
       {STATUS_LABELS[status] ?? status}
     </span>
   )
@@ -88,19 +89,19 @@ function CorrectModal({
   }
 
   return (
-    <Modal open title="Teach Pattern — Override Interpretation" onClose={onClose}>
-      <p className="mb-4 text-[12px] text-slate-400">
+    <Modal open title="Teach Pattern — Override Interpretation" onClose={onClose} width="max-w-xl">
+      <p className="mb-4 text-body-sm text-on-surface-variant">
         Your correction becomes a newly published mapping version. Future telemetry from{' '}
-        <span className="font-mono text-cyan-400">{detail.source ?? 'this sequence'}</span> will automatically inherit these properties.
+        <span className="font-mono text-primary">{detail.source ?? 'this sequence'}</span> will automatically inherit these properties.
       </p>
       {error && <ErrorBanner message={error} />}
-      <div className="mb-5 space-y-2 rounded border border-slate-800 bg-slate-900/50 p-2">
+      <div className="mb-5 space-y-2 surface-inset rounded-xl p-2">
         {rows.map((row, i) => (
           <div key={row.input_field} className="flex items-center gap-3">
-            <span className="w-1/3 truncate rounded bg-slate-950 px-3 py-1.5 font-mono text-[11px] text-amber-500/80 border border-amber-900/20">
+            <span className="w-1/3 truncate surface-inset rounded px-3 py-1.5 font-mono text-mono-sm text-warning border border-warning/20">
               {row.input_field}
             </span>
-            <span className="text-[10px] text-slate-500">→</span>
+            <span className="text-label-sm text-on-surface-variant/70"><Arrow variant="mapping" size="sm" /></span>
             <SemanticFieldInput
               value={row.semantic_field}
               onChange={(v) => updateRow(i, v)}
@@ -112,14 +113,14 @@ function CorrectModal({
         <button
           onClick={onClose}
           disabled={busy}
-          className="rounded border border-slate-700 px-5 py-1.5 text-[12px] font-bold uppercase tracking-wider text-slate-400 transition-colors hover:bg-slate-800 hover:text-white disabled:opacity-50"
+          className="btn-secondary text-label-sm"
         >
           Abort
         </button>
         <button
           onClick={submit}
           disabled={busy}
-          className="rounded bg-cyan-600 px-5 py-1.5 text-[12px] font-bold uppercase tracking-wider text-white shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all hover:bg-cyan-500 hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] disabled:opacity-50 disabled:shadow-none"
+          className="btn-primary"
         >
           {busy ? 'Applying…' : 'Apply Override'}
         </button>
@@ -158,15 +159,15 @@ function ReviewCard({
   }
 
   return (
-    <div className="animate-slide-up rounded-lg border border-slate-700/50 glass-card p-5">
-      <div className="mb-3 flex items-center justify-between border-b border-slate-800/80 pb-3">
-        <h3 className="text-[13px] font-bold text-white flex items-center gap-2">
+    <div className="glass-card rounded-xl p-5 animate-slide-up">
+      <div className="mb-3 flex items-center justify-between border-b border-outline-variant/50 pb-3">
+        <h3 className="text-body-md font-bold text-on-surface flex items-center gap-2">
           Delta Request
-          <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-slate-400">#{detail.id}</span>
-          <span className="mx-1 text-slate-600">|</span>
-          <span className="font-mono text-[11px] text-cyan-500">{detail.source ?? 'UNTITLED'}</span>
+          <span className="surface-inset rounded px-1.5 py-0.5 font-mono text-label-sm text-on-surface-variant">#{detail.id}</span>
+          <span className="mx-1 text-on-surface-variant/50">|</span>
+          <span className="font-mono text-mono-sm text-primary">{detail.source ?? 'UNTITLED'}</span>
           {(detail.event_ids?.length ?? 0) > 1 && (
-            <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-400">
+            <span className="surface-inset rounded-full border border-warning/30 bg-warning-container/15 px-2 py-0.5 font-mono text-label-sm font-bold text-warning">
               × {detail.event_ids.length} events
             </span>
           )}
@@ -174,69 +175,69 @@ function ReviewCard({
         <StatusPill status={detail.status} />
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-4 text-[11px] uppercase tracking-wider font-semibold rounded bg-slate-900 border border-slate-800 p-2">
-        <span className="text-slate-500">
-          New Fields: <span className="font-mono text-amber-500/80 bg-amber-500/10 px-1 rounded ml-1 lowercase">{detail.new_fields.join(', ') || '—'}</span>
+      <div className="mb-4 flex flex-wrap gap-4 surface-inset rounded-xl border border-outline-variant/50 p-2">
+        <span className="text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+          New Fields: <span className="font-mono text-warning/80 bg-warning-container/15 px-1 rounded ml-1 lowercase">{detail.new_fields.join(', ') || '—'}</span>
         </span>
-        <span className="text-slate-500">
-          Missing: <span className="font-mono text-rose-400 bg-rose-500/10 px-1 rounded ml-1 lowercase">{detail.missing_fields.join(', ') || '—'}</span>
+        <span className="text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+          Missing: <span className="font-mono text-error bg-error-container/15 px-1 rounded ml-1 lowercase">{detail.missing_fields.join(', ') || '—'}</span>
         </span>
       </div>
 
       {detail.proposal && (
-        <div className="mb-4 rounded border border-cyan-900/30 bg-cyan-950/10 p-3">
+        <div className="mb-4 surface-inset rounded-xl border border-info/30 bg-info-container/10 p-3">
           <div className="mb-3 flex items-center justify-between">
-            <div className="text-[10px] font-bold uppercase tracking-widest text-cyan-600">Model Inference (Pattern Proposal)</div>
+            <div className="text-label-sm font-bold uppercase tracking-widest text-info">Model Inference (Pattern Proposal)</div>
             <div className="flex items-center gap-1.5">
-              <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-800">
+              <div className="h-1.5 w-16 overflow-hidden rounded-full bg-surface-variant">
                 <div
-                  className={`h-full ${detail.proposal.confidence > 0.8 ? 'bg-cyan-500' : 'bg-amber-500'}`}
+                  className={`h-full ${detail.proposal.confidence > 0.8 ? 'bg-success' : 'bg-warning'}`}
                   style={{ width: `${Math.round(detail.proposal.confidence * 100)}%` }}
                 ></div>
               </div>
-              <span className="font-mono text-[10px] text-slate-400">{Math.round(detail.proposal.confidence * 100)}% Match</span>
+              <span className="font-mono text-label-sm text-on-surface-variant/70">{Math.round(detail.proposal.confidence * 100)}% Match</span>
             </div>
           </div>
 
-          <div className="mb-3 space-y-1.5 border-l-2 border-cyan-800/50 pl-3">
+          <div className="mb-3 space-y-1.5 border-l-2 border-info/50 pl-3">
             {detail.proposal.new_field_suggestions.map((s) => (
-              <div key={s.input_field} className="flex items-center gap-2 text-[11px]">
-                <span className="font-mono text-slate-300 bg-slate-900 px-1 rounded">{s.input_field}</span>
-                <span className="text-cyan-800">→</span>
-                <span className={`font-mono font-bold ${s.semantic_field ? 'text-cyan-400' : 'text-slate-500'}`}>
+              <div key={s.input_field} className="flex items-center gap-2 text-body-sm">
+                <span className="font-mono text-on-surface bg-surface-container-low px-1 rounded">{s.input_field}</span>
+                <Arrow variant="binding" size="sm" />
+                <span className={`font-mono font-bold ${s.semantic_field ? 'text-primary' : 'text-on-surface-variant/60'}`}>
                   {s.semantic_field || '(UNCERTAIN)'}
                 </span>
-                <span className="ml-auto font-mono text-[10px] text-slate-600">conf {Math.round(s.confidence * 100)}%</span>
+                <span className="ml-auto font-mono text-label-sm text-on-surface-variant/70">conf {Math.round(s.confidence * 100)}%</span>
               </div>
             ))}
           </div>
           {detail.proposal.explanation && (
-            <p className="text-[11px] leading-relaxed text-slate-400 italic">" {detail.proposal.explanation} "</p>
+            <p className="text-body-sm leading-relaxed text-on-surface-variant/80 italic">" {detail.proposal.explanation} "</p>
           )}
         </div>
       )}
 
       {error && <ErrorBanner message={error} />}
 
-      <div className="mt-4 flex flex-wrap gap-2 pt-2 border-t border-slate-800/50">
+      <div className="mt-4 flex flex-wrap gap-2 pt-2 border-t border-outline-variant/50">
         <button
           onClick={() => run('analyze')}
           disabled={busy !== null || resolved}
-          className="rounded border border-cyan-900 bg-cyan-950/30 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-cyan-400 transition-colors hover:bg-cyan-900/50 disabled:opacity-40"
+          className="btn-outlined text-label-sm"
         >
           {busy === 'analyze' ? 'Computing…' : 'Synthesize AI'}
         </button>
         <button
           onClick={() => run('approve')}
           disabled={busy !== null || resolved}
-          className="rounded bg-cyan-600 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-white shadow-[0_0_10px_rgba(6,182,212,0.2)] transition-colors hover:bg-cyan-500 disabled:opacity-40"
+          className="btn-primary text-label-sm"
         >
           {busy === 'approve' ? 'Authorizing…' : 'Authorize AI'}
         </button>
         <button
           onClick={() => setCorrecting(true)}
           disabled={busy !== null || resolved}
-          className="rounded border border-slate-700 bg-slate-800 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-300 transition-colors hover:bg-slate-700 hover:text-white disabled:opacity-40"
+          className="btn-secondary text-label-sm"
         >
           Override
         </button>
@@ -244,14 +245,14 @@ function ReviewCard({
         <button
           onClick={() => run('ignore')}
           disabled={busy !== null || resolved}
-          className="rounded border border-slate-700 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 transition-colors hover:bg-slate-800 hover:text-white disabled:opacity-40"
+          className="btn-text text-error text-label-sm"
         >
           {busy === 'ignore' ? '…' : 'Ignore'}
         </button>
         <button
           onClick={() => run('reject')}
           disabled={busy !== null || resolved}
-          className="rounded border border-rose-900/40 text-rose-400 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-rose-900/50 disabled:opacity-40"
+          className="btn-text text-error text-label-sm"
         >
           {busy === 'reject' ? '…' : 'Reject'}
         </button>
@@ -267,10 +268,10 @@ function ReviewCard({
 
       {detail.sample && (
         <details className="mt-4 group">
-          <summary className="cursor-pointer select-none text-[10px] font-bold uppercase tracking-widest text-slate-500 transition-colors group-open:text-slate-400">
+          <summary className="cursor-pointer select-none text-label-sm font-bold uppercase tracking-widest text-on-surface-variant/70 transition-colors group-open:text-on-surface-variant">
             <span className="mr-1 inline-block opacity-50 transition-transform group-open:rotate-90">▶</span> Sample Evidence Payload
           </summary>
-          <div className="mt-2 border-l border-slate-800 pl-3 opacity-80">
+          <div className="mt-2 border-l border-outline-variant pl-3 opacity-80">
             <Code value={detail.sample} />
           </div>
         </details>
@@ -285,19 +286,16 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
     return Promise.all(list.map((d) => getDrift(d.id)))
   }, [])
 
-  function reloadAll() {
+  const reloadAll = useCallback(() => {
     drifts.reload()
-  }
+  }, [drifts])
 
-  // Stay fresh: drift approvals elsewhere (or reprocessing) change both
-  // lists. Live events trigger a reload; polling covers missed frames.
   useLive({ source: sourceFilter || undefined, onEvent: () => reloadAll() })
 
   useEffect(() => {
     const timer = setInterval(() => reloadAll(), 15000)
     return () => clearInterval(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sourceFilter])
+  }, [sourceFilter, reloadAll])
 
   const [view, setView] = useState<'open' | 'resolved'>('open')
   const [resolvedVendor, setResolvedVendor] = useState<string | null>(null)
@@ -308,7 +306,6 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
   const open = all.filter((d) => d.status === 'detected' || d.status === 'analyzed' || d.status === 'review')
   const resolved = all.filter((d) => d.status === 'approved' || d.status === 'rejected' || d.status === 'ignored')
 
-  /** Open items grouped under their source: one anomaly shape, one decision. */
   const openGroups = useMemo(() => {
     const bySource = new Map<string, typeof open>()
     for (const d of open) {
@@ -320,7 +317,6 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
     return [...bySource.entries()]
   }, [open])
 
-  /** Resolved vendors: pick one to see its history. */
   const resolvedVendors = useMemo(() => {
     const bySource = new Map<string, { total: number; approved: number; rejected: number; ignored: number }>()
     for (const d of resolved) {
@@ -358,10 +354,11 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
                 setView(v)
                 setResolvedVendor(null)
               }}
-              className={`rounded px-3 py-1.5 text-[13px] font-medium capitalize transition-all ${view === v
-                  ? 'border border-slate-700 bg-slate-800 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.15)]'
-                  : 'border border-transparent text-slate-400 hover:bg-slate-900 hover:text-slate-200'
-                }`}
+              className={`rounded px-3 py-1.5 text-body-sm font-medium capitalize transition-all ${
+                view === v
+                  ? 'border border-primary/30 bg-primary-container/10 text-primary shadow-[0_0_10px_var(--color-primary)]'
+                  : 'border border-transparent text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+              }`}
             >
               {v} ({n})
             </button>
@@ -370,7 +367,7 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
       </div>
 
       {drifts.loading && <div className="mt-10 flex justify-center"><Spinner /></div>}
-      {drifts.error && <p className="text-[13px] font-medium text-rose-400">{drifts.error}</p>}
+      {drifts.error && <p className="text-body-md font-medium text-error">{drifts.error}</p>}
 
       {!drifts.loading && !drifts.error && shown.length === 0 && (
         <div className="mt-8">
@@ -389,9 +386,9 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
         <div className="space-y-8">
           {openGroups.map(([source, items]) => (
             <section key={source}>
-              <h3 className="mb-3 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                <span className="font-mono text-cyan-500">{source}</span>
-                <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] text-amber-400">
+              <h3 className="mb-3 flex items-center gap-2 text-label-sm font-bold uppercase tracking-[0.14em] text-on-surface-variant">
+                <span className="font-mono text-primary">{source}</span>
+                <span className="surface-inset rounded-full border border-warning/30 bg-warning-container/15 px-2 py-0.5 font-mono text-label-sm text-warning">
                   {items.length} open
                 </span>
               </h3>
@@ -409,21 +406,21 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
             <button
               key={source}
               onClick={() => setResolvedVendor(source)}
-              className="glass-card group flex items-center justify-between rounded-2xl p-5 text-left transition-all hover:border-cyan-400/20"
+              className="glass-card group flex items-center justify-between rounded-xl p-5 text-left transition-all hover:border-primary/30 hover:shadow-e2"
             >
               <div>
-                <p className="font-mono text-[15px] font-semibold text-white group-hover:text-cyan-300">{source}</p>
-                <p className="mt-1 flex gap-2 font-mono text-[11px]">
-                  <span className="text-emerald-400">{counts.approved} approved</span>
-                  <span className="text-rose-400">{counts.rejected} rejected</span>
-                  <span className="text-slate-500">{counts.ignored} ignored</span>
+                <p className="font-mono text-body-lg font-semibold text-on-surface group-hover:text-primary">{source}</p>
+                <p className="mt-1 flex gap-2 font-mono text-label-sm">
+                  <span className="text-success">{counts.approved} approved</span>
+                  <span className="text-error">{counts.rejected} rejected</span>
+                  <span className="text-on-surface-variant/60">{counts.ignored} ignored</span>
                 </p>
               </div>
               <span className="flex items-center gap-2">
-                <span className="rounded-full border border-slate-700 bg-slate-950 px-2.5 py-0.5 font-mono text-[11px] text-slate-300">
+                <span className="surface-inset rounded-full border border-outline-variant/50 px-2.5 py-0.5 font-mono text-label-sm text-on-surface-variant">
                   {counts.total}
                 </span>
-                <span className="text-slate-600 transition-transform group-hover:translate-x-0.5 group-hover:text-cyan-300">→</span>
+                <Arrow variant="inline" size="sm" />
               </span>
             </button>
           ))}
@@ -433,12 +430,12 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
           <div className="mb-4 flex items-center gap-3">
             <button
               onClick={() => setResolvedVendor(null)}
-              className="rounded border border-slate-700 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+              className="btn-secondary text-label-sm"
             >
-              ← Vendors
+              Vendors
             </button>
-            <h3 className="font-mono text-[14px] font-semibold text-white">{resolvedVendor}</h3>
-            <span className="rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 font-mono text-[11px] text-slate-400">
+            <h3 className="font-mono text-body-lg font-semibold text-on-surface">{resolvedVendor}</h3>
+            <span className="surface-inset rounded-full border border-outline-variant/50 px-2 py-0.5 font-mono text-label-sm text-on-surface-variant">
               {resolvedShown.length} resolved
             </span>
           </div>

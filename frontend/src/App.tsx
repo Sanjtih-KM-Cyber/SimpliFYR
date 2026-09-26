@@ -27,10 +27,10 @@ const NAV = [
 
 function StatusDot({ ok, label }: { ok: boolean; label: string }) {
   return (
-    <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+    <div className="flex items-center gap-2 text-label-sm font-semibold uppercase tracking-[0.14em] text-on-surface-variant">
       <span className="relative flex h-2.5 w-2.5">
         {ok && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>}
-        <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ring-2 ring-slate-950 ${ok ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.65)]' : 'bg-rose-400 shadow-[0_0_10px_rgba(251,113,133,0.45)]'}`}></span>
+        <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ring-2 ring-surface-dim ${ok ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.65)]' : 'bg-rose-400 shadow-[0_0_10px_rgba(251,113,133,0.45)]'}`}></span>
       </span>
       {label}
     </div>
@@ -58,9 +58,9 @@ function Shell() {
   useKeyboardShortcuts(() => setShowShortcuts((v) => !v))
 
   return (
-    <div className="isolate flex min-h-screen overflow-hidden bg-slate-950 font-sans text-slate-300">
-      <aside className="relative z-20 flex w-[220px] shrink-0 flex-col border-r border-white/[0.12] bg-slate-950/80 shadow-[18px_0_55px_-32px_rgba(0,0,0,0.95)] backdrop-blur-xl saturate-[170%]">
-        <div className="border-b border-white/[0.1] bg-white/[0.025] px-5 py-6">
+    <div className="isolate flex min-h-screen overflow-hidden bg-surface-dim font-sans text-on-surface">
+      <aside className="relative z-20 flex w-[220px] shrink-0 flex-col border-r border-outline-variant bg-surface-container/80 shadow-e4 backdrop-blur-xl saturate-[170%]">
+        <div className="border-b border-outline-variant bg-surface-container-low/50 px-5 py-6">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-cyan-300/20 bg-gradient-to-br from-cyan-400 via-cyan-500 to-blue-600 shadow-[0_12px_28px_-10px_rgba(6,182,212,0.75)]">
               <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 text-white">
@@ -69,8 +69,8 @@ function Shell() {
               </svg>
             </div>
             <div>
-              <h1 className="text-sm font-bold tracking-[0.01em] text-white">Simplifyr</h1>
-              <p className="mt-0.5 text-[9px] font-bold tracking-[0.16em] text-slate-500 uppercase">Universal SIEM</p>
+              <h1 className="text-sm font-bold tracking-[0.01em] text-on-surface">Simplifyr</h1>
+              <p className="mt-0.5 text-[9px] font-bold tracking-[0.16em] text-on-surface-variant uppercase">Universal SIEM</p>
             </div>
           </div>
         </div>
@@ -81,9 +81,9 @@ function Shell() {
               to={item.to}
               end={item.to === '/'}
               className={({ isActive }) =>
-                `group flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-[13px] font-medium transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${isActive
-                  ? 'border-cyan-400/20 bg-gradient-to-r from-cyan-400/[0.16] to-cyan-400/[0.05] font-semibold text-cyan-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_12px_28px_-18px_rgba(6,182,212,0.8)]'
-                  : 'border-transparent text-slate-400 hover:border-white/[0.08] hover:bg-white/[0.055] hover:text-slate-100'
+                `group flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-body-sm font-medium transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-dim ${isActive
+                  ? 'border-primary/20 bg-gradient-to-r from-primary/10 to-primary/5 font-semibold text-primary shadow-[inset_0_1px_0_var(--color-outline-variant),0_12px_28px_-18px_var(--color-primary)]'
+                  : 'border-transparent text-on-surface-variant hover:border-outline-variant/50 hover:bg-surface-container hover:text-on-surface'
                 }`
               }
             >
@@ -91,7 +91,7 @@ function Shell() {
             </NavLink>
           ))}
         </nav>
-        <div className="border-t border-white/[0.1] bg-black/15 px-5 py-4">
+        <div className="border-t border-outline-variant bg-surface-container-low/50 px-5 py-4">
           <div className="flex flex-col gap-3.5">
             <StatusDot ok={Boolean(health?.status === 'ok')} label={`API ${health ? 'v' + health.version : 'Offline'}`} />
             <StatusDot ok={Boolean(health?.database === 'ok')} label="Database" />
@@ -99,7 +99,7 @@ function Shell() {
           <button
             onClick={() => setShowShortcuts(true)}
             aria-label="Keyboard Shortcuts"
-            className="mt-6 flex items-center gap-2 rounded-xl px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 transition-all duration-300 ease-in-out hover:bg-white/[0.055] hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            className="mt-6 flex items-center gap-2 rounded-xl px-2 py-1.5 text-label-sm font-semibold uppercase tracking-[0.12em] text-on-surface-variant transition-all duration-300 ease-in-out hover:bg-surface-container hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-dim"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

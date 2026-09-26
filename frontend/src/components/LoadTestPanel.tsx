@@ -6,6 +6,7 @@ import { latestMappings } from '../api/types'
 import { useAsync } from '../hooks/useAsync'
 import { ErrorBanner } from './Status'
 import { useToast } from './ui'
+import { Spinner } from './Spinner'
 
 const SAMPLE = `<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 action=deny
 <134>Sep 15 10:31:45 fw01 srcip=10.1.1.5 action=deny
@@ -15,11 +16,6 @@ const SAMPLE = `<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 action=deny
 
 export const LOADTEST_SAMPLE_KEY = 'simplifyr.loadtest.sample'
 
-/** Throughput probe: paste a batch, measure speed, then adopt or download.
- *
- * After a run the batch is either already covered by a mapping (auto-
- * normalized — just download the set) or new (adopt it into the Add
- * Connection wizard as a new mapping draft, or download and walk away). */
 export function LoadTestPanel() {
   const { toast } = useToast()
   const mappings = useAsync(() => listMappings(), [])
@@ -42,9 +38,6 @@ export function LoadTestPanel() {
   const [filing, setFiling] = useState<Filing | null>(null)
   const [filingBusy, setFilingBusy] = useState(false)
 
-  /** Ask the AI where a quarantined trial fits: suggest fields for the first
-   *  quarantined row, then score every mapping by same input→semantic cover.
-   *  Very-high-confidence single winner => one-click file the whole set. */
   async function findFiling() {
     if (!result) return
     const rep = (result.results ?? []).find(
@@ -135,7 +128,6 @@ export function LoadTestPanel() {
 
   async function downloadSet() {
     if (!result) return
-    // Exactly this trial's rows — never the global pile.
     const ids = (result.results ?? [])
       .filter((r) => (r.status === 'normalized' || r.status === 'output') && r.stored_event_id != null)
       .map((r) => r.stored_event_id as number)
@@ -176,8 +168,8 @@ export function LoadTestPanel() {
 
   return (
     <section className="glass-card rounded-2xl p-5">
-      <h3 className="mb-2 text-sm font-medium text-white">Trial Run</h3>
-      <p className="mb-2 text-xs text-slate-500">
+      <h3 className="mb-2 text-title-sm font-semibold text-on-surface">Trial Run</h3>
+      <p className="mb-2 text-body-sm text-on-surface-variant">
         Process a batch of events (one per line) and measure throughput. Pick
         the connection and its mapping auto-resolves — matching lines
         normalize; new shapes can be adopted as a mapping or downloaded.
@@ -186,22 +178,22 @@ export function LoadTestPanel() {
         value={batch}
         onChange={(e) => setBatch(e.target.value)}
         rows={5}
-        className="input-glass w-full px-3.5 py-2.5 font-mono text-xs text-slate-200"
+        className="input-glass w-full px-3.5 py-2.5 font-mono text-mono-sm text-on-surface"
       />
       {error && <ErrorBanner message={error} />}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button
           onClick={runLoadTest}
           disabled={busy}
-          className="btn-glass bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.9)] hover:bg-emerald-400"
+          className="btn-primary"
         >
-          {busy ? 'Running…' : 'Run trial'}
+          {busy ? <Spinner size="sm" label="Running…" /> : 'Run trial'}
         </button>
         <select
           value={mappingId}
           onChange={(e) => setMappingId(e.target.value === '' ? '' : Number(e.target.value))}
           title="Run the batch through an existing mapping"
-          className="input-glass px-3 py-2.5 text-xs text-slate-200"
+          className="input-glass px-3 py-2.5 text-body-sm text-on-surface"
         >
           <option value="">Auto-resolve mapping…</option>
           {latestMappings(mappings.data ?? []).map((m) => (
@@ -214,7 +206,7 @@ export function LoadTestPanel() {
           value={source}
           onChange={(e) => setSource(e.target.value)}
           title="Attribute the batch to a connection (its mapping auto-resolves)"
-          className="input-glass px-3 py-2.5 text-xs text-slate-200"
+          className="input-glass px-3 py-2.5 text-body-sm text-on-surface"
         >
           <option value="">No source (unassigned)…</option>
           {(connections.data ?? []).map((c) => (
@@ -225,30 +217,30 @@ export function LoadTestPanel() {
         </select>
       </div>
       {chosen && (
-        <p className="mt-2 text-xs text-slate-500">
-          Running through <span className="font-semibold text-slate-300">{chosen.name}</span> — lines it
+        <p className="mt-2 text-body-sm text-on-surface-variant">
+          Running through <span className="font-semibold text-on-surface">{chosen.name}</span> — lines it
           covers normalize; the rest quarantines for adoption below.
         </p>
       )}
       {result && (
-        <div className="surface-inset mt-3 rounded-xl p-3.5 text-xs text-slate-300">
+        <div className="surface-inset mt-3 rounded-xl p-3.5 text-body-sm text-on-surface">
           <p>
-            Processed <span className="font-semibold text-white">{result.processed}</span> events
+            Processed <span className="font-semibold text-on-surface">{result.processed}</span> events
             ({result.normalized} normalized · {result.output} output · {result.quarantined}{' '}
             quarantined · {result.dlq} dlq · {result.failed} failed)
           </p>
           <p className="mt-1">
-            <span className="font-semibold text-white">{result.events_per_second}</span> events/sec ·{' '}
-            <span className="font-semibold text-white">{result.avg_latency_ms}</span> ms avg latency ·{' '}
+            <span className="font-semibold text-on-surface">{result.events_per_second}</span> events/sec ·{' '}
+            <span className="font-semibold text-on-surface">{result.avg_latency_ms}</span> ms avg latency ·{' '}
             {result.duration_seconds}s
           </p>
           {result.normalized + result.output > 0 && (
-            <p className="mt-1 text-emerald-400">
+            <p className="mt-1 text-success">
               {result.normalized + result.output} lines matched an existing mapping — auto-normalized.
             </p>
           )}
           {result.quarantined > 0 && (
-            <p className="mt-1 text-amber-400">
+            <p className="mt-1 text-warning">
               {result.quarantined} lines are new — adopt them as a mapping or download the set.
             </p>
           )}
@@ -257,24 +249,24 @@ export function LoadTestPanel() {
               <button
                 onClick={findFiling}
                 disabled={filingBusy || busy}
-                className="rounded border border-cyan-900/50 px-4 py-1.5 text-[12px] font-semibold text-cyan-400 transition-colors hover:bg-cyan-950/20 disabled:opacity-50"
+                className="btn-outlined"
               >
-                {filingBusy ? 'Asking AI…' : 'AI: find its mapping'}
+                {filingBusy ? <Spinner size="sm" label="Asking AI…" /> : 'AI: find its mapping'}
               </button>
             </div>
           )}
           {filing && (
-            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-900/50 bg-emerald-950/20 px-3 py-2">
-              <span className="text-[12px] text-slate-300">
-                AI match: <span className="font-semibold text-white">{filing.mapping.name}</span>{' '}
-                <span className="font-mono text-emerald-400">
+            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border-success/30 bg-success-container/10 px-3 py-2">
+              <span className="text-body-sm text-on-surface">
+                AI match: <span className="font-semibold text-on-surface">{filing.mapping.name}</span>{' '}
+                <span className="font-mono text-success">
                   {Math.round(filing.coverage * 100)}% cover · {Math.round(filing.minConfidence * 100)}% conf
                 </span>
               </span>
               <button
                 onClick={fileUnder}
                 disabled={busy}
-                className="rounded bg-emerald-600 px-4 py-1.5 text-[12px] font-bold text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
+                className="btn-primary text-label-sm"
               >
                 File all under it
               </button>
@@ -285,7 +277,7 @@ export function LoadTestPanel() {
               <Link
                 to="/connections/new"
                 onClick={adoptAsMapping}
-                className="rounded bg-cyan-600 px-4 py-1.5 text-[12px] font-bold text-white transition-colors hover:bg-cyan-500"
+                className="btn-primary text-label-sm"
               >
                 Adopt as new mapping
               </Link>
@@ -293,15 +285,15 @@ export function LoadTestPanel() {
             <button
               onClick={downloadSet}
               disabled={downloading}
-              className="rounded border border-slate-700 px-4 py-1.5 text-[12px] font-semibold text-slate-300 transition-colors hover:bg-slate-800 disabled:opacity-50"
+              className="btn-outlined text-label-sm"
             >
-              {downloading ? 'Bundling…' : 'Download this trial set'}
+              {downloading ? <Spinner size="sm" label="Bundling…" /> : 'Download this trial set'}
             </button>
             <button
               onClick={downloadAll}
               disabled={downloading}
               title="Every normalized log in the system, uncapped"
-              className="rounded border border-slate-700 px-4 py-1.5 text-[12px] font-semibold text-slate-300 transition-colors hover:bg-slate-800 disabled:opacity-50"
+              className="btn-outlined text-label-sm"
             >
               Download all logs
             </button>

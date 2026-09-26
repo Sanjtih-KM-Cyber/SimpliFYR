@@ -66,14 +66,14 @@ export default function Destinations() {
 
   return (
     <div>
-      <p className="mb-4 -mt-3 text-sm text-slate-400">
+      <p className="mb-4 -mt-3 text-body-sm text-on-surface-variant">
         Configure a destination once and Simplifyr continuously delivers normalized output to it.
       </p>
 
       <div className="mb-4 flex justify-end">
         <button
           onClick={() => setShowForm((v) => !v)}
-          className="btn-glass bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.8)] hover:bg-emerald-400"
+          className="btn-primary"
         >
           {showForm ? 'Cancel' : '+ New Destination'}
         </button>
@@ -82,19 +82,19 @@ export default function Destinations() {
       {error && <ErrorBanner message={error} />}
 
       {showForm && (
-        <section className="glass-card mb-6 rounded-2xl p-5">
-          <h3 className="mb-3 text-sm font-medium text-white">New Destination</h3>
+        <section className="glass-card mb-6 rounded-xl p-5 animate-slide-up">
+          <h3 className="mb-3 text-label-lg font-semibold text-on-surface">New Destination</h3>
           <div className="mb-3 grid gap-3 sm:grid-cols-2">
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Name (e.g. SIEM HEC)"
-              className="input-glass px-3.5 py-2.5 text-sm text-slate-200"
+              className="input-glass px-3.5 py-2.5 text-body-sm text-on-surface"
             />
             <select
               value={type}
               onChange={(e) => setType(e.target.value as (typeof TYPES)[number])}
-              className="input-glass px-3.5 py-2.5 text-sm text-slate-200"
+              className="input-glass px-3.5 py-2.5 text-body-sm text-on-surface"
             >
               {TYPES.map((t) => (
                 <option key={t} value={t}>
@@ -108,7 +108,7 @@ export default function Destinations() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="URL (e.g. https://siem.example.com/hpc)"
-              className="input-glass mb-3 w-full px-3.5 py-2.5 text-sm text-slate-200"
+              className="input-glass mb-3 w-full px-3.5 py-2.5 text-body-sm text-on-surface"
             />
           )}
           {type === 's3' && (
@@ -116,7 +116,7 @@ export default function Destinations() {
               value={bucket}
               onChange={(e) => setBucket(e.target.value)}
               placeholder="Bucket (e.g. simplifyr-exports)"
-              className="input-glass mb-3 w-full px-3.5 py-2.5 text-sm text-slate-200"
+              className="input-glass mb-3 w-full px-3.5 py-2.5 text-body-sm text-on-surface"
             />
           )}
           {type === 'kafka' && (
@@ -124,16 +124,16 @@ export default function Destinations() {
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               placeholder="Topic (e.g. simplifyr.output)"
-              className="input-glass mb-3 w-full px-3.5 py-2.5 text-sm text-slate-200"
+              className="input-glass mb-3 w-full px-3.5 py-2.5 text-body-sm text-on-surface"
             />
           )}
           {type === 'console' && (
-            <p className="mb-3 text-xs text-slate-500">Logs the output to the server console.</p>
+            <p className="mb-3 text-body-sm text-on-surface-variant/70">Logs the output to the server console.</p>
           )}
           <button
             onClick={submit}
             disabled={busy}
-            className="btn-glass bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.8)] hover:bg-emerald-400"
+            className="btn-primary"
           >
             {busy ? 'Saving…' : 'Save Destination'}
           </button>
@@ -141,7 +141,7 @@ export default function Destinations() {
       )}
 
       {destinations.loading && <Spinner />}
-      {destinations.error && <p className="text-sm text-red-400">{destinations.error}</p>}
+      {destinations.error && <p className="text-body-sm text-error">{destinations.error}</p>}
 
       {!destinations.loading && !destinations.error && rows.length === 0 && (
         <EmptyState
@@ -164,20 +164,20 @@ export default function Destinations() {
           <TBody>
             {rows.map((d) => (
               <TR key={d.id}>
-                <TD className="font-medium text-white">{d.name}</TD>
+                <TD className="font-medium text-on-surface">{d.name}</TD>
                 <TD>
-                  <span className="status-chip text-xs">
+                  <span className="surface-inset rounded-full border border-outline-variant/50 px-2.5 py-1 text-label-sm text-on-surface-variant">
                     {d.type}
                   </span>
                 </TD>
-                <TD className="font-mono text-xs text-slate-400">{configSummary(d)}</TD>
+                <TD className="font-mono text-mono-sm text-on-surface-variant">{configSummary(d)}</TD>
                 <TD>
                   <button
                     onClick={() => toggle(d)}
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                    className={`rounded-full px-2.5 py-1 text-label-sm font-semibold ${
                       d.enabled
-                        ? 'bg-emerald-700 text-emerald-100'
-                        : 'bg-slate-700 text-slate-300'
+                        ? 'bg-success text-on-success'
+                        : 'bg-surface-variant text-on-surface-variant'
                     }`}
                   >
                     {d.enabled ? 'enabled' : 'disabled'}
@@ -186,7 +186,7 @@ export default function Destinations() {
                 <TD className="text-right">
                   <button
                     onClick={() => remove(d)}
-                    className="btn-glass rounded-xl border border-rose-400/25 px-3 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/10"
+                    className="btn-text text-error text-label-sm"
                   >
                     Delete
                   </button>

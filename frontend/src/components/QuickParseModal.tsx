@@ -7,9 +7,8 @@ import { ErrorBanner } from './Status'
 import { Modal, useToast } from './ui'
 import { useAsync } from '../hooks/useAsync'
 import { StatusBadge } from './Status'
+import { Spinner } from './Spinner'
 
-/** Home quick-parse: paste/drop logs, pick a mapping, see the output,
- *  download it on the spot. Events route straight to the chosen mapping. */
 export function QuickParseModal({ onClose }: { onClose: () => void }) {
   const mappings = useAsync(() => listMappings(), [])
   const [raw, setRaw] = useState('')
@@ -71,49 +70,56 @@ export function QuickParseModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal open title="Quick parse" onClose={onClose}>
-      <p className="mb-4 text-xs leading-relaxed text-slate-400">
+    <Modal open title="Quick parse" onClose={onClose} width="max-w-xl">
+      <p className="mb-4 text-body-sm text-on-surface-variant">
         Paste or drop logs, choose a mapping, parse immediately. The event is
         stored and routed straight to the selected mapping.
       </p>
       {error && <ErrorBanner message={error} />}
-      <textarea
-        value={raw}
-        onChange={(e) => setRaw(e.target.value)}
-        rows={5}
-        placeholder="<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 dstip=8.8.8.8 proto=tcp action=deny"
-        className="input-glass mb-3 w-full px-3.5 py-2.5 font-mono text-xs leading-relaxed text-slate-200"
-      />
+      <div className="mb-4">
+        <label className="mb-1.5 block text-label-sm font-medium text-on-surface-variant">Raw logs</label>
+        <textarea
+          value={raw}
+          onChange={(e) => setRaw(e.target.value)}
+          rows={5}
+          placeholder="<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 dstip=8.8.8.8 proto=tcp action=deny"
+          className="input-glass w-full px-3.5 py-2.5 font-mono text-mono-sm text-on-surface"
+        />
+      </div>
       <div className="mb-4 flex flex-wrap gap-2">
-        <select
-          value={mappingId}
-          onChange={(e) => setMappingId(e.target.value ? Number(e.target.value) : '')}
-          className="input-glass flex-1 px-3.5 py-2.5 text-sm text-slate-200"
-        >
-          <option value="">Choose mapping…</option>
-          {latestMappings(mappings.data ?? []).map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.source ? `${m.source} · ` : ''}{m.name} (v{m.version}, {m.status})
-            </option>
-          ))}
-        </select>
-        <label className="btn-secondary cursor-pointer px-3.5 py-2.5 text-sm">
-          Drop a file…
+        <div className="flex-1 min-w-[200px]">
+          <label className="mb-1.5 block text-label-sm font-medium text-on-surface-variant">Mapping</label>
+          <select
+            value={mappingId}
+            onChange={(e) => setMappingId(e.target.value ? Number(e.target.value) : '')}
+            className="input-glass w-full px-3.5 py-2.5 text-body-sm text-on-surface"
+          >
+            <option value="">Choose mapping…</option>
+            {latestMappings(mappings.data ?? []).map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.source ? `${m.source} · ` : ''}{m.name} (v{m.version}, {m.status})
+              </option>
+            ))}
+          </select>
+        </div>
+        <label className="btn-secondary cursor-pointer flex items-center justify-center gap-2 h-full min-h-[42px] px-3.5 py-2.5 text-label-sm">
           <input type="file" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+          <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 mr-1.5"><path d="M4 4a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4z" /><path fillRule="evenodd" d="M10 12a2 2 0 100-4 2 2 0 000 4zm-6-2a1 1 0 112 0 1 1 0 01-2 0zM10 7a1 1 0 012 0v5a1 1 0 11-2 0V7z" clipRule="evenodd" /></svg>
+          Drop a file…
         </label>
       </div>
       <div className="mb-4 flex gap-2">
         <button
           onClick={parse}
           disabled={busy || !raw.trim() || !mappingId}
-          className="btn-glass bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.9)] hover:bg-emerald-400"
+          className="btn-primary"
         >
-          {busy ? 'Parsing…' : 'Parse now'}
+          {busy ? <Spinner size="sm" /> : 'Parse now'}
         </button>
         {result && (result.output || result.normalized) && (
           <button
             onClick={download}
-            className="btn-secondary px-4 py-2.5"
+            className="btn-secondary"
           >
             Download output
           </button>
@@ -121,17 +127,17 @@ export function QuickParseModal({ onClose }: { onClose: () => void }) {
       </div>
       {result && (
         <div>
-          <div className="mb-3 flex items-center gap-2 text-sm">
+          <div className="mb-3 flex items-center gap-2 text-body-sm">
             <StatusBadge status={result.status} />
-            <span className="text-slate-400">
+            <span className="text-on-surface-variant">
               event #{result.stored_event_id}
               {result.duplicate ? ' · duplicate' : ''}
             </span>
           </div>
           <Code value={result.output ?? result.normalized} />
           {result.provenance && (
-            <details className="mt-3 rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 py-2.5">
-              <summary className="cursor-pointer text-xs font-semibold text-slate-400 transition-colors hover:text-slate-200">Provenance</summary>
+            <details className="mt-3 surface-inset rounded-xl p-2.5">
+              <summary className="cursor-pointer text-label-sm font-semibold text-on-surface-variant transition-colors hover:text-on-surface">Provenance</summary>
               <div className="mt-2">
                 <Code value={result.provenance} />
               </div>

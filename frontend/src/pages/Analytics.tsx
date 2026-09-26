@@ -8,10 +8,12 @@ import {
 } from '../api/client'
 import type { AggregateRow, Anomalies, AnalyticsEvent } from '../api/types'
 import type { DedupResponse } from '../api/client'
+import { Arrow } from '../components/Arrow'
 import { Code, Empty } from '../components/Code'
 import { Spinner } from '../components/Spinner'
 import { ErrorBanner } from '../components/Status'
 import { useToast } from '../components/ui'
+import { Dropdown } from '../components/Dropdown'
 
 const GROUP_OPTIONS = ['source.ip', 'destination.ip', 'network.protocol', 'network.action', 'event.type']
 
@@ -133,9 +135,9 @@ export default function Analytics() {
 
   return (
     <div>
-      <header className="mb-7 border-b border-white/[0.08] pb-5">
-        <h2 className="text-2xl font-semibold tracking-[-0.02em] text-white">Analytics</h2>
-        <p className="text-sm text-slate-400">
+      <header className="mb-7 border-b border-outline-variant/50 pb-5">
+        <h2 className="text-headline-sm font-semibold tracking-tight text-on-surface">Analytics</h2>
+        <p className="text-body-md text-on-surface-variant">
           Threat hunting, aggregation, anomaly detection, and correlation.
         </p>
       </header>
@@ -144,35 +146,35 @@ export default function Analytics() {
 
       <div className="grid gap-4 xl:grid-cols-2">
         {/* Search */}
-        <section className="glass-card rounded-2xl p-5">
-          <h3 className="mb-3 text-sm font-medium text-white">Hunt / Search</h3>
+        <section className="glass-card rounded-xl p-5 animate-slide-up">
+          <h3 className="mb-3 text-label-lg font-semibold text-on-surface">Hunt / Search</h3>
           <div className="mb-3 flex flex-wrap gap-2">
             <input
               value={sourceIp}
               onChange={(e) => setSourceIp(e.target.value)}
               placeholder="Source IP (e.g. 10.0.0.1)"
-              className="input-glass w-48 px-3.5 py-2.5 text-sm text-slate-200"
+              className="input-glass w-48 px-3.5 py-2.5 text-body-sm text-on-surface"
             />
             <input
               value={action}
               onChange={(e) => setAction(e.target.value)}
               placeholder="Action (deny/allow)"
-              className="input-glass w-40 px-3.5 py-2.5 text-sm text-slate-200"
+              className="input-glass w-40 px-3.5 py-2.5 text-body-sm text-on-surface"
             />
             <button
               onClick={runSearch}
               disabled={searching}
-              className="btn-glass bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.8)] hover:bg-emerald-400"
+              className="btn-primary"
             >
-              {searching ? '…' : 'Search'}
+              {searching ? <Spinner size="sm" /> : 'Search'}
             </button>
           </div>
           {results && (
             <div className="space-y-2">
               {results.length === 0 && <Empty message="No matching events." />}
               {results.map((h) => (
-                <div key={h.id} className="surface-inset rounded-xl p-3 text-xs">
-                  <div className="mb-1 text-slate-400">
+                <div key={h.id} className="surface-inset rounded-xl p-3 text-body-sm">
+                  <div className="mb-1 text-on-surface-variant">
                     #{h.id} · {formatTime(h.received_at)} · {h.source ?? 'unknown'}
                   </div>
                   <Code value={h.normalized} />
@@ -184,34 +186,30 @@ export default function Analytics() {
         </section>
 
         {/* Aggregate */}
-        <section className="glass-card rounded-2xl p-5">
-          <h3 className="mb-3 text-sm font-medium text-white">Aggregate</h3>
+        <section className="glass-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '50ms' }}>
+          <h3 className="mb-3 text-label-lg font-semibold text-on-surface">Aggregate</h3>
           <div className="mb-3 flex gap-2">
-            <select
+            <Dropdown
               value={groupBy}
-              onChange={(e) => setGroupBy(e.target.value)}
-              className="input-glass px-3.5 py-2.5 text-sm text-slate-200"
-            >
-              {GROUP_OPTIONS.map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
-            </select>
+              onChange={setGroupBy}
+              options={GROUP_OPTIONS.map((g) => ({ value: g, label: g }))}
+              placeholder="Group by…"
+              className="flex-1"
+            />
             <button
               onClick={runAggregate}
               disabled={aggregating}
-              className="btn-glass bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.8)] hover:bg-emerald-400"
+              className="btn-primary"
             >
-              {aggregating ? '…' : 'Aggregate'}
+              {aggregating ? <Spinner size="sm" /> : 'Aggregate'}
             </button>
           </div>
           {aggregation && (
-            <div className="space-y-1 text-sm">
+            <div className="space-y-1 text-body-sm">
               {aggregation.map((r) => (
-                <div key={r.value} className="flex justify-between border-b border-slate-800 py-1">
-                  <span className="font-mono text-slate-200">{r.value}</span>
-                  <span className="font-semibold text-white">{r.count}</span>
+                <div key={r.value} className="flex justify-between border-b border-outline-variant/50 py-1">
+                  <span className="font-mono text-on-surface">{r.value}</span>
+                  <span className="font-semibold text-on-surface">{r.count}</span>
                 </div>
               ))}
             </div>
@@ -219,40 +217,40 @@ export default function Analytics() {
         </section>
 
         {/* Anomalies */}
-        <section className="glass-card rounded-2xl p-5">
+        <section className="glass-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '100ms' }}>
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-medium text-white">Anomalies</h3>
+            <h3 className="text-label-lg font-semibold text-on-surface">Anomalies</h3>
             <button
               onClick={runAnomalies}
               disabled={loadingAnomalies}
-              className="btn-glass bg-amber-400 px-3.5 py-2 text-xs font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(251,191,36,0.7)] hover:bg-amber-300"
+              className="btn-warning"
             >
-              {loadingAnomalies ? '…' : 'Detect'}
+              {loadingAnomalies ? <Spinner size="sm" /> : 'Detect'}
             </button>
           </div>
           {anomalies && (
-            <div className="space-y-3 text-sm">
+            <div className="space-y-3 text-body-sm">
               <div>
-                <p className="mb-1 text-xs uppercase text-slate-500">High volume</p>
+                <p className="mb-1 text-label-sm uppercase text-on-surface-variant">High volume</p>
                 {anomalies.high_volume.length === 0 ? (
-                  <p className="text-slate-600">None</p>
+                  <p className="text-on-surface-variant/70">None</p>
                 ) : (
                   anomalies.high_volume.map((s) => (
-                    <div key={s.source_ip} className="flex justify-between border-b border-slate-800 py-1">
-                      <span className="font-mono text-amber-300">{s.source_ip}</span>
+                    <div key={s.source_ip} className="flex justify-between border-b border-outline-variant/50 py-1">
+                      <span className="font-mono text-warning">{s.source_ip}</span>
                       <span>{s.count} events</span>
                     </div>
                   ))
                 )}
               </div>
               <div>
-                <p className="mb-1 text-xs uppercase text-slate-500">Scanner (many destinations)</p>
+                <p className="mb-1 text-label-sm uppercase text-on-surface-variant">Scanner (many destinations)</p>
                 {anomalies.scanners.length === 0 ? (
-                  <p className="text-slate-600">None</p>
+                  <p className="text-on-surface-variant/70">None</p>
                 ) : (
                   anomalies.scanners.map((s) => (
-                    <div key={s.source_ip} className="flex justify-between border-b border-slate-800 py-1">
-                      <span className="font-mono text-red-300">{s.source_ip}</span>
+                    <div key={s.source_ip} className="flex justify-between border-b border-outline-variant/50 py-1">
+                      <span className="font-mono text-error">{s.source_ip}</span>
                       <span>{s.distinct_destinations} dsts</span>
                     </div>
                   ))
@@ -263,32 +261,34 @@ export default function Analytics() {
         </section>
 
         {/* Correlations */}
-        <section className="glass-card rounded-2xl p-5">
+        <section className="glass-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '150ms' }}>
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-medium text-white">Correlations</h3>
+            <h3 className="text-label-lg font-semibold text-on-surface">Correlations</h3>
             <button
               onClick={runCorrelations}
               disabled={loadingCorrelations}
-              className="btn-glass bg-amber-400 px-3.5 py-2 text-xs font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(251,191,36,0.7)] hover:bg-amber-300"
+              className="btn-warning"
             >
-              {loadingCorrelations ? '…' : 'Run'}
+              {loadingCorrelations ? <Spinner size="sm" /> : 'Run'}
             </button>
           </div>
-          <select
+          <Dropdown
             value={corrRule}
-            onChange={(e) => setCorrRule(e.target.value)}
-            className="input-glass mb-3 px-3.5 py-2.5 text-sm text-slate-200"
-          >
-            <option value="port_scan">Port Scan</option>
-            <option value="beaconing">Beaconing</option>
-          </select>
+            onChange={setCorrRule}
+            options={[
+              { value: 'port_scan', label: 'Port Scan' },
+              { value: 'beaconing', label: 'Beaconing' },
+            ]}
+            placeholder="Rule…"
+            className="w-48"
+          />
           {correlations && (
-            <div className="space-y-1 text-sm">
+            <div className="space-y-1 text-body-sm">
               {correlations.length === 0 ? (
-                <p className="text-slate-600">No findings.</p>
+                <p className="text-on-surface-variant/70">No findings.</p>
               ) : (
                 correlations.map((c, i) => (
-                  <div key={i} className="border-b border-slate-800 py-1">
+                  <div key={i} className="border-b border-outline-variant/50 py-1">
                     <Code value={c} />
                   </div>
                 ))
@@ -298,25 +298,25 @@ export default function Analytics() {
         </section>
 
         {/* Deduplicate Logs */}
-        <section className="glass-card rounded-2xl p-5 xl:col-span-2">
+        <section className="glass-card rounded-xl p-5 animate-slide-up xl:col-span-2" style={{ animationDelay: '200ms' }}>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h3 className="text-sm font-medium text-white">Deduplicate Logs</h3>
-              <p className="mt-0.5 text-xs text-slate-500">
+              <h3 className="text-label-lg font-semibold text-on-surface">Deduplicate Logs</h3>
+              <p className="mt-0.5 text-body-sm text-on-surface-variant">
                 Paste or drop raw logs — collapses pattern-wise, first log per pattern kept. Nothing is stored.
               </p>
             </div>
             <div className="flex gap-2">
-              <label className="btn-secondary cursor-pointer px-3.5 py-2 text-sm">
+              <label className="btn-secondary cursor-pointer px-3.5 py-2.5 text-body-sm">
                 Drop a file…
                 <input type="file" className="hidden" onChange={(e) => onDedupFile(e.target.files?.[0])} />
               </label>
               <button
                 onClick={runDedup}
                 disabled={deduping || !dedupRaw.trim()}
-                className="btn-glass bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(16,185,129,0.8)] hover:bg-emerald-400 disabled:opacity-50"
+                className="btn-primary"
               >
-                {deduping ? '…' : 'Deduplicate'}
+                {deduping ? <Spinner size="sm" /> : 'Deduplicate'}
               </button>
             </div>
           </div>
@@ -325,35 +325,34 @@ export default function Analytics() {
             onChange={(e) => setDedupRaw(e.target.value)}
             rows={4}
             placeholder="<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 action=deny"
-            className="input-glass mb-3 w-full px-3.5 py-2.5 font-mono text-xs text-slate-200"
+            className="input-glass mb-3 w-full px-3.5 py-2.5 font-mono text-mono-sm text-on-surface"
           />
           {deduping && <Spinner />}
           {dedup && (
             <div>
               <div className="mb-3 flex flex-wrap items-center gap-3">
-                <p className="text-xs text-slate-400">
-                  <span className="font-semibold text-white">{dedup.total}</span> lines →{' '}
-                  <span className="font-semibold text-white">{dedup.patterns.length}</span> patterns
+                <p className="text-body-sm text-on-surface-variant">
+                  <span className="font-semibold text-on-surface">{dedup.total}</span> lines <Arrow variant="inline" size="sm" /> <span className="font-semibold text-on-surface">{dedup.patterns.length}</span> patterns
                 </p>
                 <button
                   onClick={downloadDeduped}
-                  className="rounded border border-slate-700 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-cyan-400 transition-colors hover:bg-slate-800"
+                  className="btn-secondary text-label-sm"
                 >
                   Download deduped
                 </button>
               </div>
               <div className="space-y-2">
                 {dedup.patterns.map((p, i) => (
-                  <div key={i} className="surface-inset rounded-xl p-3 text-xs">
+                  <div key={i} className="surface-inset rounded-xl p-3 text-body-sm">
                     <div className="mb-1 flex flex-wrap items-center gap-2">
-                      <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 font-mono font-bold uppercase text-amber-400">
+                      <span className="surface-inset rounded px-1.5 py-0.5 font-mono font-bold uppercase text-warning border border-warning/20">
                         {p.format}
                       </span>
-                      <span className="rounded-full border border-slate-700 bg-slate-950 px-2 py-0.5 font-mono text-slate-400">
+                      <span className="surface-inset rounded-full border border-outline-variant/50 px-2 py-0.5 font-mono text-on-surface-variant">
                         × {p.count}
                       </span>
                       {p.fields.length > 0 && (
-                        <span className="font-mono text-slate-500">{p.fields.join(', ')}</span>
+                        <span className="font-mono text-on-surface-variant/70">{p.fields.join(', ')}</span>
                       )}
                     </div>
                     <Code value={p.sample} />

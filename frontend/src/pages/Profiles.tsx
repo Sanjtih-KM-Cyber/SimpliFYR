@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { createOutputProfile, listMappings, listOutputProfiles } from '../api/client'
 import { latestMappings } from '../api/types'
-import { Code, Empty } from '../components/Code'
+import { Arrow } from '../components/Arrow'
+import { Empty } from '../components/Code'
 import { Spinner } from '../components/Spinner'
 import { ErrorBanner, StatusBadge } from '../components/Status'
 import { useAsync } from '../hooks/useAsync'
@@ -12,9 +13,6 @@ interface Row {
   from_semantic: string
 }
 
-/** Settings → Profiles: output profile reference (list + custom builder)
- *  plus a read-only mappings reference (bind them per-connection in the
- *  connection Overview → Try it now). */
 export default function Profiles() {
   const profiles = useAsync(() => listOutputProfiles(), [])
   const mappings = useAsync(() => listMappings(), [])
@@ -57,12 +55,12 @@ export default function Profiles() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <p className="-mt-3 text-sm text-slate-400">
+        <p className="-mt-3 text-body-sm text-on-surface-variant">
           Output profiles shape deliveries; mappings are bound per-connection in Try it now.
         </p>
         <button
           onClick={() => setShowForm((v) => !v)}
-          className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500"
+          className="btn-secondary text-body-sm"
         >
           {showForm ? 'Cancel' : '+ Custom Profile'}
         </button>
@@ -71,13 +69,13 @@ export default function Profiles() {
       {error && <ErrorBanner message={error} />}
 
       {showForm && (
-        <section className="mb-6 rounded-lg border border-slate-800 bg-slate-900 p-4">
-          <h3 className="mb-3 text-sm font-medium text-white">New Custom Profile</h3>
+        <section className="glass-card mb-6 rounded-xl p-5 animate-slide-up">
+          <h3 className="mb-3 text-label-lg font-semibold text-on-surface">New Custom Profile</h3>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Profile name"
-            className="mb-3 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+            className="input-glass mb-3 w-full px-3.5 py-2.5 text-body-sm text-on-surface"
           />
           <div className="mb-3 space-y-2">
             {rows.map((row, i) => (
@@ -90,7 +88,7 @@ export default function Profiles() {
                     )
                   }
                   placeholder="Output field"
-                  className="w-1/2 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+                  className="w-1/2 input-glass px-3 py-2 text-body-sm text-on-surface"
                 />
                 <input
                   value={row.from_semantic}
@@ -100,11 +98,11 @@ export default function Profiles() {
                     )
                   }
                   placeholder="Semantic field (e.g. source.ip)"
-                  className="w-1/2 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+                  className="w-1/2 input-glass px-3 py-2 text-body-sm text-on-surface"
                 />
                 <button
                   onClick={() => setRows((prev) => prev.filter((_, idx) => idx !== i))}
-                  className="rounded-md border border-slate-700 px-3 text-slate-400 hover:text-white"
+                  className="control-icon h-9 w-9"
                 >
                   ✕
                 </button>
@@ -114,14 +112,14 @@ export default function Profiles() {
           <div className="flex gap-2">
             <button
               onClick={() => setRows((prev) => [...prev, { output_field: '', from_semantic: '' }])}
-              className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800"
+              className="btn-secondary px-3.5 py-2 text-body-sm"
             >
               + Add field
             </button>
             <button
               onClick={submit}
               disabled={submitting}
-              className="rounded-md bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+              className="btn-primary"
             >
               {submitting ? 'Saving…' : 'Save Profile'}
             </button>
@@ -130,61 +128,65 @@ export default function Profiles() {
       )}
 
       {profiles.loading && <Spinner />}
-      {profiles.error && <p className="text-sm text-red-400">{profiles.error}</p>}
+      {profiles.error && <p className="text-body-sm text-error">{profiles.error}</p>}
       {!profiles.loading && (profiles.data?.length ?? 0) === 0 && <Empty message="No output profiles." />}
 
       <div className="mb-8 grid gap-4 lg:grid-cols-2">
         {(profiles.data ?? []).map((p) => (
-          <div key={p.id} className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+          <div key={p.id} className="glass-card rounded-xl p-5 animate-slide-up">
             <div className="mb-1 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-white">{p.name}</h3>
+              <h3 className="text-label-lg font-semibold text-on-surface">{p.name}</h3>
               <span
-                className={`rounded-full px-2 py-0.5 text-xs ${
-                  p.is_preset ? 'bg-indigo-700 text-indigo-100' : 'bg-slate-700 text-slate-200'
+                className={`rounded-full px-2 py-0.5 text-label-sm ${
+                  p.is_preset ? 'border border-info/30 bg-info-container/20 text-info' : 'border border-outline/30 bg-surface-variant text-on-surface-variant'
                 }`}
               >
                 {p.is_preset ? 'preset' : 'custom'}
               </span>
             </div>
-            {p.description && <p className="mb-2 text-xs text-slate-500">{p.description}</p>}
-            <div className="max-h-48 overflow-auto">
-              <Code
-                value={
-                  p.profile_schema.include_all
-                    ? 'emit full normalized event'
-                    : p.profile_schema.fields.map((f) => `${f.from} → ${f.output_field}`).join('\n')
-                }
-              />
+            {p.description && <p className="mb-2 text-body-sm text-on-surface-variant">{p.description}</p>}
+            <div className="surface-inset rounded-xl max-h-48 overflow-auto font-mono text-mono-sm">
+              {p.profile_schema.include_all ? (
+                <div className="text-on-surface-variant/70">emit full normalized event</div>
+              ) : (
+                p.profile_schema.fields.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2 py-0.5 text-on-surface-variant">
+                    <span className="text-warning/80">{f.from}</span>
+                    <Arrow variant="mapping" size="sm" />
+                    <span className="text-primary">{f.output_field}</span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         ))}
       </div>
 
-      <h3 className="mb-3 text-sm font-medium text-white">Mappings reference</h3>
+      <h3 className="mb-3 text-label-lg font-semibold text-on-surface">Mappings reference</h3>
       {mappings.loading && <Spinner />}
-      {mappings.error && <p className="text-sm text-red-400">{mappings.error}</p>}
+      {mappings.error && <p className="text-body-sm text-error">{mappings.error}</p>}
       {!mappings.loading && groups.length === 0 && <Empty message="No mappings yet." />}
       <div className="grid gap-4 lg:grid-cols-2">
         {groups.map((m) => (
-          <div key={m.id} className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+          <div key={m.id} className="glass-card rounded-xl p-5 animate-slide-up">
             <div className="mb-1 flex items-center justify-between gap-2">
-              <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+              <h3 className="flex items-center gap-2 text-label-lg font-semibold text-on-surface">
                 {m.name}
-                <span className="rounded border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-cyan-400">
+                <span className="surface-inset rounded border border-primary/30 bg-primary-container/20 px-1.5 py-0.5 font-mono text-label-sm font-bold text-primary">
                   v{m.version}
                 </span>
               </h3>
               <StatusBadge status={m.status} />
             </div>
-            <p className="mb-2 text-xs text-slate-500">
+            <p className="mb-2 text-body-sm text-on-surface-variant">
               {m.source ?? 'No source'} · {m.event_family}
             </p>
             {m.source && (
               <Link
                 to={`/connections/${encodeURIComponent(m.source)}/mappings`}
-                className="text-[11px] font-bold uppercase tracking-wider text-cyan-500 hover:text-cyan-400 underline decoration-cyan-900/50 underline-offset-4"
+                className="text-label-sm font-bold uppercase tracking-wider text-primary hover:text-primary/70 hover:underline transition-colors"
               >
-                Open in Schema Map →
+                Open in Schema Map
               </Link>
             )}
           </div>

@@ -8,9 +8,9 @@ interface ToastItem {
 }
 
 const TYPE_STYLES: Record<ToastType, string> = {
-  success: 'border-emerald-400/40 bg-emerald-950/85 text-emerald-50 shadow-[0_16px_36px_-20px_rgba(16,185,129,0.8)]',
-  error: 'border-rose-400/40 bg-rose-950/85 text-rose-50 shadow-[0_16px_36px_-20px_rgba(244,63,94,0.75)]',
-  info: 'border-cyan-400/40 bg-slate-900/90 text-slate-50 shadow-[0_16px_36px_-20px_rgba(6,182,212,0.7)]',
+  success: 'border-success/40 bg-success-container/80 text-on-success-container shadow-[0_16px_36px_-20px_var(--color-success)]',
+  error: 'border-error/40 bg-error-container/80 text-on-error-container shadow-[0_16px_36px_-20px_var(--color-error)]',
+  info: 'border-info/40 bg-info-container/80 text-on-info-container shadow-[0_16px_36px_-20px_var(--color-info)]',
 }
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -32,7 +32,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {items.map((t) => (
           <div
             key={t.id}
-            className={`glass-flyout animate-slide-up rounded-2xl border px-4 py-3 text-[13px] font-medium leading-relaxed ${TYPE_STYLES[t.type]}`}
+            className={`glass-medium animate-slide-in-right rounded-2xl border px-4 py-3 text-label-md font-medium leading-relaxed ${TYPE_STYLES[t.type]}`}
           >
             {t.message}
           </div>

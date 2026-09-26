@@ -53,7 +53,7 @@ export function useKeyboardShortcuts(onToggleShortcuts: () => void) {
           break
         case 'n':
         case 'N':
-          navigate('/connections/new')
+          navigate('/connections?new=1')
           break
         case 'r':
         case 'R':

@@ -34,15 +34,17 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-scrim/50 backdrop-blur-sm"
       onClick={onClose}
+      aria-modal="true"
+      role="dialog"
     >
       <div
-        className={`w-full ${width} glass-flyout animate-slide-up overflow-hidden rounded-3xl`}
+        className={`w-full ${width} glass-flyout animate-scale-in overflow-hidden rounded-3xl`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-white/[0.1] bg-white/[0.025] px-5 py-4">
-          <h3 className="text-sm font-semibold tracking-[0.01em] text-slate-50">{title}</h3>
+        <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-low/50 px-5 py-4">
+          <h3 className="text-title-md font-semibold text-on-surface">{title}</h3>
           <button
             onClick={onClose}
             aria-label="Close"

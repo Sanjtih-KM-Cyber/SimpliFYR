@@ -8,13 +8,13 @@ import {
   listRecipes,
 } from '../api/client'
 import type { IngestResponse, Recipe } from '../api/types'
+import { Arrow } from './Arrow'
 import { Code } from './Code'
 import { ErrorBanner, StatusBadge } from './Status'
 import { useToast } from './ui'
 import { useAsync } from '../hooks/useAsync'
+import { Spinner } from './Spinner'
 
-/** Try-it-now: ingest a sample through this connection, see the output,
- *  download it — and bind a profile so the recipe sticks. */
 export function TryItNow({ sourceName }: { sourceName: string }) {
   const profiles = useAsync(() => listOutputProfiles(), [])
   const bindings = useAsync(() => listRecipes(), [])
@@ -44,7 +44,7 @@ export function TryItNow({ sourceName }: { sourceName: string }) {
         mappingId: connectionMapping.id,
         outputProfileId: Number(profileId),
       })
-      toast(`Bound ${connectionMapping.name} → ${profiles.data?.find((p) => p.id === profileId)?.name}`, 'success')
+      toast(`Bound ${connectionMapping.name} <Arrow variant="binding" size="sm" /> ${profiles.data?.find((p) => p.id === profileId)?.name}`, 'success')
       bindings.reload()
     } catch (e) {
       const msg = (e as Error).message
@@ -121,21 +121,21 @@ export function TryItNow({ sourceName }: { sourceName: string }) {
   }
 
   return (
-    <section id="try-it" className="mb-6 rounded-lg border border-emerald-900 bg-slate-900 p-4">
-      <h3 className="mb-2 text-sm font-medium text-white">Try it now — ingest, see the output, download it</h3>
+    <section id="try-it" className="mb-6 surface-panel rounded-2xl p-5">
+      <h3 className="mb-2 text-title-sm font-semibold text-on-surface">Try it now — ingest, see the output, download it</h3>
       {binding && (
-        <p className="mb-3 flex flex-wrap items-center gap-2 text-[12px] text-slate-400">
+        <p className="mb-3 flex flex-wrap items-center gap-2 text-body-sm text-on-surface-variant">
           <span>
-            Bound: <span className="font-mono text-slate-200">{connectionMapping?.name ?? `mapping #${binding.mapping_id}`}</span>
-            {' → '}
-            <span className="font-mono text-emerald-400">{boundProfileName ?? 'no profile'}</span>
+            Bound: <span className="font-mono text-on-surface">{connectionMapping?.name ?? `mapping #${binding.mapping_id}`}</span>
+            <Arrow variant="binding" size="sm" className="mx-1" />
+            <span className="font-mono text-success">{boundProfileName ?? 'no profile'}</span>
           </span>
           <button
             onClick={unbind}
             disabled={bindBusy}
-            className="rounded border border-red-800 px-2 py-0.5 text-[11px] text-red-300 hover:bg-red-950/50 disabled:opacity-50"
+            className="btn-outlined text-label-sm"
           >
-            {bindBusy ? '…' : 'Unbind'}
+            {bindBusy ? <Spinner size="sm" /> : 'Unbind'}
           </button>
         </p>
       )}
@@ -145,13 +145,13 @@ export function TryItNow({ sourceName }: { sourceName: string }) {
         onChange={(e) => setRaw(e.target.value)}
         rows={4}
         placeholder="<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 dstip=8.8.8.8 proto=tcp action=deny"
-        className="mb-2 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-xs text-slate-200"
+        className="mb-2 input-glass w-full px-3.5 py-2.5 font-mono text-mono-sm text-on-surface"
       />
       <div className="mb-3 flex flex-wrap gap-2">
         <select
           value={profileId}
           onChange={(e) => setProfileId(e.target.value ? Number(e.target.value) : '')}
-          className="flex-1 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+          className="input-glass flex-1 px-3.5 py-2.5 text-body-sm text-on-surface"
         >
           <option value="">Render with… (bound profile by default)</option>
           {(profiles.data ?? []).map((p) => (
@@ -168,25 +168,25 @@ export function TryItNow({ sourceName }: { sourceName: string }) {
               ? `Bind ${connectionMapping.name} → selected profile`
               : 'This connection has no mapping yet — create one first'
           }
-          className="rounded-md border border-cyan-900/50 px-3 py-2 text-sm text-cyan-400 hover:bg-cyan-950/30 disabled:opacity-40"
+          className="btn-outlined text-label-sm"
         >
-          {bindBusy ? 'Binding…' : 'Bind profile'}
+          {bindBusy ? <Spinner size="sm" /> : 'Bind profile'}
         </button>
-        <label className="cursor-pointer rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800">
+        <label className="btn-text cursor-pointer px-3.5 py-2.5 text-label-sm">
           Drop a file…
           <input type="file" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
         </label>
         <button
           onClick={run}
           disabled={busy || !raw.trim()}
-          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+          className="btn-primary"
         >
-          {busy ? 'Running…' : `Run via ${sourceName}`}
+          {busy ? <Spinner size="sm" /> : `Run via ${sourceName}`}
         </button>
         {result && (result.output || result.normalized) && (
           <button
             onClick={download}
-            className="rounded-md border border-slate-700 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
+            className="btn-outlined text-label-sm"
           >
             Download output
           </button>
@@ -194,9 +194,9 @@ export function TryItNow({ sourceName }: { sourceName: string }) {
       </div>
       {result && (
         <div>
-          <div className="mb-2 flex items-center gap-2 text-sm">
+          <div className="mb-2 flex items-center gap-2 text-body-sm">
             <StatusBadge status={result.status} />
-            <span className="text-slate-400">event #{result.stored_event_id}</span>
+            <span className="text-on-surface-variant">event #{result.stored_event_id}</span>
           </div>
           <Code value={result.output ?? result.normalized} />
         </div>

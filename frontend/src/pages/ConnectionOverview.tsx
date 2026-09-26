@@ -6,9 +6,9 @@ import { useConnection } from './connection-context'
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="animate-slide-up rounded-lg border border-slate-700/50 p-5 glass-card">
-      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">{label}</p>
-      <p className="font-mono text-2xl font-bold text-white">{value}</p>
+    <div className="glass-card rounded-xl p-5 animate-slide-up">
+      <p className="mb-2 text-label-sm font-semibold uppercase tracking-wide text-on-surface-variant">{label}</p>
+      <p className="font-mono text-headline-sm font-bold text-on-surface">{value}</p>
     </div>
   )
 }
@@ -36,46 +36,46 @@ export default function ConnectionOverview() {
       <TryItNow sourceName={c.name} />
 
       <div className="mb-6 grid gap-6 lg:grid-cols-2 lg:items-start">
-        <section className="animate-slide-up rounded-lg border border-slate-700/50 p-5 glass-card" style={{ animationDelay: '50ms' }}>
-          <h3 className="mb-4 text-[12px] font-bold uppercase tracking-widest text-white border-b border-slate-800/80 pb-2">Schema Mapping Status</h3>
+        <section className="glass-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '50ms' }}>
+          <h3 className="mb-4 text-label-sm font-bold uppercase tracking-widest text-on-surface border-b border-outline-variant/50 pb-2">Schema Mapping Status</h3>
           {c.mapping ? (
-            <div className="flex items-center gap-3 text-[13px]">
-              <span className="font-mono font-bold text-cyan-400">{c.mapping.name}</span>
+            <div className="flex items-center gap-3 text-body-md">
+              <span className="font-mono font-bold text-primary">{c.mapping.name}</span>
               <StatusBadge status={c.mapping.status} />
-              <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">v{c.mapping.version}</span>
+              <span className="surface-inset rounded px-1.5 py-0.5 font-mono text-label-sm text-on-surface-variant">v{c.mapping.version}</span>
             </div>
           ) : (
-            <div className="rounded border border-amber-900/30 bg-amber-950/10 p-3 leading-relaxed">
-              <p className="text-[12px] text-amber-500/80">
+            <div className="surface-inset rounded-xl p-3 leading-relaxed border-l-4 border-warning">
+              <p className="text-body-sm text-warning/90">
                 No active schema established — telemetry quarantined until structural context provided.
               </p>
             </div>
           )}
         </section>
 
-        <section className="animate-slide-up rounded-lg border border-slate-700/50 p-5 glass-card" style={{ animationDelay: '100ms' }}>
-          <h3 className="mb-4 text-[12px] font-bold uppercase tracking-widest text-white border-b border-slate-800/80 pb-2">Output Profile</h3>
+        <section className="glass-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '100ms' }}>
+          <h3 className="mb-4 text-label-sm font-bold uppercase tracking-widest text-on-surface border-b border-outline-variant/50 pb-2">Output Profile</h3>
           {c.output_profile ? (
-            <div className="flex flex-wrap items-center justify-between gap-3 text-[13px]">
-              <span className="text-slate-400">
-                Bound deployment endpoint:{' '}
-                <span className="font-mono font-bold text-emerald-400">{c.output_profile.name}</span>
+            <div className="flex flex-wrap items-center justify-between gap-3 text-body-md">
+              <span className="text-on-surface-variant">
+                Bound delivery endpoint:{' '}
+                <span className="font-mono font-bold text-success">{c.output_profile.name}</span>
               </span>
               <a
                 href="#try-it"
-                className="text-[11px] font-bold uppercase tracking-wider text-cyan-500 hover:text-cyan-400 underline decoration-cyan-900/50 underline-offset-4"
+                className="text-label-sm font-bold uppercase tracking-wider text-primary hover:text-primary/70 underline decoration-primary/30 underline-offset-4"
               >
                 Change Below
               </a>
             </div>
           ) : (
-            <div className="flex items-center justify-between text-[12px]">
-              <p className="text-slate-500">
+            <div className="flex items-center justify-between text-body-sm">
+              <p className="text-on-surface-variant">
                 No delivery link. Local index only.
               </p>
               <a
                 href="#try-it"
-                className="rounded border border-cyan-900/50 bg-cyan-950/30 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-cyan-500 hover:bg-cyan-900/50"
+                className="btn-outlined text-label-sm"
               >
                 Establish Below
               </a>
@@ -84,13 +84,13 @@ export default function ConnectionOverview() {
         </section>
 
         {c.drift.length > 0 && (
-          <section className="animate-slide-up rounded-lg border border-amber-900/30 bg-amber-950/10 p-5 glass-card lg:col-span-2" style={{ animationDelay: '150ms' }}>
-            <h3 className="mb-4 text-[12px] font-bold uppercase tracking-widest text-amber-500 border-b border-amber-900/50 pb-2">Schema Drift Detentions</h3>
+          <section className="glass-card rounded-xl p-5 animate-slide-up border-l-4 border-warning lg:col-span-2" style={{ animationDelay: '150ms' }}>
+            <h3 className="mb-4 text-label-sm font-bold uppercase tracking-widest text-warning border-b border-warning/30 pb-2">Schema Drift Detentions</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               {c.drift.map((d) => (
-                <div key={d.id} className="flex items-center justify-between border-l-2 border-amber-700 pl-3">
-                  <span className="text-[11px] font-mono text-amber-500/80">
-                    <span className="uppercase tracking-widest text-amber-700/60 font-sans mr-2 text-[9px]">delta_fields:</span>
+                <div key={d.id} className="flex items-center justify-between border-l-2 border-warning pl-3">
+                  <span className="text-label-sm font-mono text-warning/80">
+                    <span className="uppercase tracking-widest text-warning/50 font-sans mr-2 text-label-sm">delta_fields:</span>
                     {d.new_fields.join(', ') || '—'}
                   </span>
                   <StatusBadge status={d.status} />
@@ -99,17 +99,17 @@ export default function ConnectionOverview() {
             </div>
             <Link
               to="/needs-review"
-              className="mt-4 block rounded bg-amber-900/20 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-amber-500 transition-colors hover:bg-amber-900/40"
+              className="mt-4 block surface-inset rounded-xl py-2 text-center text-label-sm font-bold uppercase tracking-wider text-warning transition-colors hover:bg-warning-container/10 hover:underline"
             >
-              Analyze Queue →
+              Analyze Queue
             </Link>
           </section>
         )}
       </div>
 
-      <section className="animate-slide-up rounded-lg border border-slate-700/50 glass-card p-1" style={{ animationDelay: '200ms' }}>
-        <div className="px-4 pb-3 pt-4 border-b border-slate-800/50">
-          <h3 className="text-[13px] font-bold uppercase tracking-wider text-white">Latest Telemetry Commits</h3>
+      <section className="glass-card rounded-xl p-1 animate-slide-up" style={{ animationDelay: '200ms' }}>
+        <div className="px-4 pb-3 pt-4 border-b border-outline-variant/50">
+          <h3 className="text-label-lg font-bold uppercase tracking-wider text-on-surface">Latest Telemetry Commits</h3>
         </div>
         {c.recent_events.length === 0 ? (
           <div className="p-4">
@@ -130,11 +130,11 @@ export default function ConnectionOverview() {
             <TBody>
               {c.recent_events.map((e) => (
                 <TR key={e.id}>
-                  <TD className="font-mono text-[11px] text-cyan-600/70">{e.event_id}</TD>
+                  <TD className="font-mono text-mono-sm text-primary/70">{e.event_id}</TD>
                   <TD>
                     <StatusBadge status={e.status} />
                   </TD>
-                  <TD className="text-slate-400">{formatTime(e.received_at)}</TD>
+                  <TD className="text-on-surface-variant">{formatTime(e.received_at)}</TD>
                 </TR>
               ))}
             </TBody>

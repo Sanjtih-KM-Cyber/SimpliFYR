@@ -1,15 +1,18 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#020617" />
+    <!-- Critical pre-paint: dark canvas before the CSS bundle loads (default scheme) -->
+    <style>html{background-color:#020617}</style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <title>Simplifyr | Universal Log Processing</title>
   </head>
-  <body class="bg-slate-950 text-slate-200 antialiased selection:bg-cyan-500/30">
+  <body class="antialiased">
     <div id="root" class="relative isolate min-h-screen"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

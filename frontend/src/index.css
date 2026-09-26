@@ -1,19 +1,411 @@
 @import 'tailwindcss';
 
+/* ============================================================================
+   SIMPLIFYR DESIGN SYSTEM — Material 3 (Material You) × Apple Liquid Glass
+   ============================================================================
+   PHASE 1 — DESIGN TOKENS (the foundation every later phase consumes)
+
+   Structure of this file:
+     1. Runtime semantic tokens  → :root (dark scheme, app default) + .light
+     2. @theme inline             → Tailwind utilities bound to runtime tokens
+                                    (bg-primary, text-on-surface, shadow-e3…)
+     3. @theme (static)           → type scale, radii, motion, spacing, fonts
+     4. Base layer                → token-driven document defaults
+     5. Utility classes          → legacy component recipes (restyled in
+                                    later phases; names kept for compatibility)
+
+   Material philosophy:
+     · Surface = solid tonal layer for dense data (tables, logs, code).
+     · Glass   = translucent material reserved for overlays, navigation and
+                 focal surfaces — a material, never a gimmick.
+     · Motion  = purposeful; orients the user, respects reduced-motion.
+   ========================================================================= */
+
 @custom-variant dark (&:where(.dark, .dark *));
+@custom-variant light (&:where(.light, .light *));
 
+/* ============================================================================
+   1. RUNTIME SEMANTIC TOKENS — DARK SCHEME (default)
+   A calm, coordinated tonal family around the Simplifyr brand cyan.
+   ========================================================================= */
+:root {
+  /* --- Primary (brand cyan) --------------------------------------------- */
+  --m3-primary: #22d3ee;
+  --m3-on-primary: #04303b;
+  --m3-primary-container: #0b4552;
+  --m3-on-primary-container: #b8ecf7;
+
+  /* --- Secondary (muted steel blue) -------------------------------------- */
+  --m3-secondary: #94a3b8;
+  --m3-on-secondary: #151d2c;
+  --m3-secondary-container: #232f45;
+  --m3-on-secondary-container: #d6dfee;
+
+  /* --- Tertiary (violet accent) ------------------------------------------- */
+  --m3-tertiary: #c4b5fd;
+  --m3-on-tertiary: #1c1748;
+  --m3-tertiary-container: #332b63;
+  --m3-on-tertiary-container: #e0d9fb;
+
+  /* --- Error -------------------------------------------------------------- */
+  --m3-error: #fda4af;
+  --m3-on-error: #49060f;
+  --m3-error-container: #4c2029;
+  --m3-on-error-container: #ffdad6;
+
+  /* --- Success (custom semantic extension) ------------------------------- */
+  --m3-success: #34d399;
+  --m3-on-success: #032a1f;
+  --m3-success-container: #0a3f2f;
+  --m3-on-success-container: #b7f5dd;
+
+  /* --- Warning ------------------------------------------------------------ */
+  --m3-warning: #fbbf24;
+  --m3-on-warning: #402d04;
+  --m3-warning-container: #4d3a0a;
+  --m3-on-warning-container: #ffe29a;
+
+  /* --- Info --------------------------------------------------------------- */
+  --m3-info: #38bdf8;
+  --m3-on-info: #04293d;
+  --m3-info-container: #0b3a55;
+  --m3-on-info-container: #c3ecfd;
+
+  /* --- Surface tonal ramp (slate-based, layered by elevation) ------------- */
+  --m3-surface: #050a18;
+  --m3-surface-dim: #020617;
+  --m3-surface-bright: #27344f;
+  --m3-surface-variant: #1e293b;
+  --m3-surface-container-lowest: #030914;
+  --m3-surface-container-low: #0b1222;
+  --m3-surface-container: #111a2e;
+  --m3-surface-container-high: #18233c;
+  --m3-surface-container-highest: #1f2d4a;
+
+  /* --- Content tones ------------------------------------------------------ */
+  --m3-on-surface: #e2e8f0;
+  --m3-on-surface-variant: #98a6bd;
+  --m3-outline: #3d4b66;
+  --m3-outline-variant: #223049;
+
+  /* --- Inverse ------------------------------------------------------------ */
+  --m3-inverse-surface: #e2e8f0;
+  --m3-inverse-on-surface: #0f172a;
+  --m3-inverse-primary: #0e7490;
+
+  /* --- Scrim (modal backdrops) -------------------------------------------- */
+  --m3-scrim: rgb(2 6 23 / 0.7);
+
+  /* --- Elevation (theme-switchable shadows, 5 levels + glass edge) -------- */
+  --ele-1: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 3px rgb(0 0 0 / 0.25);
+  --ele-2: 0 2px 5px rgb(0 0 0 / 0.28), 0 4px 10px rgb(0 0 0 / 0.22);
+  --ele-3: 0 4px 10px rgb(0 0 0 / 0.26), 0 12px 30px -10px rgb(0 0 0 / 0.4);
+  --ele-4: 0 8px 18px rgb(0 0 0 / 0.26), 0 20px 50px -14px rgb(0 0 0 / 0.45);
+  --ele-5: 0 12px 26px rgb(0 0 0 / 0.28), 0 34px 78px -18px rgb(0 0 0 / 0.5);
+  --ele-glass: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 16px 40px -16px rgb(0 0 0 / 0.55);
+
+  /* --- Liquid Glass materials (overlays / navigation / focal surfaces) ----- */
+  --glass-subtle-bg: rgb(255 255 255 / 0.045);
+  --glass-subtle-border: rgb(255 255 255 / 0.09);
+  --glass-subtle-blur: 12px;
+  --glass-medium-bg: rgb(10 16 30 / 0.52);
+  --glass-medium-border: rgb(255 255 255 / 0.1);
+  --glass-medium-blur: 20px;
+  --glass-strong-bg: rgb(3 8 20 / 0.76);
+  --glass-strong-border: rgb(255 255 255 / 0.12);
+  --glass-strong-blur: 28px;
+  --glass-ultra-bg: rgb(2 6 23 / 0.6);
+  --glass-ultra-border: rgb(255 255 255 / 0.08);
+  --glass-ultra-blur: 40px;
+
+  /* --- Motion durations ---------------------------------------------------- */
+  --duration-short: 150ms;
+  --duration-med: 250ms;
+  --duration-long: 400ms;
+  --duration-xlong: 550ms;
+}
+
+/* ============================================================================
+   1b. RUNTIME SEMANTIC TOKENS — LIGHT SCHEME (opt-in via .light on <html>)
+   ========================================================================= */
+.light {
+  color-scheme: light;
+
+  /* --- Primary ------------------------------------------------------------- */
+  --m3-primary: #0e7490;
+  --m3-on-primary: #ffffff;
+  --m3-primary-container: #cffafe;
+  --m3-on-primary-container: #164e63;
+
+  /* --- Secondary ------------------------------------------------------------ */
+  --m3-secondary: #475569;
+  --m3-on-secondary: #ffffff;
+  --m3-secondary-container: #e2e8f0;
+  --m3-on-secondary-container: #1e293b;
+
+  /* --- Tertiary ------------------------------------------------------------- */
+  --m3-tertiary: #7c3aed;
+  --m3-on-tertiary: #ffffff;
+  --m3-tertiary-container: #ede9fe;
+  --m3-on-tertiary-container: #4c1d95;
+
+  /* --- Error ---------------------------------------------------------------- */
+  --m3-error: #be123c;
+  --m3-on-error: #ffffff;
+  --m3-error-container: #ffe4e6;
+  --m3-on-error-container: #881337;
+
+  /* --- Success -------------------------------------------------------------- */
+  --m3-success: #059669;
+  --m3-on-success: #ffffff;
+  --m3-success-container: #d1fae5;
+  --m3-on-success-container: #064e3b;
+
+  /* --- Warning -------------------------------------------------------------- */
+  --m3-warning: #b45309;
+  --m3-on-warning: #ffffff;
+  --m3-warning-container: #fef3c7;
+  --m3-on-warning-container: #78350f;
+
+  /* --- Info ----------------------------------------------------------------- */
+  --m3-info: #0284c7;
+  --m3-on-info: #ffffff;
+  --m3-info-container: #e0f2fe;
+  --m3-on-info-container: #075985;
+
+  /* --- Surface tonal ramp (cool gray foundation) ---------------------------- */
+  --m3-surface: #f5f7fa;
+  --m3-surface-dim: #eef2f7;
+  --m3-surface-bright: #ffffff;
+  --m3-surface-variant: #e8ecf1;
+  --m3-surface-container-lowest: #ffffff;
+  --m3-surface-container-low: #f0f4f9;
+  --m3-surface-container: #e8eef5;
+  --m3-surface-container-high: #dce4ed;
+  --m3-surface-container-highest: #d1dae4;
+
+  /* --- Content tones -------------------------------------------------------- */
+  --m3-on-surface: #0f172a;
+  --m3-on-surface-variant: #475569;
+  --m3-outline: #c4cdd8;
+  --m3-outline-variant: #d4dbe5;
+
+  /* --- Inverse -------------------------------------------------------------- */
+  --m3-inverse-surface: #1e293b;
+  --m3-inverse-on-surface: #f1f5f9;
+  --m3-inverse-primary: #67e8f9;
+
+  /* --- Scrim (modal backdrops) --------------------------------------------- */
+  --m3-scrim: rgb(15 23 42 / 0.35);
+
+  /* --- Elevation (soft, cool shadows for light mode) ----------------------- */
+  --ele-1: 0 1px 2px rgb(15 23 42 / 0.06), 0 1px 3px rgb(15 23 42 / 0.04);
+  --ele-2: 0 2px 5px rgb(15 23 42 / 0.06), 0 4px 10px rgb(15 23 42 / 0.04);
+  --ele-3: 0 4px 10px rgb(15 23 42 / 0.05), 0 12px 30px -10px rgb(15 23 42 / 0.08);
+  --ele-4: 0 8px 18px rgb(15 23 42 / 0.05), 0 20px 50px -14px rgb(15 23 42 / 0.1);
+  --ele-5: 0 12px 26px rgb(15 23 42 / 0.06), 0 34px 78px -18px rgb(15 23 42 / 0.12);
+  --ele-glass: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 16px 40px -16px rgb(15 23 42 / 0.12);
+
+  /* --- Liquid Glass materials (frosted, subtle in light mode) -------------- */
+  --glass-subtle-bg: rgb(255 255 255 / 0.7);
+  --glass-subtle-border: rgb(15 23 42 / 0.1);
+  --glass-subtle-blur: 16px;
+  --glass-medium-bg: rgb(255 255 255 / 0.6);
+  --glass-medium-border: rgb(15 23 42 / 0.12);
+  --glass-medium-blur: 24px;
+  --glass-strong-bg: rgb(255 255 255 / 0.55);
+  --glass-strong-border: rgb(15 23 42 / 0.15);
+  --glass-strong-blur: 32px;
+  --glass-ultra-bg: rgb(255 255 255 / 0.45);
+  --glass-ultra-border: rgb(15 23 42 / 0.18);
+  --glass-ultra-blur: 40px;
+}
+
+/* ============================================================================
+   2. TAILWIND THEME — INLINE MAPPINGS
+   Utilities that track the runtime scheme: bg-primary, text-on-surface-variant,
+   border-outline-variant, shadow-e3, scrim… Opacity modifiers
+   (bg-primary/20) compose via color-mix, so every shade below stays harmonious.
+   ========================================================================= */
+@theme inline {
+  /* --- Primary --- */
+  --color-primary: var(--m3-primary);
+  --color-on-primary: var(--m3-on-primary);
+  --color-primary-container: var(--m3-primary-container);
+  --color-on-primary-container: var(--m3-on-primary-container);
+
+  /* --- Secondary --- */
+  --color-secondary: var(--m3-secondary);
+  --color-on-secondary: var(--m3-on-secondary);
+  --color-secondary-container: var(--m3-secondary-container);
+  --color-on-secondary-container: var(--m3-on-secondary-container);
+
+  /* --- Tertiary --- */
+  --color-tertiary: var(--m3-tertiary);
+  --color-on-tertiary: var(--m3-on-tertiary);
+  --color-tertiary-container: var(--m3-tertiary-container);
+  --color-on-tertiary-container: var(--m3-on-tertiary-container);
+
+  /* --- Error --- */
+  --color-error: var(--m3-error);
+  --color-on-error: var(--m3-on-error);
+  --color-error-container: var(--m3-error-container);
+  --color-on-error-container: var(--m3-on-error-container);
+
+  /* --- Success --- */
+  --color-success: var(--m3-success);
+  --color-on-success: var(--m3-on-success);
+  --color-success-container: var(--m3-success-container);
+  --color-on-success-container: var(--m3-on-success-container);
+
+  /* --- Warning --- */
+  --color-warning: var(--m3-warning);
+  --color-on-warning: var(--m3-on-warning);
+  --color-warning-container: var(--m3-warning-container);
+  --color-on-warning-container: var(--m3-on-warning-container);
+
+  /* --- Info --- */
+  --color-info: var(--m3-info);
+  --color-on-info: var(--m3-on-info);
+  --color-info-container: var(--m3-info-container);
+  --color-on-info-container: var(--m3-on-info-container);
+
+  /* --- Surfaces --- */
+  --color-surface: var(--m3-surface);
+  --color-surface-dim: var(--m3-surface-dim);
+  --color-surface-bright: var(--m3-surface-bright);
+  --color-surface-variant: var(--m3-surface-variant);
+  --color-surface-container-lowest: var(--m3-surface-container-lowest);
+  --color-surface-container-low: var(--m3-surface-container-low);
+  --color-surface-container: var(--m3-surface-container);
+  --color-surface-container-high: var(--m3-surface-container-high);
+  --color-surface-container-highest: var(--m3-surface-container-highest);
+
+  /* --- Content tones --- */
+  --color-on-surface: var(--m3-on-surface);
+  --color-on-surface-variant: var(--m3-on-surface-variant);
+  --color-outline: var(--m3-outline);
+  --color-outline-variant: var(--m3-outline-variant);
+
+  /* --- Inverse --- */
+  --color-inverse-surface: var(--m3-inverse-surface);
+  --color-inverse-on-surface: var(--m3-inverse-on-surface);
+  --color-inverse-primary: var(--m3-inverse-primary);
+
+  /* --- Scrim & glass fills --- */
+  --color-scrim: var(--m3-scrim);
+  --color-glass-subtle: var(--glass-subtle-bg);
+  --color-glass-medium: var(--glass-medium-bg);
+  --color-glass-strong: var(--glass-strong-bg);
+  --color-glass-ultra: var(--glass-ultra-bg);
+
+  /* --- Elevation (theme-switchable shadows → shadow-e1…e5, shadow-glass) --- */
+  --shadow-e1: var(--ele-1);
+  --shadow-e2: var(--ele-2);
+  --shadow-e3: var(--ele-3);
+  --shadow-e4: var(--ele-4);
+  --shadow-e5: var(--ele-5);
+  --shadow-glass: var(--ele-glass);
+}
+
+/* ============================================================================
+   3. TAILWIND THEME — STATIC TOKENS
+   Type scale, shape scale, motion, fonts, spacing. These do not flip with the
+   scheme; they define the physical language of the product.
+   ========================================================================= */
 @theme {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  /* --- Base grid ----------------------------------------------------------- */
+  --spacing: 0.25rem; /* 4px grid — the M3 spacing foundation */
 
-  --color-app-canvas: #020617;
-  --color-app-panel: #0f172a;
-  --color-app-elevated: #172033;
-  --color-app-line: rgb(255 255 255 / 0.1);
-  --color-app-muted: #94a3b8;
+  /* --- Typography ---------------------------------------------------------- */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI Variable', 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', monospace;
 
+  /* M3 type scale — display through label, plus a mono companion scale */
+  --text-display-lg: 3.55rem;
+  --text-display-lg--line-height: 4rem;
+  --text-display-lg--letter-spacing: -0.02em;
+  --text-display-md: 2.75rem;
+  --text-display-md--line-height: 3.25rem;
+  --text-display-md--letter-spacing: -0.02em;
+  --text-display-sm: 2.25rem;
+  --text-display-sm--line-height: 2.75rem;
+  --text-display-sm--letter-spacing: -0.015em;
+
+  --text-headline-lg: 2rem;
+  --text-headline-lg--line-height: 2.5rem;
+  --text-headline-lg--letter-spacing: -0.01em;
+  --text-headline-md: 1.75rem;
+  --text-headline-md--line-height: 2.25rem;
+  --text-headline-md--letter-spacing: -0.01em;
+  --text-headline-sm: 1.5rem;
+  --text-headline-sm--line-height: 2rem;
+  --text-headline-sm--letter-spacing: -0.008em;
+
+  --text-title-lg: 1.375rem;
+  --text-title-lg--line-height: 1.75rem;
+  --text-title-lg--letter-spacing: 0;
+  --text-title-md: 1rem;
+  --text-title-md--line-height: 1.5rem;
+  --text-title-md--letter-spacing: 0.007em;
+  --text-title-sm: 0.875rem;
+  --text-title-sm--line-height: 1.25rem;
+  --text-title-sm--letter-spacing: 0.01em;
+
+  --text-body-lg: 1rem;
+  --text-body-lg--line-height: 1.5rem;
+  --text-body-lg--letter-spacing: 0.005em;
+  --text-body-md: 0.875rem;
+  --text-body-md--line-height: 1.375rem;
+  --text-body-md--letter-spacing: 0.01em;
+  --text-body-sm: 0.75rem;
+  --text-body-sm--line-height: 1rem;
+  --text-body-sm--letter-spacing: 0.02em;
+
+  --text-label-lg: 0.875rem;
+  --text-label-lg--line-height: 1.25rem;
+  --text-label-lg--letter-spacing: 0.01em;
+  --text-label-lg--font-weight: 500;
+  --text-label-md: 0.75rem;
+  --text-label-md--line-height: 1rem;
+  --text-label-md--letter-spacing: 0.03em;
+  --text-label-md--font-weight: 500;
+  --text-label-sm: 0.6875rem;
+  --text-label-sm--line-height: 0.875rem;
+  --text-label-sm--letter-spacing: 0.04em;
+  --text-label-sm--font-weight: 600;
+
+  --text-mono-lg: 0.875rem;
+  --text-mono-lg--line-height: 1.375rem;
+  --text-mono-md: 0.8125rem;
+  --text-mono-md--line-height: 1.25rem;
+  --text-mono-sm: 0.6875rem;
+  --text-mono-sm--line-height: 1rem;
+
+  /* --- Shape scale (Material You — generous, friendly rounding) ------------- */
+  --radius-xs: 0.375rem;   /* 6px  — kbd, tiny chips */
+  --radius-sm: 0.5rem;     /* 8px  — small controls */
+  --radius-md: 0.75rem;   /* 12px — inputs, menu items */
+  --radius-lg: 1rem;      /* 16px — cards, panels */
+  --radius-xl: 1.25rem;   /* 20px — feature cards */
+  --radius-2xl: 1.5rem;   /* 24px — large cards, surfaces */
+  --radius-3xl: 1.75rem;  /* 28px — dialogs, sheets (M3 extra-large) */
+  --radius-4xl: 2rem;     /* 32px — hero surfaces */
+
+  /* --- Motion: M3 easing curves -------------------------------------------- */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-decelerated: cubic-bezier(0, 0, 0.2, 1);
+  --ease-accelerated: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
+
+  /* --- Motion: entrance / ambient animations -------------------------------- */
   --animate-aurora: aurora 60s linear infinite;
-  --animate-slide-up: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-slide-up: slide-up 0.4s var(--ease-emphasized) both;
+  --animate-fade-in: fade-in 0.25s var(--ease-decelerated) both;
+  --animate-scale-in: scale-in 0.22s var(--ease-emphasized) both;
+  --animate-slide-in-right: slide-in-right 0.35s var(--ease-decelerated) both;
+  --animate-pulse-soft: pulse-soft 2.4s ease-in-out infinite;
   --animate-shimmer: shimmer 2s linear infinite;
 
   @keyframes aurora {
@@ -26,31 +418,59 @@
     to { opacity: 1; transform: translateY(0) scale(1); }
   }
 
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes slide-in-right {
+    from { opacity: 0; transform: translateX(16px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+
   @keyframes shimmer {
     from { background-position: 200% 0; }
     to { background-position: -200% 0; }
   }
 }
 
+/* ============================================================================
+   4. BASE LAYER — token-driven document defaults
+   ========================================================================= */
 @layer base {
   :root {
     color-scheme: dark;
-    background-color: var(--color-app-canvas);
+  }
+
+  .light {
+    color-scheme: light;
   }
 
   html {
     min-width: 320px;
-    background-color: var(--color-app-canvas);
+    background-color: var(--m3-surface-dim);
   }
 
   body {
-    @apply bg-slate-950 text-slate-300 antialiased;
+    background-color: var(--m3-surface-dim);
+    color: var(--m3-on-surface);
     min-width: 320px;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   ::selection {
-    @apply bg-cyan-400/25 text-slate-50;
+    background-color: var(--m3-primary-container);
+    color: var(--m3-on-primary-container);
   }
 
   button,
@@ -67,75 +487,86 @@
   select:focus-visible,
   textarea:focus-visible,
   [tabindex]:focus-visible {
-    outline: 2px solid rgb(192 132 252 / 0.9);
+    outline: 2px solid var(--m3-primary);
     outline-offset: 2px;
   }
 
-  /* Thin scollbars for dense data views */
+  /* Thin scrollbars for dense data views */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-slate-900;
+    background-color: var(--m3-surface-container-lowest);
   }
   ::-webkit-scrollbar-thumb {
-    @apply bg-slate-700 rounded-full;
+    background-color: var(--m3-outline);
+    border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-slate-500;
+    background-color: var(--m3-on-surface-variant);
   }
 }
 
 @layer utilities {
-  /* Canvas and non-blurred surfaces are safe for dense, scrolling data views. */
+  /* ========================================================================
+     SURFACE SYSTEM — solid tonal layers for dense data (tables, logs, code)
+     ======================================================================= */
   .surface-canvas {
-    @apply bg-slate-950;
+    @apply bg-surface-dim;
   }
 
   .surface-panel {
-    @apply border border-white/10 bg-slate-900/70 shadow-[0_18px_50px_-30px_rgba(0,0,0,0.85)];
+    @apply border border-outline-variant bg-surface-container/70 shadow-e3;
   }
 
   .surface-raised {
-    @apply border border-white/[0.12] bg-slate-900/80 shadow-[0_20px_55px_-35px_rgba(0,0,0,0.9)];
+    @apply border border-outline-variant bg-surface-container/80 shadow-e4;
   }
 
   .surface-inset {
-    @apply border border-white/[0.06] bg-slate-950/75 shadow-inner shadow-black/20;
+    @apply border border-outline-variant/60 bg-surface-dim/75 shadow-inner;
   }
 
-  /* Backwards-compatible aliases for existing page and card surfaces. */
+  /* Backwards-compatible aliases (same as surface-panel/raised). */
   .glass-panel {
-    @apply border border-white/10 bg-slate-900/70 shadow-[0_18px_50px_-30px_rgba(0,0,0,0.85)];
+    @apply border border-outline-variant bg-surface-container/70 shadow-e3;
   }
 
+  /* Elevated card — level 3, interactive lift on hover. */
   .glass-card {
-    @apply border border-white/10 bg-slate-900/50 shadow-[0_16px_40px_-32px_rgba(0,0,0,0.9)] transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:border-white/20 hover:bg-slate-900/65 hover:shadow-[0_20px_46px_-30px_rgba(0,0,0,0.95)];
+    @apply border border-outline-variant bg-surface-container shadow-e3
+           transition-all duration-300 ease-emphasized
+           hover:-translate-y-0.5 hover:border-outline hover:shadow-e4;
   }
 
-  /* Apple-style multi-layered glass: overlays, short menus and navigation only. */
+  /* ========================================================================
+     LIQUID GLASS — translucent material for overlays, nav, focal surfaces
+     ======================================================================= */
   .glass-flyout {
-    border: 1px solid rgb(255 255 255 / 0.1);
-    background-color: rgb(2 6 23 / 0.78);
-    box-shadow:
-      0 20px 55px rgba(0, 0, 0, 0.38),
-      inset 0 1px 1px rgba(255, 255, 255, 0.1);
-    -webkit-backdrop-filter: blur(24px) saturate(170%);
-    backdrop-filter: blur(24px) saturate(170%);
+    @apply border-glass-strong border bg-glass-strong shadow-glass;
+    -webkit-backdrop-filter: blur(var(--glass-strong-blur)) saturate(170%);
+    backdrop-filter: blur(var(--glass-strong-blur)) saturate(170%);
   }
 
-  /* The application is dark by default; light glass is opt-in and explicitly scoped. */
   .light .glass-flyout {
-    border-color: rgb(255 255 255 / 0.4);
-    background-color: rgb(255 255 255 / 0.45);
-    box-shadow:
-      0 4px 30px rgba(0, 0, 0, 0.03),
-      inset 0 1px 1px rgba(255, 255, 255, 0.4);
+    @apply border-glass-strong border bg-glass-strong shadow-glass;
+    -webkit-backdrop-filter: blur(var(--glass-strong-blur)) saturate(170%);
+    backdrop-filter: blur(var(--glass-strong-blur)) saturate(170%);
   }
 
+  /* Subtle glass variant for inline menus, tooltips, popovers. */
+  .glass-subtle {
+    @apply border-glass-subtle border bg-glass-subtle;
+    -webkit-backdrop-filter: blur(var(--glass-subtle-blur)) saturate(150%);
+    backdrop-filter: blur(var(--glass-subtle-blur)) saturate(150%);
+  }
+
+  /* ========================================================================
+     INTERACTIVE PRIMITIVES
+     ======================================================================= */
   .tactical-glow {
-    @apply shadow-[0_0_15px_rgba(6,182,212,0.15)];
+    @apply shadow-[0_0_15px_var(--color-primary)];
   }
 
   .bg-aurora {
@@ -146,38 +577,84 @@
     background-size: 200% 200%;
   }
 
-  .focus-ring {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950;
-  }
-
   .control-icon {
-    @apply inline-flex h-9 w-9 items-center justify-center rounded-full border border-transparent text-slate-400 transition-all duration-300 ease-in-out hover:border-white/10 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/50;
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-full border border-transparent
+           text-on-surface-variant
+           transition-all duration-300 ease-standard
+           hover:border-outline-variant hover:bg-surface-container-low hover:text-on-surface
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-dim;
   }
 
   .status-chip {
-    @apply inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold tracking-wide text-slate-200;
+    @apply inline-flex items-center gap-1.5 rounded-full border border-outline-variant
+           bg-surface-variant px-2.5 py-1 text-label-sm text-on-surface;
   }
 
   /* Shared field treatment for inputs, selects and textareas. */
   .input-glass {
-    @apply rounded-xl border border-white/10 bg-slate-950/80 shadow-inner shadow-black/10 transition-all duration-300 ease-in-out placeholder:text-slate-600 hover:border-white/[0.16] focus:border-purple-400/50 focus:ring-2 focus:ring-purple-400/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50;
+    @apply rounded-xl border border-outline-variant bg-surface-container-low
+           shadow-inner transition-all duration-300 ease-standard
+           placeholder:text-on-surface-variant
+           hover:border-outline
+           focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none
+           disabled:cursor-not-allowed disabled:opacity-50
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-dim;
   }
 
-  /* Pill motion base shared by buttons and button-like links. */
-  .btn-glass {
-    @apply inline-flex items-center justify-center gap-2 rounded-full transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 motion-safe:active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50;
-  }
+  /* ========================================================================
+     BUTTON SYSTEM — Material 3 variants with expressive motion
+     Base styles inlined (no @apply across same-layer utilities)
+     ======================================================================= */
 
+  /* Filled (primary) — highest emphasis */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow-[0_12px_24px_-12px_rgba(6,182,212,0.9)] transition-all duration-300 ease-in-out hover:bg-cyan-400 hover:shadow-[0_16px_30px_-12px_rgba(6,182,212,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 motion-safe:active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-full
+           bg-primary text-on-primary px-4 py-2 text-label-lg font-semibold shadow-e3
+           transition-all duration-200 ease-emphasized
+           motion-safe:active:scale-[0.97]
+           disabled:pointer-events-none disabled:opacity-50
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-dim
+           hover:bg-primary/90 hover:shadow-e4;
   }
 
+  /* Tonal (secondary) — medium emphasis */
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-slate-200 transition-all duration-300 ease-in-out hover:border-white/20 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 motion-safe:active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-full
+           bg-secondary-container text-on-secondary-container px-4 py-2 text-label-lg font-semibold shadow-e1
+           transition-all duration-200 ease-emphasized
+           motion-safe:active:scale-[0.97]
+           disabled:pointer-events-none disabled:opacity-50
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-dim
+           hover:bg-secondary-container/90 hover:shadow-e2;
   }
 
+  /* Outlined — medium-low emphasis */
+  .btn-outlined {
+    @apply inline-flex items-center justify-center gap-2 rounded-full
+           border border-outline bg-transparent text-primary px-4 py-2 text-label-lg font-semibold
+           transition-all duration-200 ease-emphasized
+           motion-safe:active:scale-[0.97]
+           disabled:pointer-events-none disabled:opacity-50
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-dim
+           hover:bg-primary/10 hover:border-primary;
+  }
+
+  /* Text (tertiary) — lowest emphasis */
+  .btn-text {
+    @apply inline-flex items-center justify-center gap-2 rounded-full
+           text-primary px-3 py-2 text-label-lg font-semibold
+           transition-all duration-200 ease-emphasized
+           motion-safe:active:scale-[0.97]
+           disabled:pointer-events-none disabled:opacity-50
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-dim
+           hover:bg-primary/10;
+  }
+
+  /* ========================================================================
+     TYPOGRAPHY HELPERS
+     ======================================================================= */
   .label-overline {
-    @apply text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500;
+    @apply text-label-sm text-on-surface-variant;
   }
 
   /* Dense operational regions: stable scrolling and paint containment without blur. */

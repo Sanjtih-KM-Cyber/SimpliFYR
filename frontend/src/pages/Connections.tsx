@@ -1,11 +1,15 @@
-import { useState, type MouseEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState, type MouseEvent } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { deleteConnection, listConnections } from '../api/client'
 import type { ConnectionSummary } from '../api/types'
-import { Spinner } from '../components/Spinner'
 import { QuickParseModal } from '../components/QuickParseModal'
+import { Spinner } from '../components/Spinner'
 import { EmptyState, PageHeader, useToast } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
+
+function getInitials(name: string): string {
+  return name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+}
 
 function ConnectionCard({ c, onDeleted }: { c: ConnectionSummary; onDeleted: () => void }) {
   const needsReview = c.health === 'needs_review'
@@ -36,13 +40,18 @@ function ConnectionCard({ c, onDeleted }: { c: ConnectionSummary; onDeleted: () 
   }
 
   return (
-    <Link to={`/connections/${encodeURIComponent(c.name)}`} className="group flex flex-col justify-between glass-card rounded-lg p-5 hover:shadow-[0_4px_20px_rgba(0,0,0,0.5)] transition-all">
+    <Link to={`/connections/${encodeURIComponent(c.name)}`} className="group glass-card rounded-2xl p-5 flex flex-col justify-between transition-all duration-300 ease-emphasized hover:-translate-y-0.5 hover:shadow-e4">
       <div>
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h3 className="text-base font-semibold tracking-tight text-white group-hover:text-cyan-400 transition-colors truncate">{c.name}</h3>
-            <p className="text-[11px] font-mono text-slate-500 mt-1 uppercase tracking-wider flex items-center gap-1.5">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-3 h-3"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 text-primary font-semibold text-body-md">
+                {getInitials(c.name)}
+              </div>
+              <h3 className="text-title-md font-semibold tracking-tight text-on-surface group-hover:text-primary transition-colors truncate">{c.name}</h3>
+            </div>
+            <p className="text-body-sm font-mono text-on-surface-variant uppercase tracking-wider flex items-center gap-1.5">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
               {c.mapping?.name ?? 'No Integration Defined'}
             </p>
           </div>
@@ -51,10 +60,10 @@ function ConnectionCard({ c, onDeleted }: { c: ConnectionSummary; onDeleted: () 
               onClick={remove}
               disabled={deleting}
               title={`Remove vendor "${c.name}" and all its data`}
-              className="rounded p-1 text-slate-500 transition-all hover:bg-rose-950/30 hover:text-rose-400 disabled:opacity-50"
+              className="control-icon h-8 w-8"
             >
               {deleting ? (
-                <span className="text-[12px]">…</span>
+                <span className="text-label-sm">…</span>
               ) : (
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0h10" />
@@ -62,39 +71,39 @@ function ConnectionCard({ c, onDeleted }: { c: ConnectionSummary; onDeleted: () 
               )}
             </button>
             {needsReview ? (
-              <span className="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-500">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+              <span className="flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning-container/15 px-2 py-0.5 text-label-sm font-semibold uppercase tracking-wider text-warning">
+                <span className="h-1.5 w-1.5 rounded-full bg-warning animate-pulse"></span>
                 Review
               </span>
             ) : isHealthy ? (
-              <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-500">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+              <span className="flex items-center gap-1.5 rounded-full border border-success/30 bg-success-container/15 px-2 py-0.5 text-label-sm font-semibold uppercase tracking-wider text-success">
+                <span className="h-1.5 w-1.5 rounded-full bg-success"></span>
                 Active
               </span>
             ) : (
-              <span className="flex items-center gap-1.5 rounded-full border border-slate-600/50 bg-slate-800/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                <span className="h-1.5 w-1.5 rounded-full bg-slate-500"></span>
+              <span className="flex items-center gap-1.5 rounded-full border border-outline/30 bg-surface-variant px-2 py-0.5 text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+                <span className="h-1.5 w-1.5 rounded-full bg-on-surface-variant/30"></span>
                 Idle
               </span>
             )}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 my-6 py-4 border-y border-slate-700/30">
+        <div className="grid grid-cols-2 gap-4 my-6 py-4 border-y border-outline-variant/50">
           <div>
-            <p className="text-[10px] uppercase font-bold tracking-widest text-slate-500 mb-1">Total Throughput</p>
-            <p className="font-mono text-xl text-slate-200">{c.events_processed.toLocaleString()}</p>
+            <p className="text-label-sm uppercase font-bold tracking-widest text-on-surface-variant mb-1">Total Throughput</p>
+            <p className="font-mono text-2xl text-on-surface">{c.events_processed.toLocaleString()}</p>
           </div>
           <div>
-            <p className="text-[10px] uppercase font-bold tracking-widest text-slate-500 mb-1">Index Match</p>
-            <p className="font-mono text-xl text-slate-200">{activeRate}%</p>
+            <p className="text-label-sm uppercase font-bold tracking-widest text-on-surface-variant mb-1">Index Match</p>
+            <p className="font-mono text-2xl text-on-surface">{activeRate}%</p>
           </div>
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-[11px] font-medium text-slate-500 pt-1">
+      <div className="flex items-center justify-between text-label-sm font-medium text-on-surface-variant pt-1">
         {c.needs_review > 0 ? (
-          <span className="text-amber-400 font-mono bg-amber-500/10 px-1.5 rounded border border-amber-500/20">{c.needs_review} Exceptions Active</span>
+          <span className="text-warning font-mono bg-warning-container/15 px-1.5 rounded border border-warning/20">{c.needs_review} Exceptions Active</span>
         ) : (
           <span>Operational</span>
         )}
@@ -110,7 +119,18 @@ function ConnectionCard({ c, onDeleted }: { c: ConnectionSummary; onDeleted: () 
 export default function Connections() {
   const connections = useAsync(() => listConnections(), [])
   const rows = connections.data ?? []
+  const [searchParams, setSearchParams] = useSearchParams()
   const [quickParse, setQuickParse] = useState(false)
+
+  // Deep entry: ?new=1 (keyboard N) opens the New Connection flow directly.
+  useEffect(() => {
+    if (searchParams.get('new') === '1') setQuickParse(true)
+  }, [searchParams])
+
+  function closeQuickParse() {
+    setQuickParse(false)
+    setSearchParams({}, { replace: true })
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -120,24 +140,24 @@ export default function Connections() {
         actions={
           <button
             onClick={() => setQuickParse(true)}
-            className="rounded bg-cyan-600 px-4 py-2 text-[13px] font-medium text-white shadow-[0_0_10px_rgba(6,182,212,0.3)] hover:bg-cyan-500 hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] transition-all"
+            className="btn-primary"
           >
-            + Quick Parse
+            + New Connection
           </button>
         }
       />
 
-      {quickParse && <QuickParseModal onClose={() => setQuickParse(false)} />}
+      {quickParse && <QuickParseModal onClose={closeQuickParse} />}
 
       {connections.loading && <div className="mt-12 flex justify-center"><Spinner /></div>}
-      {connections.error && <p className="mt-4 text-[13px] font-medium text-rose-400">{connections.error}</p>}
+      {connections.error && <p className="mt-4 text-body-md font-medium text-error">{connections.error}</p>}
 
       {!connections.loading && !connections.error && rows.length === 0 && (
         <div className="mt-12">
           <EmptyState
             title="Ingestion Matrix Empty"
             description="Deploy a new node integration to begin normalizing and indexing telemetry data from external platforms."
-            action={<Link to="/connections/new" className="text-cyan-400 hover:text-cyan-300 text-[13px] font-medium underline underline-offset-4">Configure initial source node</Link>}
+            action={<Link to="/connections/new" className="text-primary hover:text-primary/70 text-body-sm font-medium underline underline-offset-4">Configure initial source node</Link>}
           />
         </div>
       )}
@@ -149,7 +169,6 @@ export default function Connections() {
           ))}
         </div>
       )}
-
     </div>
   )
 }

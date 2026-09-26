@@ -26,11 +26,8 @@ export default function ConnectionLive() {
   const [paused, setPaused] = useState(false)
   const [showConnect, setShowConnect] = useState(false)
 
-  // Seed with recent history so the tail is never an empty mystery: past
-  // events load once, live arrivals prepend (dedupe by event_id).
   const history = useAsync(
     () => (c?.name ? listEvents({ source: c.name, limit: 50 }) : Promise.resolve([])),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [c?.name],
   )
   const seenLive = new Set(events.map((e) => e.event_id))
@@ -46,8 +43,6 @@ export default function ConnectionLive() {
     })),
   ].slice(0, 100)
 
-  // Single shared socket implementation: health-gated + retry-capped, so a
-  // down backend shows Disconnected instead of spamming handshake errors.
   const { connected } = useLive({
     source: sourceName || undefined,
     enabled: !paused && sourceName !== '',
@@ -56,12 +51,12 @@ export default function ConnectionLive() {
 
   return (
     <div className="flex h-full flex-col">
-      <Link to={`/connections/${sourceName}`} className="mb-5 inline-flex rounded-lg px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 transition-colors hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/50">
-        ← Exit Stream
+      <Link to={`/connections/${sourceName}`} className="mb-5 inline-flex items-center rounded-lg px-1 text-label-sm font-semibold uppercase tracking-[0.14em] text-on-surface-variant transition-colors hover:text-primary hover:underline focus-ring">
+        EXIT STREAM
       </Link>
 
       {connection.loading && <div className="mt-8 flex justify-center"><Spinner /></div>}
-      {connection.error && <p className="text-[13px] font-medium text-rose-400">{connection.error}</p>}
+      {connection.error && <p className="text-body-md font-medium text-error">{connection.error}</p>}
 
       {c && (
         <div className="animate-slide-up flex h-full flex-col">
@@ -72,20 +67,23 @@ export default function ConnectionLive() {
               <span className="flex gap-2">
                 <button
                   onClick={() => setShowConnect(true)}
-                  className="btn-glass rounded-xl border border-white/[0.12] bg-white/[0.06] px-5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-200 hover:bg-white/10"
+                  className="btn-secondary"
                 >
                   Connect Server
                 </button>
                 <button
                   onClick={() => setPaused((v) => !v)}
-                  className={`btn-glass rounded-xl border px-5 py-2.5 text-[11px] font-bold uppercase tracking-wider ${paused ? 'border-amber-400/25 bg-amber-400/10 text-amber-300 hover:bg-amber-400/15' : 'border-white/[0.12] bg-white/[0.06] text-slate-200 hover:bg-white/10'}`}
+                  className={`btn-glass rounded-xl border px-5 py-2.5 text-label-sm font-bold uppercase tracking-wider ${
+                    paused
+                      ? 'border-warning/30 bg-warning-container/15 text-warning hover:bg-warning-container/20'
+                      : 'border-outline-variant/50 bg-surface-container-low/50 text-on-surface hover:bg-surface-container'
+                  }`}
                 >
                   {paused ? '▶ Resume Feed' : '‖ Pause Feed'}
                 </button>
               </span>
             }
           />
-
           <ConnectLiveModal open={showConnect} onClose={() => setShowConnect(false)} />
 
           <section className="flex-1 min-h-[50vh]">
@@ -99,15 +97,15 @@ export default function ConnectionLive() {
                 }
               />
             ) : (
-              <div className="data-scroll-region h-full max-h-[70vh] space-y-1.5 overflow-y-auto rounded-2xl border border-white/[0.1] bg-slate-900/50 p-3 shadow-inner shadow-black/20 custom-scrollbar">
+              <div className="data-scroll-region h-full max-h-[70vh] space-y-1.5 overflow-y-auto surface-inset rounded-xl p-3">
                 {rows.map((e, i) => (
                   <div
                     key={`${e.event_id}-${i}`}
-                    className="flex flex-wrap items-center justify-between rounded-xl border border-white/[0.08] bg-slate-950/45 px-4 py-3 transition-colors hover:border-cyan-400/20 hover:bg-cyan-400/[0.055] animate-slide-up"
+                    className="flex flex-wrap items-center justify-between rounded-xl border border-outline-variant/50 bg-surface-dim/50 px-4 py-3 transition-colors duration-200 ease-standard hover:border-primary/20 hover:bg-primary/5 animate-slide-up"
                     style={{ animationDuration: '0.2s', opacity: paused ? 0.6 : 1 }}
                   >
-                    <span className="font-mono text-[12px] text-cyan-600/80">{e.event_id}</span>
-                    <span className="font-mono text-[11px] text-slate-500">{formatTime(e.received_at)}</span>
+                    <span className="font-mono text-body-sm text-primary/70">{e.event_id}</span>
+                    <span className="font-mono text-mono-sm text-on-surface-variant/70">{formatTime(e.received_at)}</span>
                     <StatusBadge status={e.status} />
                   </div>
                 ))}

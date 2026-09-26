@@ -55,7 +55,6 @@ function padId(id: number): string {
   return id.toString().padStart(6, '0')
 }
 
-/** Index-number matching: "123" and "000123" both find index 123. */
 function matchesId(e: EventSummary, q: string): boolean {
   if (!/^\d+$/.test(q)) return false
   const stripped = q.replace(/^0+/, '')
@@ -112,16 +111,16 @@ function IngestPanel({ onDone }: { onDone: (id: number) => void }) {
   }
 
   return (
-    <div className="mb-6 animate-slide-up rounded-2xl border border-white/[0.1] bg-slate-900/60 p-5 shadow-[0_18px_44px_-34px_rgba(0,0,0,0.95)]">
-      <h3 className="mb-2 text-[13px] font-bold uppercase tracking-wide text-white">Instant Ingestion Portal</h3>
-      <p className="mb-4 max-w-3xl text-[12px] text-slate-400">
+    <div className="mb-6 animate-slide-up surface-panel rounded-2xl p-5">
+      <h3 className="mb-2 text-label-lg font-bold uppercase tracking-wide text-on-surface">Instant Ingestion Portal</h3>
+      <p className="mb-4 max-w-3xl text-body-sm text-on-surface-variant">
         Submit raw telemetry. The system autonomously attempts structural normalization using the global context. Unrecognized signatures will be flagged for review.
       </p>
       <div className="mb-3 flex flex-wrap gap-2">
         <select
           value={source}
           onChange={(e) => setSource(e.target.value)}
-          className="rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-[13px] text-slate-200 outline-none transition-colors focus:border-cyan-500/50"
+          className="input-glass px-3 py-1.5 text-body-sm text-on-surface"
         >
           <option value="">Auto-detect origin…</option>
           {(connections.data ?? []).map((c) => (
@@ -130,7 +129,7 @@ function IngestPanel({ onDone }: { onDone: (id: number) => void }) {
             </option>
           ))}
         </select>
-        <label className="cursor-pointer rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-[13px] font-medium text-slate-300 transition-colors hover:bg-slate-800">
+        <label className="btn-secondary cursor-pointer px-3 py-1.5 text-body-sm">
           Upload Context (File)
           <input
             type="file"
@@ -144,21 +143,21 @@ function IngestPanel({ onDone }: { onDone: (id: number) => void }) {
         onChange={(e) => setRaw(e.target.value)}
         rows={5}
         placeholder="<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 dstip=8.8.8.8 proto=tcp action=deny"
-        className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-[11px] text-slate-300 outline-none transition-colors placeholder:text-slate-700 focus:border-cyan-500/50"
+        className="input-glass w-full px-3 py-2 font-mono text-mono-sm text-on-surface"
       />
-      {error && <p className="mt-2 font-medium text-[12px] text-rose-400">{error}</p>}
+      {error && <p className="mt-2 font-medium text-body-sm text-error">{error}</p>}
       <div className="mt-3 flex items-center gap-3">
         <button
           onClick={submit}
           disabled={busy || !raw.trim()}
-          className="rounded bg-cyan-600 px-5 py-1.5 text-[13px] font-bold tracking-wide text-white shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all hover:bg-cyan-500 hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] disabled:shadow-none disabled:opacity-50"
+          className="btn-primary"
         >
           {busy ? 'Processing Data…' : 'Execute Ingest'}
         </button>
         {result && (
-          <span className="flex items-center gap-2 rounded border border-slate-800 bg-slate-900/80 px-2 py-1 text-[12px]">
+          <span className="flex items-center gap-2 surface-inset rounded px-2 py-1 text-body-sm">
             <StatusBadge status={result.status} />
-            <span className="font-mono text-slate-400">
+            <span className="font-mono text-on-surface-variant">
               EVT-{result.stored_event_id}
               {result.duplicate ? ' · DUPLICATE' : ''}
             </span>
@@ -176,7 +175,6 @@ function Detail({
   onDeleted,
 }: {
   detail: EventDetail
-  /** Loaded logs sharing this event's source + format (ingested-of-type count). */
   siblingCount: number
   onChanged: () => void
   onDeleted: () => void
@@ -212,22 +210,22 @@ function Detail({
   }
 
   return (
-    <div className="mt-4 animate-slide-up rounded-lg border border-slate-700/50 glass-card p-5">
-      <div className="mb-4 flex items-center justify-between border-b border-slate-800/80 pb-3">
-        <h4 className="flex items-center gap-2 text-[14px] font-bold text-white">
+    <div className="mt-4 animate-slide-up glass-card rounded-xl p-5">
+      <div className="mb-4 flex items-center justify-between border-b border-outline-variant/50 pb-3">
+        <h4 className="flex items-center gap-2 text-label-lg font-bold text-on-surface">
           Index Detail
-          <span className="rounded border border-cyan-500/20 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[11px] text-cyan-500">{detail.event_id}</span>
+          <span className="surface-inset rounded px-1.5 py-0.5 font-mono text-label-sm text-primary">{detail.event_id}</span>
         </h4>
         <StatusBadge status={detail.status} />
       </div>
 
       {actionable && (
-        <div className="mb-4 flex flex-wrap gap-2 border-b border-amber-900/30 pb-4 pt-1">
-          <div className="mb-1 w-full font-mono text-[11px] uppercase tracking-widest text-amber-500/80">Action Required</div>
+        <div className="mb-4 flex flex-wrap gap-2 border-b border-warning/30 pb-4 pt-1">
+          <div className="mb-1 w-full font-mono text-label-sm uppercase tracking-widest text-warning/80">Action Required</div>
           {detail.status === 'quarantined' && (
             <button
               onClick={() => setOnboarding(true)}
-              className="rounded bg-cyan-600 px-4 py-1.5 text-[12px] font-bold text-white shadow-[0_0_10px_rgba(6,182,212,0.2)] transition-colors hover:bg-cyan-500"
+              className="btn-primary text-label-sm"
             >
               Establish Mapping (Onboard)
             </button>
@@ -235,26 +233,26 @@ function Detail({
           <button
             onClick={() => run('retry')}
             disabled={busy !== null}
-            className="rounded border border-slate-700 px-4 py-1.5 text-[12px] font-semibold text-slate-300 transition-colors hover:bg-slate-800 disabled:opacity-50"
+            className="btn-secondary text-label-sm"
           >
             {busy === 'retry' ? 'Re-executing…' : 'Re-execute'}
           </button>
           <button
             onClick={() => run('delete')}
             disabled={busy !== null}
-            className="rounded border border-rose-900/50 bg-rose-950/20 px-4 py-1.5 text-[12px] font-semibold text-rose-400 transition-colors hover:bg-rose-900/50 disabled:opacity-50"
+            className="btn-text text-error text-label-sm"
           >
             {busy === 'delete' ? 'Purging…' : 'Purge'}
           </button>
         </div>
       )}
-      {error && <p className="mb-3 text-[12px] font-medium text-rose-400">{error}</p>}
+      {error && <p className="mb-3 text-body-sm text-error">{error}</p>}
 
-      <div className="grid gap-1 overflow-hidden rounded border border-slate-700/50 bg-slate-950 lg:grid-cols-2">
-        <details open className="bg-slate-900 p-3">
-          <summary className="mb-3 flex cursor-pointer select-none items-center gap-2 border-b border-slate-700/50 pb-1">
-            <div className="h-1.5 w-1.5 rounded-full bg-slate-500"></div>
-            <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+      <div className="grid gap-1 overflow-hidden rounded-xl border border-outline-variant/50 bg-surface-dim lg:grid-cols-2">
+        <details open className="surface-inset p-3">
+          <summary className="mb-3 flex cursor-pointer select-none items-center gap-2 border-b border-outline-variant/50 pb-1">
+            <div className="h-1.5 w-1.5 rounded-full bg-on-surface-variant/30"></div>
+            <h4 className="text-label-sm font-bold uppercase tracking-widest text-on-surface-variant">
               Original Telemetry · {siblingCount} ingested
             </h4>
           </summary>
@@ -262,20 +260,20 @@ function Detail({
             <Code value={detail.views.raw} />
           </div>
         </details>
-        <section className="mt-1 bg-slate-900 p-3 lg:mt-0 lg:border-l lg:border-slate-700/50">
-          <div className="max-w-max relative mb-3 flex items-center gap-2 border-b border-cyan-900/50 pb-1">
-            <div className="h-1.5 w-1.5 rounded-full bg-cyan-500 shadow-[0_0_5px_rgba(6,182,212,0.8)]"></div>
-            <h4 className="relative text-[10px] font-bold uppercase tracking-widest text-cyan-500">Normalized Context</h4>
+        <section className="surface-inset p-3 lg:border-l lg:border-outline-variant/50">
+          <div className="max-w-max relative mb-3 flex items-center gap-2 border-b border-primary/30 pb-1">
+            <div className="h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_5px_var(--color-primary)]"></div>
+            <h4 className="relative text-label-sm font-bold uppercase tracking-widest text-primary">Normalized Context</h4>
           </div>
           {detail.views.normalized ? (
             <Code value={detail.views.normalized} />
           ) : (
-            <div className="relative flex min-h-[100px] h-full items-center justify-center overflow-hidden rounded border border-amber-900/50 bg-amber-950/20 p-4">
-              <div className="absolute left-0 top-0 h-[1px] w-full bg-amber-500/20"></div>
-              <p className="text-center font-mono text-[11px] uppercase tracking-widest text-amber-500/80">
+            <div className="relative flex min-h-[100px] h-full items-center justify-center overflow-hidden rounded-xl border border-warning/30 bg-warning-container/10 p-4">
+              <div className="absolute left-0 top-0 h-[1px] w-full bg-warning/20"></div>
+              <p className="text-center font-mono text-label-sm uppercase tracking-widest text-warning/80">
                 Unstructured Data
                 <br />
-                <span className="text-[10px] text-amber-600/70">Awaiting schema resolution</span>
+                <span className="text-mono-xs text-warning/60">Awaiting schema resolution</span>
               </p>
             </div>
           )}
@@ -285,10 +283,10 @@ function Detail({
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         {detail.views.parsed && (
           <details className="group">
-            <summary className="cursor-pointer select-none text-[12px] font-semibold text-slate-400 transition-colors group-open:text-slate-300">
+            <summary className="cursor-pointer select-none text-body-sm font-semibold text-on-surface-variant transition-colors group-open:text-on-surface">
               <span className="mr-1 inline-block opacity-50 transition-transform group-open:rotate-90">▶</span> Structural AST (Parsed)
             </summary>
-            <div className="mt-2 border-l border-slate-800 pl-4">
+            <div className="mt-2 border-l border-outline-variant pl-4">
               <Code value={detail.views.parsed} />
             </div>
           </details>
@@ -296,10 +294,10 @@ function Detail({
 
         {detail.views.output && (
           <details className="group">
-            <summary className="cursor-pointer select-none text-[12px] font-semibold text-slate-400 transition-colors group-open:text-slate-300">
+            <summary className="cursor-pointer select-none text-body-sm font-semibold text-on-surface-variant transition-colors group-open:text-on-surface">
               <span className="mr-1 inline-block opacity-50 transition-transform group-open:rotate-90">▶</span> Delivery Payload (Output)
             </summary>
-            <div className="mt-2 border-l border-slate-800 pl-4">
+            <div className="mt-2 border-l border-outline-variant pl-4">
               <Code value={detail.views.output} />
             </div>
           </details>
@@ -307,10 +305,10 @@ function Detail({
 
         {detail.provenance && (
           <details className="group lg:col-span-2">
-            <summary className="cursor-pointer select-none text-[12px] font-semibold text-slate-400 transition-colors group-open:text-slate-300">
+            <summary className="cursor-pointer select-none text-body-sm font-semibold text-on-surface-variant transition-colors group-open:text-on-surface">
               <span className="mr-1 inline-block opacity-50 transition-transform group-open:rotate-90">▶</span> Provenance History
             </summary>
-            <div className="mt-2 border-l border-slate-800 pl-4">
+            <div className="mt-2 border-l border-outline-variant pl-4">
               <Code value={detail.provenance} />
             </div>
           </details>
@@ -353,13 +351,13 @@ function InspectionCard({
   onPurge: () => void
 }) {
   return (
-    <div className="animate-slide-up rounded-2xl border border-amber-900/40 bg-slate-900/60 p-5 shadow-[0_18px_44px_-34px_rgba(0,0,0,0.95)]">
+    <div className="animate-slide-up glass-card rounded-xl p-5 border-l-4 border-warning">
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <span className="rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[12px] font-bold uppercase tracking-wider text-amber-400">
+        <span className="surface-inset rounded px-2 py-0.5 font-mono text-body-sm font-bold uppercase tracking-wider text-warning border border-warning/20">
           {group.format}
         </span>
-        <span className="text-[13px] font-medium text-slate-300">{group.source ?? 'Unassigned origin'}</span>
-        <span className="rounded-full border border-slate-700 bg-slate-950 px-2.5 py-0.5 font-mono text-[11px] text-slate-400">
+        <span className="text-body-md font-medium text-on-surface">{group.source ?? 'Unassigned origin'}</span>
+        <span className="surface-inset rounded-full border border-outline-variant/50 px-2.5 py-0.5 font-mono text-body-sm text-on-surface-variant">
           × {group.ids.length} like this
         </span>
         <span className="ml-auto flex gap-2">
@@ -367,7 +365,7 @@ function InspectionCard({
             onClick={onApprove}
             disabled={busy}
             title={hasMapping ? 'Retry all with the existing mapping' : 'Establish a mapping, then normalize all'}
-            className="rounded bg-cyan-600 px-4 py-1.5 text-[12px] font-bold text-white transition-colors hover:bg-cyan-500 disabled:opacity-50"
+            className="btn-primary text-label-sm"
           >
             {busy ? 'Working…' : `Approve all (${group.ids.length})`}
           </button>
@@ -375,30 +373,27 @@ function InspectionCard({
             onClick={onPurge}
             disabled={busy}
             title="Delete every log of this type"
-            className="rounded border border-rose-900/50 bg-rose-950/20 px-4 py-1.5 text-[12px] font-semibold text-rose-400 transition-colors hover:bg-rose-900/50 disabled:opacity-50"
+            className="btn-text text-error text-label-sm"
           >
             Purge all
           </button>
         </span>
       </div>
-      <p className="mb-2 text-[12px] text-slate-400">
-        <span className="font-semibold uppercase tracking-wider text-amber-500/80">Issue — </span>
+      <p className="mb-2 text-body-sm text-on-surface-variant">
+        <span className="font-semibold uppercase tracking-wider text-warning/80">Issue — </span>
         {issue}
       </p>
-      <div className="overflow-hidden rounded border border-slate-800 bg-slate-950 p-3">
+      <div className="surface-inset rounded-xl p-3">
         {rep ? (
           <Code value={rep.views.raw} />
         ) : (
-          <p className="font-mono text-[11px] text-slate-600">Loading representative log…</p>
+          <p className="font-mono text-mono-sm text-on-surface-variant/50">Loading representative log…</p>
         )}
       </div>
     </div>
   )
 }
 
-/** The single export home: downloads the whole normalized set (uncapped,
- *  every source — never scoped), in any format. Counts come back in the
- *  file and the toast. */
 function IndexExport() {
   const { toast } = useToast()
   const [downloading, setDownloading] = useState<string | null>(null)
@@ -416,8 +411,8 @@ function IndexExport() {
   }
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-white/[0.08] bg-slate-900/60 px-4 py-3">
-      <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+    <div className="mb-4 flex flex-wrap items-center gap-2 surface-panel rounded-xl px-4 py-3">
+      <span className="text-label-sm font-bold uppercase tracking-[0.14em] text-on-surface-variant">
         Download all normalized
       </span>
       {(['json', 'ndjson', 'csv'] as const).map((fmt) => (
@@ -425,9 +420,9 @@ function IndexExport() {
           key={fmt}
           onClick={() => download(fmt)}
           disabled={downloading !== null}
-          className="rounded border border-slate-700 bg-slate-950 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-cyan-400 transition-colors hover:bg-slate-800 disabled:opacity-50"
+          className="btn-secondary text-label-sm"
         >
-          {downloading === fmt ? 'Bundling…' : fmt}
+          {downloading === fmt ? <Spinner size="sm" /> : fmt}
         </button>
       ))}
     </div>
@@ -450,7 +445,6 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
   const [serverHits, setServerHits] = useState<EventSummary[] | null>(null)
   const [searching, setSearching] = useState(false)
   const [selected, setSelected] = useState<number | null>(null)
-  /** Index-scope: clicking a Normalized index restricts Inspection + Failed to that index's type. */
   const [scope, setScope] = useState<EventSummary | null>(null)
   const detail = useAsync(
     () => (selected ? getEvent(selected) : Promise.resolve(null)),
@@ -459,7 +453,6 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
   const mappings = useAsync(() => listMappings(), [])
   const { toast } = useToast()
 
-  // Bounce off the gated tab when its index is gone (deleted / scope cleared).
   useEffect(() => {
     if (tab === 'index-detail' && selected === null) setTab('normalized')
   }, [tab, selected])
@@ -484,8 +477,6 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     return () => window.removeEventListener(FOCUS_SEARCH_EVENT, focus)
   }, [])
 
-  // Server-side full-text hunt (debounced): searches the whole history,
-  // not just loaded rows. Short queries fall back to client filtering.
   useEffect(() => {
     const q = search.trim()
     if (q.length < 2) {
@@ -513,11 +504,8 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
 
   const base = useMemo(
     () => [...(events.data ?? []), ...extra],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [events.data, extra],
   )
-  // Server hits extend reach into unloaded history; loaded rows always stay
-  // client-filterable so a zero-hit server response never blanks the view.
   const serverIds = useMemo(() => new Set((serverHits ?? []).map((e) => e.id)), [serverHits])
   const all = useMemo(() => {
     if (!serverHits?.length) return base
@@ -528,7 +516,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
   function matchesSearch(e: EventSummary): boolean {
     const q = search.trim()
     if (!q) return true
-    if (serverIds.has(e.id)) return true // server matched its raw payload
+    if (serverIds.has(e.id)) return true
     const lq = q.toLowerCase()
     return (
       e.event_id.toLowerCase().includes(lq) ||
@@ -539,12 +527,6 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     )
   }
 
-  /** Quarantined rows, optionally restricted to the clicked index's type.
-   *
-   *  Plus the unsourced strays (Trial runs, sourceless probes): no connection
-   *  owns them, so every connection's Inspection surfaces them as one
-   *  "Unassigned origin" group until onboarding adopts them into a source.
-   */
   const unsourced = useAsync(
     () =>
       sourceFilter
@@ -573,7 +555,6 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     return [...byKey.values()]
   }, [quarantined])
 
-  // Representative detail per group (one fetch per type, not per log).
   const [reps, setReps] = useState<Record<string, EventDetail>>({})
   useEffect(() => {
     let cancelled = false
@@ -592,8 +573,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groups])
+  }, [groups, reps])
 
   const [groupBusy, setGroupBusy] = useState<string | null>(null)
   const [onboarding, setOnboarding] = useState<QuarantineGroup | null>(null)
@@ -614,7 +594,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
   async function approveGroup(group: QuarantineGroup) {
     const key = `${group.format}::${group.source ?? ''}`
     if (!mappingFor(group.source)) {
-      setOnboarding(group) // establish mapping first, then retry-all on done
+      setOnboarding(group)
       return
     }
     setGroupBusy(key)
@@ -640,8 +620,6 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     setOnboarding(null)
     setGroupBusy(key)
     try {
-      // The representative was onboarded (mapping published); the rest of
-      // the type leaves quarantine with one retry-all.
       const res = await batchRetryEvents(group.ids)
       toast(`Approved — ${res.retried.length} of ${group.ids.length} normalized`, 'success')
       mappings.reload()
@@ -680,13 +658,10 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
 
   function selectIndex(e: EventSummary) {
     setSelected(e.id)
-    // Clicking a Normalized index scopes the sibling tabs to its type and
-    // opens the gated Index Detail tab — the only place detail lives.
     setScope(e)
     setTab('index-detail')
   }
 
-  /** Ingested-of-type count for the open index (heads the telemetry panel). */
   const siblingCount = useMemo(() => {
     if (!scope) return 0
     return all.filter(
@@ -703,7 +678,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
         subtitle="The unified indexing interface — query, inspect, and trace live stream payloads."
       />
 
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/50 pb-4">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-outline-variant/50 pb-4">
         <div className="flex items-center gap-1.5">
           {TABS.map((t) => {
             const gated = t.key === 'index-detail' && selected === null
@@ -717,38 +692,40 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
                   setIngesting(false)
                 }}
                 title={gated ? 'Click an index in Normalized first' : undefined}
-                className={`rounded px-3 py-1.5 text-[13px] font-medium transition-all ${gated
-                    ? 'cursor-not-allowed border border-transparent text-slate-700'
+                className={`rounded px-3 py-1.5 text-body-sm font-medium transition-all ${
+                  gated
+                    ? 'cursor-not-allowed border border-transparent text-on-surface-variant/40'
                     : tab === t.key && !ingesting
-                      ? 'border border-slate-700 bg-slate-800 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.15)]'
-                      : 'border border-transparent text-slate-400 hover:bg-slate-900 hover:text-slate-200'
-                  }`}
+                    ? 'border border-primary/30 bg-primary-container/10 text-primary shadow-[0_0_10px_var(--color-primary)]'
+                    : 'border border-transparent text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                }`}
               >
                 {t.label}
               </button>
             )
           })}
-          <div className="mx-2 h-5 w-px bg-slate-800"></div>
+          <div className="mx-2 h-5 w-px bg-outline-variant/50"></div>
           <button
             onClick={() => setIngesting(true)}
-            className={`rounded px-3 py-1.5 text-[13px] font-bold tracking-wide transition-all ${ingesting
-                ? 'bg-cyan-600 text-white shadow-[0_0_10px_rgba(6,182,212,0.4)]'
-                : 'border border-cyan-900/50 text-cyan-500 hover:bg-cyan-950/20'
-              }`}
+            className={`rounded px-3 py-1.5 text-body-sm font-bold tracking-wide transition-all ${
+              ingesting
+                ? 'bg-primary text-on-primary shadow-[0_0_10px_var(--color-primary)]'
+                : 'border border-primary/30 text-primary hover:bg-primary-container/10'
+            }`}
           >
             + Ingest Payload
           </button>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-[1em] h-[1em] absolute left-3 top-1/2 w-6 -translate-y-1/2 border-r border-slate-700 pr-1 text-slate-500"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-        <input
-          ref={searchRef}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={searching ? 'Searching full history…' : 'Search index, id, history…'}
-          className="w-64 rounded-md border border-slate-700 bg-slate-900 px-3 py-1.5 text-sm text-slate-200"
-        />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-[1em] h-[1em] absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <input
+              ref={searchRef}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={searching ? 'Searching full history…' : 'Search index, id, history…'}
+              className="w-64 input-glass pr-10 text-body-sm text-on-surface"
+            />
           </div>
           {!sourceFilter && (
             <select
@@ -759,7 +736,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
                 setSelected(null)
               }}
               title="Filter by node / connection"
-              className="rounded border border-slate-700 bg-slate-950 px-3 py-1.5 text-[13px] text-slate-300 outline-none focus:border-cyan-500/50"
+              className="input-glass px-3 py-1.5 text-body-sm text-on-surface"
             >
               <option value="">Global context…</option>
               {(vendors.data ?? []).map((c) => (
@@ -773,7 +750,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
       </div>
 
       {events.loading && <div className="mt-8 flex justify-center"><Spinner /></div>}
-      {events.error && <p className="text-[13px] font-medium text-rose-400">{events.error}</p>}
+      {events.error && <p className="text-body-md font-medium text-error">{events.error}</p>}
 
       {ingesting && (
         <IngestPanel
@@ -785,18 +762,17 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
         />
       )}
 
-      {/* Telemetry Inspection workbench FIRST: one card per type, approve/purge acts on all. */}
       {tab === 'inspection' && (
         <div className="mb-6 space-y-4">
           {scope && (
-            <div className="flex items-center gap-3 rounded-xl border border-cyan-900/50 bg-cyan-950/20 px-4 py-2 text-[12px] text-cyan-300">
+            <div className="flex items-center gap-3 surface-inset rounded-xl border border-primary/30 bg-primary-container/10 px-4 py-2 text-body-sm text-primary">
               <span>
                 Scoped to index <span className="font-mono font-bold">{padId(scope.id)}</span>
                 {' '}· {formatLabel(scope.detected_format)} · {scope.source ?? 'Unassigned origin'}
               </span>
               <button
                 onClick={() => setScope(null)}
-                className="ml-auto rounded border border-cyan-900/50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider hover:bg-cyan-900/30"
+                className="ml-auto btn-text text-error text-label-sm"
               >
                 Clear scope (inspection)
               </button>
@@ -839,11 +815,10 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
         </div>
       )}
 
-      {/* Index Detail: the only place indexed detail lives. Export lives here too. */}
       {tab === 'index-detail' && (
         <div>
           {scope && (
-            <div className="mb-4 flex items-center gap-3 rounded-xl border border-cyan-900/50 bg-cyan-950/20 px-4 py-2 text-[12px] text-cyan-300">
+            <div className="mb-4 flex items-center gap-3 surface-inset rounded-xl border border-primary/30 bg-primary-container/10 px-4 py-2 text-body-sm text-primary">
               <span>
                 Index <span className="font-mono font-bold">{padId(scope.id)}</span>
                 {' '}· {formatLabel(scope.detected_format)} · {scope.source ?? 'Unassigned origin'}
@@ -871,7 +846,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
       )}
 
       {(tab === 'normalized' || tab === 'failed') && rows.length > 0 && (
-        <div className="data-scroll-region mt-2 rounded-2xl border border-white/[0.1] bg-slate-900/55 p-[1px] shadow-[0_18px_44px_-34px_rgba(0,0,0,0.95)]">
+        <div className="data-scroll-region mt-2 surface-panel rounded-xl p-[1px]">
           <Table>
             <THead>
               <TR>
@@ -884,14 +859,14 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
             <TBody>
               {rows.map((e) => (
                 <TR key={e.id} onClick={tab === 'normalized' ? () => selectIndex(e) : undefined}>
-                  <TD className={selected === e.id ? 'bg-cyan-950/20 font-bold text-cyan-400' : 'text-slate-300'}>
+                  <TD className={selected === e.id ? 'bg-primary/10 font-bold text-primary' : 'text-on-surface'}>
                     {padId(e.id)}
                   </TD>
-                  <TD className={selected === e.id ? 'bg-cyan-950/20' : ''}>
+                  <TD className={selected === e.id ? 'bg-primary/10' : ''}>
                     <StatusBadge status={e.status} />
                   </TD>
-                  <TD className={`text-slate-400 ${selected === e.id ? 'bg-cyan-950/20' : ''}`}>{formatTime(e.received_at)}</TD>
-                  <TD className={`font-mono text-[11px] text-slate-500 ${selected === e.id ? 'bg-cyan-950/20 text-cyan-600/70' : ''}`}>{e.event_id}</TD>
+                  <TD className={`text-on-surface-variant ${selected === e.id ? 'bg-primary/10' : ''}`}>{formatTime(e.received_at)}</TD>
+                  <TD className={`font-mono text-mono-sm text-on-surface-variant/60 ${selected === e.id ? 'bg-primary/10 text-primary/70' : ''}`}>{e.event_id}</TD>
                 </TR>
               ))}
             </TBody>
@@ -900,10 +875,10 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
       )}
 
       {(tab === 'normalized' || tab === 'failed') && rows.length >= 200 && (
-        <div className="mt-8 border-t border-slate-800/50 pt-5 text-center">
+        <div className="mt-8 border-t border-outline-variant/50 pt-5 text-center">
           <button
             onClick={loadMore}
-            className="rounded border border-slate-700 bg-slate-900 px-5 py-2 text-[12px] font-bold uppercase tracking-wider text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+            className="btn-secondary text-label-sm"
           >
             Execute Paginate ({all.length} Indexed)
           </button>

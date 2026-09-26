@@ -10,10 +10,10 @@ export function PageHeader({
   actions?: ReactNode
 }) {
   return (
-    <header className="mb-7 flex items-start justify-between gap-5 border-b border-white/[0.08] pb-5">
+    <header className="mb-7 flex items-start justify-between gap-5 border-b border-outline-variant/50 pb-5">
       <div>
-        <h2 className="text-xl font-bold tracking-[-0.02em] text-white">{title}</h2>
-        {subtitle && <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-slate-400">{subtitle}</p>}
+        <h2 className="text-headline-sm font-semibold tracking-tight text-on-surface">{title}</h2>
+        {subtitle && <p className="mt-2 max-w-2xl text-body-md leading-relaxed text-on-surface-variant">{subtitle}</p>}
       </div>
       {actions && <div className="flex shrink-0 items-center gap-3">{actions}</div>}
     </header>
