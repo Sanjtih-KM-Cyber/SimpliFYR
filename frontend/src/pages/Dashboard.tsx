@@ -7,21 +7,6 @@ import { useAsync } from '../hooks/useAsync'
 import { useLive } from '../hooks/useLive'
 import { useTheme } from '../context/ThemeContext'
 
-function Stat({ label, value, loading }: { label: string; value: string | number; loading?: boolean }) {
-  return (
-    <div className="glass-card rounded-2xl p-5 flex flex-col justify-between">
-      <p className="text-label-sm font-semibold uppercase tracking-wide text-on-surface-variant">{label}</p>
-      <div className="mt-4">
-        {loading ? (
-          <div className="h-8 w-16 animate-pulse surface-inset rounded-xl"></div>
-        ) : (
-          <p className="font-mono text-display-sm font-medium tracking-tight text-on-surface">{value}</p>
-        )}
-      </div>
-    </div>
-  )
-}
-
 function TacticalBadge({ text, intent }: { text: string; intent: 'success' | 'warning' | 'neutral' }) {
   const styles = {
     success: 'border-success/30 bg-success-container/20 text-success',
@@ -34,6 +19,13 @@ function TacticalBadge({ text, intent }: { text: string; intent: 'success' | 'wa
     </span>
   )
 }
+
+const METRIC_CELL_BORDERS = [
+  '',
+  'border-l',
+  'max-lg:border-t lg:border-l',
+  'border-l max-lg:border-t',
+]
 
 export default function Dashboard() {
   const stats = useAsync(() => getStats(), [])
@@ -68,9 +60,37 @@ export default function Dashboard() {
     .filter((c) => c.events_processed > 0)
     .sort((a, b) => b.events_processed - a.events_processed)
 
+  const pendingReview = s?.quarantine_pending ?? 0
+  const metrics = [
+    {
+      label: 'Events processed',
+      value: s != null ? s.total_events.toLocaleString() : '—',
+      loading: stats.loading,
+      tone: 'default' as const,
+    },
+    {
+      label: 'Throughput',
+      value: s != null ? s.events_per_second.toLocaleString() : '—',
+      loading: stats.loading,
+      tone: 'default' as const,
+    },
+    {
+      label: 'Active sources',
+      value: connections.data != null ? connections.data.length.toLocaleString() : '—',
+      loading: connections.loading,
+      tone: 'default' as const,
+    },
+    {
+      label: 'Pending review',
+      value: pendingReview.toLocaleString(),
+      loading: stats.loading,
+      tone: (pendingReview > 0 ? 'warn' : 'default') as 'warn' | 'default',
+    },
+  ]
+
   return (
-    <div className="max-w-6xl">
-      <header className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-outline-variant/50 pb-5">
+    <div className="max-w-[1400px]">
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-headline-sm font-semibold tracking-tight text-on-surface mb-1.5 flex items-center gap-3">
             System Overview
@@ -81,7 +101,7 @@ export default function Dashboard() {
               </span>
             )}
           </h2>
-          <p className="text-body-md text-on-surface-variant">Global telemetry processing status and backend health metrics.</p>
+          <p className="text-body-md text-on-surface-variant">Telemetry pipeline health and current processing activity.</p>
         </div>
         <button
           onClick={toggleTheme}
@@ -102,40 +122,54 @@ export default function Dashboard() {
 
       {stats.error && <div className="mb-6 surface-inset rounded-xl border-error/30 bg-error-container/10 p-3 text-body-sm text-error">{stats.error}</div>}
 
-      <section className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="Total Processed" value={s?.total_events.toLocaleString() ?? '—'} loading={stats.loading} />
-        <Stat label="Throughput (EPS)" value={s?.events_per_second.toLocaleString() ?? '—'} loading={stats.loading} />
-        <Stat label="Active Streams" value={connections.data?.length ?? '—'} loading={connections.loading} />
-        <Stat label="Needs Review" value={s?.quarantine_pending.toLocaleString() ?? '—'} loading={stats.loading} />
+      <section aria-label="Key metrics" className="surface-panel mb-6 overflow-hidden rounded-2xl">
+        <div className="grid grid-cols-2 lg:grid-cols-4">
+          {metrics.map((m, i) => (
+            <div key={m.label} className={`border-outline-variant/40 p-[18px] ${METRIC_CELL_BORDERS[i]}`}>
+              {m.loading ? (
+                <div className="h-8 w-20 animate-pulse rounded-lg bg-surface-variant" />
+              ) : (
+                <p
+                  className={`font-mono text-2xl font-semibold tracking-tight ${
+                    m.tone === 'warn' ? 'text-warning' : 'text-on-surface'
+                  }`}
+                >
+                  {m.value}
+                </p>
+              )}
+              <p className="mt-1 text-[12px] text-on-surface-variant">{m.label}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
-      <div className="mb-8">
+      <div className="mb-6">
         <LoadTestPanel />
       </div>
 
-      <div className="grid items-start gap-6 lg:grid-cols-2">
-        <section className="glass-card rounded-2xl p-5">
-          <div className="mb-4 flex items-center justify-between border-b border-outline-variant/50 pb-4">
+      <div className="grid items-start gap-5 lg:grid-cols-2">
+        <section className="surface-panel rounded-2xl p-5">
+          <div className="mb-3 flex items-center justify-between">
             <h3 className="text-label-lg font-semibold uppercase tracking-wide text-on-surface-variant">Connections</h3>
             <Link to="/connections" className="text-body-sm font-medium text-primary hover:text-primary/70 hover:underline transition-colors">
               Manage
             </Link>
           </div>
 
-          <div className="data-scroll-region max-h-[420px] overflow-x-auto overflow-y-auto">
+          <div className="data-scroll-region max-h-[360px] overflow-x-auto overflow-y-auto">
             <table className="w-full text-left font-mono text-body-sm">
-              <thead className="sticky top-0 surface-panel text-on-surface-variant">
+              <thead className="sticky top-0 bg-surface-container text-on-surface-variant">
                 <tr>
-                  <th className="pb-3 font-medium uppercase tracking-wider px-4">Source</th>
-                  <th className="pb-3 font-medium uppercase tracking-wider px-4 text-right">Events</th>
-                  <th className="pb-3 font-medium uppercase tracking-wider px-4 text-right">Match</th>
-                  <th className="pb-3 font-medium uppercase tracking-wider px-4 text-right">Status</th>
+                  <th className="px-3 pb-2.5 font-medium uppercase tracking-wider">Source</th>
+                  <th className="px-3 pb-2.5 font-medium uppercase tracking-wider text-right">Events</th>
+                  <th className="px-3 pb-2.5 font-medium uppercase tracking-wider text-right">Match</th>
+                  <th className="px-3 pb-2.5 font-medium uppercase tracking-wider text-right">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-outline-variant/50">
                 {allConnections.map((c) => (
                   <tr key={c.id} className="group hover:bg-primary/5 transition-colors duration-200 ease-standard">
-                    <td className="py-3 px-4">
+                    <td className="py-2.5 px-3">
                       <Link to={`/connections/${encodeURIComponent(c.name)}`} className="text-body-md font-semibold text-on-surface group-hover:text-primary transition-colors">
                         {c.name}
                         {c.needs_review > 0 && (
@@ -145,9 +179,9 @@ export default function Dashboard() {
                         )}
                       </Link>
                     </td>
-                    <td className="py-3 px-4 text-right text-on-surface-variant">{c.events_processed.toLocaleString()}</td>
-                    <td className="py-3 px-4 text-right text-on-surface-variant">{(c.normalization_rate * 100).toFixed(1)}%</td>
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-2.5 px-3 text-right text-on-surface-variant">{c.events_processed.toLocaleString()}</td>
+                    <td className="py-2.5 px-3 text-right text-on-surface-variant">{(c.normalization_rate * 100).toFixed(1)}%</td>
+                    <td className="py-2.5 px-3 text-right">
                       <TacticalBadge
                         text={c.health === 'needs_review' ? 'attention' : c.health === 'healthy' ? 'active' : 'idle'}
                         intent={c.health === 'needs_review' ? 'warning' : c.health === 'healthy' ? 'success' : 'neutral'}
@@ -163,23 +197,20 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className="glass-card rounded-2xl p-5 border-l-4 border-warning">
-          <div className="mb-4 flex items-center justify-between">
+        <section className="surface-panel rounded-2xl border-l-4 border-l-warning p-5">
+          <div className="mb-3 flex items-center justify-between">
             <h3 className="text-label-lg font-semibold uppercase tracking-wide text-warning flex items-center gap-2">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-              Needs Attention
-            </h3>
-            <Link to="/needs-review" className="text-body-sm font-medium text-warning hover:text-warning/70 hover:underline transition-colors">
               Review Queue
-            </Link>
+            </h3>
           </div>
           {attention.length === 0 && !connections.loading ? (
-            <div className="rounded-xl border border-success/20 bg-success-container/10 p-4 text-center">
-              <p className="text-body-md font-semibold text-success">All clear — every event has a home.</p>
-              <p className="mt-1 text-body-sm text-on-surface-variant">New shapes will appear here with one-click approve.</p>
+            <div className="rounded-xl border border-success/20 bg-success-container/10 px-4 py-3 text-center">
+              <p className="text-title-sm font-semibold text-success">All clear</p>
+              <p className="mt-0.5 text-body-sm text-on-surface-variant">No events require review.</p>
             </div>
           ) : (
-            <div className="max-h-[380px] divide-y divide-warning/20 overflow-y-auto">
+            <div className="max-h-[320px] divide-y divide-warning/20 overflow-y-auto">
               {attention.map((c) => {
                 const quarantined = Math.max(0, c.needs_review - (c.open_drift ?? 0))
                 return (

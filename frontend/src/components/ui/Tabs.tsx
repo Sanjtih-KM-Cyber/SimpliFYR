@@ -9,7 +9,7 @@ export interface TabItem {
 
 export function TabBar({ tabs }: { tabs: TabItem[] }) {
   return (
-    <div className="mb-6 flex flex-wrap gap-1 rounded-xl border border-outline-variant bg-surface-container-low/60 p-1.5 shadow-e2">
+    <div className="mb-5 flex flex-wrap gap-1 rounded-xl border border-outline-variant bg-surface-container-low/60 p-1.5 shadow-e2">
       {tabs.map((t) => (
         <NavLink
           key={t.to}

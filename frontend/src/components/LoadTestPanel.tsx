@@ -168,52 +168,76 @@ export function LoadTestPanel() {
   }
 
   return (
-    <section className="glass-card rounded-2xl p-5">
-      <h3 className="mb-2 text-title-sm font-semibold text-on-surface">Trial Run</h3>
-      <p className="mb-2 text-body-sm text-on-surface-variant">
-        Process a batch of events (one per line) and measure throughput. Pick
-        the connection and its mapping auto-resolves — matching lines
-        normalize; new shapes can be adopted as a mapping or downloaded.
+    <section className="surface-panel rounded-2xl p-5">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant/70">
+        Event processing
       </p>
+      <p className="mt-1 text-body-sm text-on-surface-variant">
+        Process a batch of events and measure throughput.
+      </p>
+      <label
+        htmlFor="trial-input"
+        className="mb-1.5 mt-4 block text-label-sm font-medium text-on-surface-variant"
+      >
+        Input
+      </label>
       <textarea
+        id="trial-input"
         value={batch}
         onChange={(e) => setBatch(e.target.value)}
-        rows={5}
-        className="input-glass w-full px-3.5 py-2.5 font-mono text-mono-sm text-on-surface"
+        rows={6}
+        spellCheck={false}
+        className="input-glass w-full px-3.5 py-2.5 font-mono text-mono-sm leading-relaxed text-on-surface"
       />
-      {error && <ErrorBanner message={error} />}
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      {error && (
+        <div className="mt-2">
+          <ErrorBanner message={error} />
+        </div>
+      )}
+      <div className="mt-3 grid items-end gap-3 sm:grid-cols-[1fr_1fr_auto]">
+        <div className="min-w-0">
+          <label className="mb-1.5 block text-label-sm font-medium text-on-surface-variant">
+            Connection
+          </label>
+          <Dropdown<string>
+            value={source === '' ? undefined : source}
+            onChange={(v) => setSource(v ?? '')}
+            options={(connections.data ?? []).map((c) => ({
+              value: c.name,
+              label: c.name,
+            }))}
+            placeholder="No source (unassigned)…"
+            searchable
+            allowClear
+            className="w-full"
+            triggerClassName="flex-1"
+          />
+        </div>
+        <div className="min-w-0">
+          <label className="mb-1.5 block text-label-sm font-medium text-on-surface-variant">
+            Mapping
+          </label>
+          <Dropdown<number>
+            value={mappingId === '' ? undefined : mappingId}
+            onChange={(v) => setMappingId(v ?? '')}
+            options={latestMappings(mappings.data ?? []).map((m) => ({
+              value: m.id,
+              label: `${m.name} · ${m.source ?? 'global'} · ${m.status} (v${m.version})`,
+            }))}
+            placeholder="Auto-resolve mapping…"
+            searchable
+            allowClear
+            className="w-full"
+            triggerClassName="flex-1"
+          />
+        </div>
         <button
           onClick={runLoadTest}
           disabled={busy}
-          className="btn-primary"
+          className="btn-primary w-full sm:w-auto"
         >
           {busy ? <Spinner size="sm" label="Running…" /> : 'Run trial'}
         </button>
-        <Dropdown<number>
-          value={mappingId === '' ? undefined : mappingId}
-          onChange={(v) => setMappingId(v ?? '')}
-          options={latestMappings(mappings.data ?? []).map((m) => ({
-            value: m.id,
-            label: `${m.name} · ${m.source ?? 'global'} · ${m.status} (v${m.version})`,
-          }))}
-          placeholder="Auto-resolve mapping…"
-          searchable
-          allowClear
-          className="min-w-[220px]"
-        />
-        <Dropdown<string>
-          value={source === '' ? undefined : source}
-          onChange={(v) => setSource(v ?? '')}
-          options={(connections.data ?? []).map((c) => ({
-            value: c.name,
-            label: c.name,
-          }))}
-          placeholder="No source (unassigned)…"
-          searchable
-          allowClear
-          className="min-w-[220px]"
-        />
       </div>
       {chosen && (
         <p className="mt-2 text-body-sm text-on-surface-variant">

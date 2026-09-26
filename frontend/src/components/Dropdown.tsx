@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 /* ============================================================
    TYPES
    ============================================================ */
@@ -35,6 +36,13 @@ interface DropdownTriggerProps {
   onClear?: () => void
 }
 
+interface MenuPosition {
+  top?: number
+  bottom?: number
+  left: number
+  width: number
+}
+
 interface DropdownMenuProps<T> {
   options: DropdownOption<T>[]
   value: T | undefined
@@ -46,6 +54,7 @@ interface DropdownMenuProps<T> {
   maxHeight?: number
   className?: string
   onSearchChange?: (search: string) => void
+  position: MenuPosition | null
 }
 
 /* ============================================================
@@ -228,6 +237,7 @@ function DropdownMenu<T>({
   maxHeight = 320,
   className = '',
   onSearchChange,
+  position,
 }: DropdownMenuProps<T>) {
   const listRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
@@ -304,37 +314,39 @@ function DropdownMenu<T>({
     }
   }, [open, onClose])
 
-  if (!open) {
+  if (!open || !position) {
     return null
   }
 
-  return (
+  if (typeof document === 'undefined') {
+    return null
+  }
+
+  return createPortal(
     <div
       ref={listRef}
       className={`
-        absolute
-        left-0
-        top-full
+        fixed
         z-50
-        mt-2
-        min-w-full
+        glass-flyout
+        overflow-auto
+        rounded-2xl
+        border border-glass-strong
+        p-1.5
+        shadow-e4
+        animate-menu-in
         ${className}
       `}
+      style={{
+        top: position.top,
+        bottom: position.bottom,
+        left: position.left,
+        width: position.width,
+        maxHeight,
+      }}
+      role="listbox"
+      aria-label="Options"
     >
-      <div
-        className="
-          glass-flyout
-          w-max
-          min-w-[200px]
-          overflow-hidden
-          rounded-2xl
-          border border-glass-strong
-          p-1.5
-          shadow-e4
-        "
-        role="listbox"
-        aria-label="Options"
-      >
         {searchable && (
           <div
             className="
@@ -473,8 +485,8 @@ function DropdownMenu<T>({
             </ul>
           )}
         </div>
-      </div>
-    </div>
+      </div>,
+    document.body,
   )
 }
 
@@ -497,6 +509,7 @@ export function Dropdown<T>({
 }: DropdownProps<T>) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [menuPos, setMenuPos] = useState<MenuPosition | null>(null)
 
   const wrapperRef = useRef<HTMLDivElement>(null)
 
@@ -572,37 +585,59 @@ export function Dropdown<T>({
   }
 
   /*
-   * Close when clicking anywhere outside the complete
-   * dropdown component.
+   * Measure the trigger and position the (portaled) menu.
+   *
+   * The menu floats above any ancestor clipping boundary
+   * (e.g. modal overflow). It opens below the trigger, or
+   * flips upward when there isn't enough room beneath it.
+   */
+  const updateMenuPos = useCallback(() => {
+    const el = wrapperRef.current
+    if (!el) return
+
+    const GAP = 8
+    const rect = el.getBoundingClientRect()
+    const width = Math.max(rect.width, 200)
+    const maxLeft = window.innerWidth - width - 8
+    const left = Math.min(rect.left, Math.max(8, maxLeft))
+
+    const need = Math.min(maxHeight, 240)
+    const spaceBelow = window.innerHeight - rect.bottom
+    const spaceAbove = rect.top
+
+    if (spaceBelow >= need || spaceAbove <= spaceBelow) {
+      setMenuPos({ top: rect.bottom + GAP, left, width })
+    } else {
+      setMenuPos({
+        bottom: window.innerHeight - rect.top + GAP,
+        left,
+        width,
+      })
+    }
+  }, [maxHeight])
+
+  useEffect(() => {
+    if (open) {
+      updateMenuPos()
+    } else {
+      setMenuPos(null)
+    }
+  }, [open, updateMenuPos])
+
+  /*
+   * Keep the menu anchored while the page scrolls or resizes.
    */
   useEffect(() => {
     if (!open) return
 
-    const handleOutsidePointerDown = (
-      event: MouseEvent,
-    ) => {
-      const target = event.target as Node
-
-      if (
-        wrapperRef.current &&
-        !wrapperRef.current.contains(target)
-      ) {
-        closeDropdown()
-      }
-    }
-
-    document.addEventListener(
-      'mousedown',
-      handleOutsidePointerDown,
-    )
+    window.addEventListener('resize', updateMenuPos)
+    window.addEventListener('scroll', updateMenuPos, true)
 
     return () => {
-      document.removeEventListener(
-        'mousedown',
-        handleOutsidePointerDown,
-      )
+      window.removeEventListener('resize', updateMenuPos)
+      window.removeEventListener('scroll', updateMenuPos, true)
     }
-  }, [open])
+  }, [open, updateMenuPos])
 
   /*
    * Reset search when dropdown becomes disabled.
@@ -656,6 +691,7 @@ export function Dropdown<T>({
         maxHeight={maxHeight}
         className={menuClassName}
         onSearchChange={setSearch}
+        position={menuPos}
       />
     </div>
   )

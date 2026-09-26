@@ -97,7 +97,7 @@ export function QuickParseModal({ onClose }: { onClose: () => void }) {
               { value: '', label: 'Choose mapping…' },
               ...latestMappings(mappings.data ?? []).map((m) => ({
                 value: m.id,
-                label: `${m.source ? `${m.source} · ` : ''}${m.name} (v{m.version}, {m.status})`,
+                label: `${m.source ? `${m.source} · ` : ''}${m.name} (v${m.version ?? '—'}, ${m.status ?? '—'})`,
               })),
             ]}
             placeholder="Choose mapping…"
@@ -107,7 +107,7 @@ export function QuickParseModal({ onClose }: { onClose: () => void }) {
         </div>
         <label className="btn-secondary cursor-pointer flex items-center justify-center gap-2 h-full min-h-[42px] px-3.5 py-2.5 text-label-sm">
           <input type="file" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
-          <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 mr-1.5"><path d="M4 4a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2H4z" /><path fillRule="evenodd" d="M10 12a2 2 0 100-4 2 2 0 000 4zm-6-2a1 1 0 112 0 1 1 0 01-2 0zM10 7a1 1 0 012 0v5a1 1 0 11-2 0V7z" clipRule="evenodd" /></svg>
+          <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0" aria-hidden="true"><path d="M10 2.5L4.5 8h11L10 2.5z" /><path d="M9 7h2v6H9V7z" /><path d="M3 14.5h14a.75.75 0 01.75.75v1.5a.75.75 0 01-.75.75H3a.75.75 0 01-.75-.75v-1.5a.75.75 0 01.75-.75z" /></svg>
           Drop a file…
         </label>
       </div>
