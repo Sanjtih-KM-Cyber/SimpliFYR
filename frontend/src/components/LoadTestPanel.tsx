@@ -7,6 +7,7 @@ import { useAsync } from '../hooks/useAsync'
 import { ErrorBanner } from './Status'
 import { useToast } from './ui'
 import { Spinner } from './Spinner'
+import { Dropdown } from './Dropdown'
 
 const SAMPLE = `<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 action=deny
 <134>Sep 15 10:31:45 fw01 srcip=10.1.1.5 action=deny
@@ -189,32 +190,30 @@ export function LoadTestPanel() {
         >
           {busy ? <Spinner size="sm" label="Running…" /> : 'Run trial'}
         </button>
-        <select
-          value={mappingId}
-          onChange={(e) => setMappingId(e.target.value === '' ? '' : Number(e.target.value))}
-          title="Run the batch through an existing mapping"
-          className="input-glass px-3 py-2.5 text-body-sm text-on-surface"
-        >
-          <option value="">Auto-resolve mapping…</option>
-          {latestMappings(mappings.data ?? []).map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name} · {m.source ?? 'global'} · {m.status} (v{m.version})
-            </option>
-          ))}
-        </select>
-        <select
-          value={source}
-          onChange={(e) => setSource(e.target.value)}
-          title="Attribute the batch to a connection (its mapping auto-resolves)"
-          className="input-glass px-3 py-2.5 text-body-sm text-on-surface"
-        >
-          <option value="">No source (unassigned)…</option>
-          {(connections.data ?? []).map((c) => (
-            <option key={c.id} value={c.name}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+        <Dropdown<number>
+          value={mappingId === '' ? undefined : mappingId}
+          onChange={(v) => setMappingId(v ?? '')}
+          options={latestMappings(mappings.data ?? []).map((m) => ({
+            value: m.id,
+            label: `${m.name} · ${m.source ?? 'global'} · ${m.status} (v${m.version})`,
+          }))}
+          placeholder="Auto-resolve mapping…"
+          searchable
+          allowClear
+          className="min-w-[220px]"
+        />
+        <Dropdown<string>
+          value={source === '' ? undefined : source}
+          onChange={(v) => setSource(v ?? '')}
+          options={(connections.data ?? []).map((c) => ({
+            value: c.name,
+            label: c.name,
+          }))}
+          placeholder="No source (unassigned)…"
+          searchable
+          allowClear
+          className="min-w-[220px]"
+        />
       </div>
       {chosen && (
         <p className="mt-2 text-body-sm text-on-surface-variant">

@@ -191,7 +191,9 @@ export default function Analytics() {
           <div className="mb-3 flex gap-2">
             <Dropdown
               value={groupBy}
-              onChange={setGroupBy}
+              onChange={(v) => {
+                if (v !== undefined) setGroupBy(v)
+              }}
               options={GROUP_OPTIONS.map((g) => ({ value: g, label: g }))}
               placeholder="Group by…"
               className="flex-1"
@@ -272,9 +274,11 @@ export default function Analytics() {
               {loadingCorrelations ? <Spinner size="sm" /> : 'Run'}
             </button>
           </div>
-          <Dropdown
-            value={corrRule}
-            onChange={setCorrRule}
+            <Dropdown
+              value={corrRule}
+              onChange={(v) => {
+                if (v !== undefined) setCorrRule(v)
+              }}
             options={[
               { value: 'port_scan', label: 'Port Scan' },
               { value: 'beaconing', label: 'Beaconing' },

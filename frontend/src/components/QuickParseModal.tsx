@@ -8,6 +8,7 @@ import { Modal, useToast } from './ui'
 import { useAsync } from '../hooks/useAsync'
 import { StatusBadge } from './Status'
 import { Spinner } from './Spinner'
+import { Dropdown } from './Dropdown'
 
 export function QuickParseModal({ onClose }: { onClose: () => void }) {
   const mappings = useAsync(() => listMappings(), [])
@@ -89,18 +90,20 @@ export function QuickParseModal({ onClose }: { onClose: () => void }) {
       <div className="mb-4 flex flex-wrap gap-2">
         <div className="flex-1 min-w-[200px]">
           <label className="mb-1.5 block text-label-sm font-medium text-on-surface-variant">Mapping</label>
-          <select
+          <Dropdown
             value={mappingId}
-            onChange={(e) => setMappingId(e.target.value ? Number(e.target.value) : '')}
-            className="input-glass w-full px-3.5 py-2.5 text-body-sm text-on-surface"
-          >
-            <option value="">Choose mapping…</option>
-            {latestMappings(mappings.data ?? []).map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.source ? `${m.source} · ` : ''}{m.name} (v{m.version}, {m.status})
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setMappingId(v ? Number(v) : '')}
+            options={[
+              { value: '', label: 'Choose mapping…' },
+              ...latestMappings(mappings.data ?? []).map((m) => ({
+                value: m.id,
+                label: `${m.source ? `${m.source} · ` : ''}${m.name} (v{m.version}, {m.status})`,
+              })),
+            ]}
+            placeholder="Choose mapping…"
+            searchable
+            className="w-full"
+          />
         </div>
         <label className="btn-secondary cursor-pointer flex items-center justify-center gap-2 h-full min-h-[42px] px-3.5 py-2.5 text-label-sm">
           <input type="file" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />

@@ -22,6 +22,7 @@ import { useToast } from '../components/ui'
 import { FOCUS_SEARCH_EVENT } from '../hooks/useKeyboardShortcuts'
 import { useAsync } from '../hooks/useAsync'
 import { useLive } from '../hooks/useLive'
+import { Dropdown } from '../components/Dropdown'
 
 type LogTab = 'normalized' | 'index-detail' | 'inspection' | 'failed'
 
@@ -117,18 +118,17 @@ function IngestPanel({ onDone }: { onDone: (id: number) => void }) {
         Submit raw telemetry. The system autonomously attempts structural normalization using the global context. Unrecognized signatures will be flagged for review.
       </p>
       <div className="mb-3 flex flex-wrap gap-2">
-        <select
+        <Dropdown
           value={source}
-          onChange={(e) => setSource(e.target.value)}
-          className="input-glass px-3 py-1.5 text-body-sm text-on-surface"
-        >
-          <option value="">Auto-detect origin…</option>
-          {(connections.data ?? []).map((c) => (
-            <option key={c.id} value={c.name}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => setSource(v ?? '')}
+          options={[
+            { value: '', label: 'Auto-detect origin…' },
+            ...(connections.data ?? []).map((c) => ({ value: c.name, label: c.name })),
+          ]}
+          placeholder="Auto-detect origin…"
+          searchable
+          className="flex-1 min-w-[180px]"
+        />
         <label className="btn-secondary cursor-pointer px-3 py-1.5 text-body-sm">
           Upload Context (File)
           <input
@@ -727,24 +727,22 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
               className="w-64 input-glass pr-10 text-body-sm text-on-surface"
             />
           </div>
-          {!sourceFilter && (
-            <select
+{!sourceFilter && (
+            <Dropdown
               value={vendor}
-              onChange={(e) => {
-                setVendor(e.target.value)
+              onChange={(v) => {
+                setVendor(v ?? '')
                 setExtra([])
                 setSelected(null)
               }}
-              title="Filter by node / connection"
-              className="input-glass px-3 py-1.5 text-body-sm text-on-surface"
-            >
-              <option value="">Global context…</option>
-              {(vendors.data ?? []).map((c) => (
-                <option key={c.id} value={c.name}>
-                  {c.name} ({c.events_processed})
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: 'Global context…' },
+                ...(vendors.data ?? []).map((c) => ({ value: c.name, label: `${c.name} (${c.events_processed})` })),
+              ]}
+              placeholder="Global context…"
+              searchable
+              className="w-56"
+            />
           )}
         </div>
       </div>

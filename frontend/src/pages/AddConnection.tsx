@@ -254,18 +254,17 @@ export default function AddConnection() {
 
             <div className="mb-4 border-t border-outline-variant/50 pt-4">
               <h3 className="mb-2 text-label-lg font-bold uppercase tracking-wider text-on-surface">Delivery Output Link</h3>
-              <select
+              <Dropdown
                 value={profileId}
-                onChange={(e) => setProfileId(e.target.value ? Number(e.target.value) : '')}
-                className="input-glass w-full max-w-md px-3.5 py-2.5 text-body-sm font-semibold text-on-surface"
-              >
-                <option value="">No delivery profile (Log indexing only)…</option>
-                {(profiles.data ?? []).map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setProfileId(v ? Number(v) : '')}
+                options={[
+                  { value: '', label: 'No delivery profile (Log indexing only)…' },
+                  ...(profiles.data ?? []).map((p) => ({ value: p.id, label: p.name })),
+                ]}
+                placeholder="No delivery profile (Log indexing only)…"
+                searchable
+                className="w-full max-w-md"
+              />
             </div>
 
             <div className="flex justify-end border-t border-outline-variant/50 pt-4">

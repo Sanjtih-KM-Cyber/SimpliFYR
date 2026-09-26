@@ -1,5 +1,7 @@
-import { useState, useRef, useEffect, useMemo, type ReactNode, type ChangeEvent, type KeyboardEvent } from 'react'
-import { Arrow } from './Arrow'
+import { useEffect, useRef, useState } from 'react'
+/* ============================================================
+   TYPES
+   ============================================================ */
 
 interface DropdownOption<T> {
   value: T
@@ -8,8 +10,8 @@ interface DropdownOption<T> {
 }
 
 interface DropdownProps<T> {
-  value: T
-  onChange: (value: T) => void
+  value: T | undefined
+  onChange: (value: T | undefined) => void
   options: DropdownOption<T>[]
   placeholder?: string
   disabled?: boolean
@@ -21,90 +23,199 @@ interface DropdownProps<T> {
   menuClassName?: string
 }
 
-const CHEVRON_SVG = (
-  <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
-    <path d="M10 5a3 3 0 013 3v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H4a1 1 0 110-2h3V8a3 3 0 013-3z" />
-  </svg>
-)
-
-const CHECK_SVG = (
-  <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5" aria-hidden="true">
-    <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" />
-  </svg>
-)
-
-function ChevronIcon({ className = '' }: { className?: string }) {
-  return <span className={`inline-flex shrink-0 ${className}`}>{CHEVRON_SVG}</span>
-}
-
-function CheckIcon({ className = '' }: { className?: string }) {
-  return <span className={`inline-flex shrink-0 ${className}`}>{CHECK_SVG}</span>
-}
-
 interface DropdownTriggerProps {
   value: string
   placeholder: string
   disabled?: boolean
   open: boolean
   onClick: () => void
-  onKeyDown: (e: KeyboardEvent) => void
+  onKeyDown: (e: React.KeyboardEvent<HTMLButtonElement>) => void
   className?: string
   allowClear?: boolean
   onClear?: () => void
 }
 
-function DropdownTrigger({
-  value,
-  placeholder,
-  disabled,
-  open,
-  onClick,
-  onKeyDown,
-  className,
-  allowClear,
-  onClear,
-}: DropdownTriggerProps) {
-  return (
-    <div
-      className={`relative inline-flex items-center justify-between rounded-xl border border-outline-variant bg-surface-container/80 px-3.5 py-2.5 text-body-sm text-on-surface placeholder:text-on-surface-variant/50 transition-all duration-200 ease-standard hover:border-primary/30 hover:bg-surface-container hover:shadow-e1 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 focus-within:outline-none disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-outline-variant disabled:hover:bg-surface-container/80 ${className}`}
-      onClick={onClick}
-      onKeyDown={onKeyDown}
-    >
-      <span className={`flex-1 truncate ${value ? 'text-on-surface' : 'text-on-surface-variant/50'}`}>
-        {value || placeholder}
-      </span>
-      <span className="flex items-center gap-1.5 ml-2">
-        {allowClear && value && (
-          <button
-            type="button"
-            tabIndex={-1}
-            onClick={(e) => { e.stopPropagation(); onClear?.() }}
-            className="rounded-lg p-1 text-on-surface-variant/50 hover:text-on-surface hover:bg-surface-container transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            aria-label="Clear selection"
-          >
-            <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
-              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 10 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 10 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22Z" />
-            </svg>
-          </button>
-        )}
-        <ChevronIcon className={`text-on-surface-variant/50 transition-transform duration-200 ease-standard ${''}`} />
-      </span>
-    </div>
-  )
-}
-
 interface DropdownMenuProps<T> {
   options: DropdownOption<T>[]
-  value: T
+  value: T | undefined
   search: string
   open: boolean
-  onSelect: (value: T) => void
+  onSelect: (value: T | undefined) => void
   onClose: () => void
   searchable?: boolean
   maxHeight?: number
   className?: string
   onSearchChange?: (search: string) => void
 }
+
+/* ============================================================
+   ICONS
+   ============================================================ */
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={`h-4 w-4 shrink-0 text-on-surface-variant/60 transition-transform duration-200 ease-standard ${
+        open ? 'rotate-180' : ''
+      }`}
+      aria-hidden="true"
+    >
+      <path
+        fillRule="evenodd"
+        d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
+        clipRule="evenodd"
+      />
+    </svg>
+  )
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className="h-3.5 w-3.5"
+      aria-hidden="true"
+    >
+      <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 001.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22Z" />
+    </svg>
+  )
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className="h-4 w-4 shrink-0"
+      aria-hidden="true"
+    >
+      <path
+        fillRule="evenodd"
+        d="M16.704 5.29a1 1 0 010 1.42l-7.25 7.25a1 1 0 01-1.42 0l-3.25-3.25a1 1 0 011.42-1.42l2.54 2.54 6.54-6.54a1 1 0 011.42 0z"
+        clipRule="evenodd"
+      />
+    </svg>
+  )
+}
+
+/* ============================================================
+   DROPDOWN TRIGGER
+   ============================================================ */
+
+function DropdownTrigger({
+  value,
+  placeholder,
+  disabled = false,
+  open,
+  onClick,
+  onKeyDown,
+  className = '',
+  allowClear = false,
+  onClear,
+}: DropdownTriggerProps) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-haspopup="listbox"
+      aria-expanded={open}
+      onClick={onClick}
+      onKeyDown={onKeyDown}
+      className={`
+        relative inline-flex min-w-0 items-center justify-between
+        rounded-xl
+        border border-outline-variant
+        bg-surface-container/80
+        px-3.5 py-2.5
+        text-left text-body-sm
+        text-on-surface
+        transition-all duration-200 ease-standard
+
+        hover:border-primary/30
+        hover:bg-surface-container
+        hover:shadow-e1
+
+        focus-visible:border-primary
+        focus-visible:outline-none
+        focus-visible:ring-2
+        focus-visible:ring-primary/20
+
+        disabled:cursor-not-allowed
+        disabled:opacity-50
+        disabled:hover:border-outline-variant
+        disabled:hover:bg-surface-container/80
+        disabled:hover:shadow-none
+
+        ${className}
+      `}
+    >
+      <span
+        className={`
+          min-w-0 flex-1 truncate
+          ${
+            value
+              ? 'text-on-surface'
+              : 'text-on-surface-variant/50'
+          }
+        `}
+      >
+        {value || placeholder}
+      </span>
+
+      <span className="ml-2 flex shrink-0 items-center gap-1.5">
+        {allowClear && value && (
+          <span
+            role="button"
+            tabIndex={-1}
+            aria-label="Clear selection"
+            onClick={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              onClear?.()
+            }}
+            onKeyDown={(event) => {
+              if (
+                event.key === 'Enter' ||
+                event.key === ' '
+              ) {
+                event.preventDefault()
+                event.stopPropagation()
+                onClear?.()
+              }
+            }}
+            className="
+              rounded-lg
+              p-1
+              text-on-surface-variant/50
+              transition-colors
+
+              hover:bg-surface-container
+              hover:text-on-surface
+
+              focus-visible:outline-none
+              focus-visible:ring-2
+              focus-visible:ring-primary
+            "
+          >
+            <CloseIcon />
+          </span>
+        )}
+
+        {/* Functional dropdown indicator.
+            This is intentionally a chevron rather than a
+            decorative navigation arrow. */}
+        <ChevronIcon open={open} />
+      </span>
+    </button>
+  )
+}
+
+/* ============================================================
+   DROPDOWN MENU
+   ============================================================ */
 
 function DropdownMenu<T>({
   options,
@@ -113,82 +224,263 @@ function DropdownMenu<T>({
   open,
   onSelect,
   onClose,
-  searchable,
+  searchable = false,
   maxHeight = 320,
-  className,
+  className = '',
   onSearchChange,
 }: DropdownMenuProps<T>) {
-  const listRef = useRef<HTMLUListElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
 
+  /*
+   * Close the menu when clicking outside it.
+   */
   useEffect(() => {
     if (!open) return
-    const handleClickOutside = (e: MouseEvent) => {
-      if (listRef.current?.contains(e.target as Node)) return
-      onClose()
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node
+
+      if (
+        listRef.current &&
+        !listRef.current.contains(target)
+      ) {
+        onClose()
+      }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+
+    document.addEventListener(
+      'mousedown',
+      handleClickOutside,
+    )
+
+    return () => {
+      document.removeEventListener(
+        'mousedown',
+        handleClickOutside,
+      )
+    }
   }, [open, onClose])
 
-  const filteredOptions = useMemo(() => {
-    if (!search) return options
-    const lc = search.toLowerCase()
-    return options.filter((opt) => opt.label.toLowerCase().includes(lc))
-  }, [options, search])
+  /*
+   * Automatically focus search when the menu opens.
+   */
+  useEffect(() => {
+    if (!open || !searchable) return
 
-  if (!open) return null
+    const timeout = window.setTimeout(() => {
+      searchRef.current?.focus()
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timeout)
+    }
+  }, [open, searchable])
+
+  /*
+   * Escape closes the dropdown while the menu/search
+   * has focus.
+   */
+  useEffect(() => {
+    if (!open) return
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onClose()
+      }
+    }
+
+    document.addEventListener(
+      'keydown',
+      handleEscape,
+    )
+
+    return () => {
+      document.removeEventListener(
+        'keydown',
+        handleEscape,
+      )
+    }
+  }, [open, onClose])
+
+  if (!open) {
+    return null
+  }
 
   return (
-    <div className="fixed z-50" style={{ pointerEvents: 'none' }}>
+    <div
+      ref={listRef}
+      className={`
+        absolute
+        left-0
+        top-full
+        z-50
+        mt-2
+        min-w-full
+        ${className}
+      `}
+    >
       <div
-        ref={listRef}
-        className={`absolute z-50 glass-flyout rounded-2xl shadow-e4 border border-glass-strong p-2 max-h-[${maxHeight}px] overflow-auto w-auto min-w-[200px] ${className}`}
-        style={{ pointerEvents: 'auto' }}
+        className="
+          glass-flyout
+          w-max
+          min-w-[200px]
+          overflow-hidden
+          rounded-2xl
+          border border-glass-strong
+          p-1.5
+          shadow-e4
+        "
         role="listbox"
-        aria-activedescendant=""
+        aria-label="Options"
       >
         {searchable && (
-          <div className="sticky top-0 z-10 mb-2 glass-subtle rounded-xl p-2 border border-glass-subtle">
+          <div
+            className="
+              sticky
+              top-0
+              z-10
+              mb-1.5
+              rounded-xl
+              border border-glass-subtle
+              bg-surface-container/70
+              p-2
+            "
+          >
             <input
+              ref={searchRef}
               type="search"
               value={search}
-              onChange={(e) => onSearchChange?.(e.target.value)}
+              onChange={(event) => {
+                onSearchChange?.(
+                  event.target.value,
+                )
+              }}
               placeholder="Search options…"
-              className="w-full bg-transparent text-on-surface placeholder:text-on-surface-variant/50 text-body-sm outline-none"
-              autoFocus
+              className="
+                w-full
+                bg-transparent
+                text-body-sm
+                text-on-surface
+                outline-none
+                placeholder:text-on-surface-variant/50
+              "
+              aria-label="Search options"
             />
           </div>
         )}
-        <ul className="min-w-[180px]">
-          {options.map((option, index) => (
-            <li key={option.value} role="option" aria-selected={false}>
-              {option.disabled ? (
-                <span className="w-full px-3 py-2 text-body-sm text-on-surface-variant/40 cursor-not-allowed">
-                  {option.label}
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={false}
-                  onClick={() => onSelect(option.value)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-body-sm font-mono transition-all duration-150 ease-standard ${
-                    value === option.value
-                      ? 'bg-primary/10 text-primary font-medium'
-                      : 'text-on-surface hover:bg-primary/5 hover:text-primary'
-                  }`}
-                  disabled={option.disabled}
-                >
-                  <span className="truncate flex-1">{option.label}</span>
-                  {value === option.value && <CheckIcon className="text-primary shrink-0" />}
-                </button>
-              )}
-          ))}
-        </ul>
+
+        <div
+          className="overflow-auto"
+          style={{
+            maxHeight: searchable
+              ? Math.max(maxHeight - 58, 120)
+              : maxHeight,
+          }}
+        >
+          {options.length === 0 ? (
+            <div
+              className="
+                px-3
+                py-3
+                text-body-sm
+                text-on-surface-variant
+              "
+            >
+              No options found
+            </div>
+          ) : (
+            <ul className="min-w-[180px]">
+              {options.map((option) => {
+                const selected = Object.is(
+                  value,
+                  option.value,
+                )
+
+                return (
+                  <li
+                    key={option.label}
+                    className="mb-0.5 last:mb-0"
+                  >
+                    {option.disabled ? (
+                      <span
+                        className="
+                          flex
+                          w-full
+                          cursor-not-allowed
+                          items-center
+                          rounded-xl
+                          px-3
+                          py-2.5
+                          text-body-sm
+                          text-on-surface-variant/40
+                        "
+                      >
+                        {option.label}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        onClick={() => {
+                          onSelect(option.value)
+                        }}
+                        className={`
+                          flex
+                          w-full
+                          items-center
+                          gap-3
+                          rounded-xl
+                          px-3
+                          py-2.5
+                          text-left
+                          text-body-sm
+                          transition-all
+                          duration-150
+                          ease-standard
+
+                          ${
+                            selected
+                              ? `
+                                bg-primary/10
+                                font-medium
+                                text-primary
+                              `
+                              : `
+                                text-on-surface
+                                hover:bg-primary/5
+                                hover:text-primary
+                              `
+                          }
+                        `}
+                      >
+                        <span className="min-w-0 flex-1 truncate">
+                          {option.label}
+                        </span>
+
+                        {selected && (
+                          <span className="text-primary">
+                            <CheckIcon />
+                          </span>
+                        )}
+                      </button>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   )
 }
+
+/* ============================================================
+   DROPDOWN
+   ============================================================ */
 
 export function Dropdown<T>({
   value,
@@ -205,79 +497,172 @@ export function Dropdown<T>({
 }: DropdownProps<T>) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
-  const triggerRef = useRef<HTMLDivElement>(null)
 
-  const displayValue = useMemo(() => {
-    const opt = options.find((o) => o.value === value)
-    return opt?.label ?? ''
-  }, [value, options])
+  const wrapperRef = useRef<HTMLDivElement>(null)
 
-  const handleSelect = (newValue: T) => {
-    onChange(newValue)
+  /*
+   * Find the currently selected option.
+   *
+   * Object.is is used rather than === so that the comparison
+   * behaves correctly for values such as NaN.
+   */
+  const selectedOption = options.find((option) =>
+    Object.is(option.value, value),
+  )
+
+  const displayValue =
+    selectedOption?.label ?? ''
+
+  /*
+   * Search filtering.
+   *
+   * The actual selected value is never changed by searching.
+   * Search only determines which options are displayed.
+   */
+  const filteredOptions = searchable
+    ? options.filter((option) =>
+        option.label
+          .toLowerCase()
+          .includes(search.toLowerCase()),
+      )
+    : options
+
+  /*
+   * Close dropdown and clear temporary search state.
+   */
+  const closeDropdown = () => {
     setOpen(false)
     setSearch('')
   }
 
-  const handleClear = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    onChange(undefined as T)
-    setOpen(false)
-  }
-
+  /*
+   * Open / close dropdown.
+   */
   const toggleOpen = () => {
     if (disabled) return
-    setOpen((prev) => !prev)
-    if (!prev) setSearch('')
+
+    setOpen((currentOpen) => {
+      if (currentOpen) {
+        setSearch('')
+      }
+
+      return !currentOpen
+    })
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      setOpen(false)
-      setSearch('')
+  /*
+   * Keyboard support for the trigger.
+   */
+  const handleKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+  ) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeDropdown()
+      return
     }
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
+
+    if (
+      event.key === 'Enter' ||
+      event.key === ' '
+    ) {
+      event.preventDefault()
       toggleOpen()
     }
   }
 
-  const handleTriggerClick = () => {
-    toggleOpen()
-  }
+  /*
+   * Close when clicking anywhere outside the complete
+   * dropdown component.
+   */
+  useEffect(() => {
+    if (!open) return
 
-  const handleSearchChange = (newSearch: string) => {
-    setSearch(newSearch)
-  }
+    const handleOutsidePointerDown = (
+      event: MouseEvent,
+    ) => {
+      const target = event.target as Node
+
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(target)
+      ) {
+        closeDropdown()
+      }
+    }
+
+    document.addEventListener(
+      'mousedown',
+      handleOutsidePointerDown,
+    )
+
+    return () => {
+      document.removeEventListener(
+        'mousedown',
+        handleOutsidePointerDown,
+      )
+    }
+  }, [open])
+
+  /*
+   * Reset search when dropdown becomes disabled.
+   */
+  useEffect(() => {
+    if (disabled) {
+      setOpen(false)
+      setSearch('')
+    }
+  }, [disabled])
 
   return (
-    <div className={`inline-flex ${className}`}>
+    <div
+      ref={wrapperRef}
+      className={`
+        relative
+        inline-flex
+        min-w-0
+        ${className}
+      `}
+    >
       <DropdownTrigger
-        ref={triggerRef}
         value={displayValue}
         placeholder={placeholder}
         disabled={disabled}
         open={open}
-        onClick={handleTriggerClick}
+        onClick={toggleOpen}
         onKeyDown={handleKeyDown}
         className={triggerClassName}
-        allowClear={allowClear && !!value}
-        onClear={handleClear}
+        allowClear={
+          allowClear &&
+          value !== undefined
+        }
+        onClear={() => {
+          onChange(undefined)
+          closeDropdown()
+        }}
       />
+
       <DropdownMenu
-        options={options}
+        options={filteredOptions}
         value={value}
         search={search}
         open={open}
-        onSelect={handleSelect}
-        onClose={() => setOpen(false)}
+        onSelect={(selectedValue) => {
+          onChange(selectedValue)
+          closeDropdown()
+        }}
+        onClose={closeDropdown}
         searchable={searchable}
         maxHeight={maxHeight}
         className={menuClassName}
-        onSearchChange={handleSearchChange}
+        onSearchChange={setSearch}
       />
     </div>
   )
 }
 
-// Re-export for backward compatibility
+/* ============================================================
+   SELECT ALIAS
+   ============================================================ */
+
 export { Dropdown as Select }

@@ -14,6 +14,7 @@ import { ErrorBanner, StatusBadge } from './Status'
 import { useToast } from './ui'
 import { useAsync } from '../hooks/useAsync'
 import { Spinner } from './Spinner'
+import { Dropdown } from './Dropdown'
 
 export function TryItNow({ sourceName }: { sourceName: string }) {
   const profiles = useAsync(() => listOutputProfiles(), [])
@@ -148,18 +149,18 @@ export function TryItNow({ sourceName }: { sourceName: string }) {
         className="mb-2 input-glass w-full px-3.5 py-2.5 font-mono text-mono-sm text-on-surface"
       />
       <div className="mb-3 flex flex-wrap gap-2">
-        <select
-          value={profileId}
-          onChange={(e) => setProfileId(e.target.value ? Number(e.target.value) : '')}
-          className="input-glass flex-1 px-3.5 py-2.5 text-body-sm text-on-surface"
-        >
-          <option value="">Render with… (bound profile by default)</option>
-          {(profiles.data ?? []).map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+        <Dropdown<number>
+          value={profileId === '' ? undefined : profileId}
+          onChange={(v) => setProfileId(v ?? '')}
+          options={(profiles.data ?? []).map((p) => ({
+            value: p.id,
+            label: p.name,
+          }))}
+          placeholder="Render with… (bound profile by default)"
+          searchable
+          allowClear
+          className="flex-1 min-w-[200px]"
+        />
         <button
           onClick={bind}
           disabled={bindBusy || !profileId || !connectionMapping}

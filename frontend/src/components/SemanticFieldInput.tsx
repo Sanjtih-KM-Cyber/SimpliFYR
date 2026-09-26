@@ -99,37 +99,55 @@ export function SemanticFieldInput({
         readOnly
         onFocus={() => setOpen(true)}
       />
-      <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 pointer-events-none">
-        <path d="M10 5a3 3 0 013 3v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H4a1 1 0 110-2h3V8a3 3 0 013-3z" />
+      <svg
+        viewBox="0 0 20 20"
+        fill="currentColor"
+        className={`h-4 w-4 absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/60 pointer-events-none transition-transform duration-200 ease-standard ${open ? 'rotate-180' : ''}`}
+        aria-hidden="true"
+      >
+        <path
+          fillRule="evenodd"
+          d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 0l-4.25-4.51a.75.75 0 01.02-1.06z"
+          clipRule="evenodd"
+        />
       </svg>
 
       {open && (
         <ul
           ref={listRef}
-          className="absolute z-20 top-full left-0 right-0 mt-1.5 glass-flyout rounded-2xl p-2 max-h-80 overflow-auto"
+          className="absolute z-20 top-full left-0 right-0 mt-2 glass-flyout rounded-2xl border border-glass-strong p-1.5 shadow-e4 max-h-80 overflow-auto animate-menu-in"
           role="listbox"
         >
           {Object.entries(filteredGroups).map(([group, fields]) => (
             <li key={group}>
-              <p className="px-3 py-1.5 text-label-sm font-semibold text-on-surface-variant/70 uppercase tracking-wide">{group}</p>
+              <p className="px-3 pt-2 pb-1 text-label-sm font-semibold text-on-surface-variant/70 uppercase tracking-wide">{group}</p>
               {fields.map((f) => (
                 <button
                   key={f}
                   onClick={() => onSelect(f)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-body-sm font-mono text-on-surface hover:bg-surface-container transition-colors ${value === f ? 'bg-primary/10 text-primary' : ''}`}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-body-sm font-mono transition-all duration-150 ease-standard ${value === f ? 'bg-primary/10 text-primary font-medium' : 'text-on-surface hover:bg-primary/5 hover:text-primary'}`}
                   role="option"
                   aria-selected={value === f}
                 >
-                  <span>{f}</span>
+                  <span className="min-w-0 flex-1 truncate text-left">{f}</span>
+                  {value === f && (
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0" aria-hidden="true">
+                      <path
+                        fillRule="evenodd"
+                        d="M16.704 5.29a1 1 0 010 1.42l-7.25 7.25a1 1 0 01-1.42 0l-3.25-3.25a1 1 0 011.42-1.42l2.54 2.54 6.54-6.54a1 1 0 011.42 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  )}
                 </button>
               ))}
             </li>
           ))}
           <li>
-            <hr className="my-2 border-outline-variant" />
+            <hr className="my-1.5 border-outline-variant/50" />
             <button
               onClick={() => onSelect(CUSTOM)}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-body-sm font-mono text-warning hover:bg-warning-container/10 transition-colors"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-body-sm font-mono text-warning transition-all duration-150 ease-standard hover:bg-warning-container/10"
               role="option"
             >
               <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">

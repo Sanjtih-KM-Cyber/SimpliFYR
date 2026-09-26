@@ -55,15 +55,11 @@ export function useKeyboardShortcuts(onToggleShortcuts: () => void) {
         case 'N':
           navigate('/connections?new=1')
           break
-        case 'r':
-        case 'R':
-          navigate('/needs-review')
-          break
-        case '/':
-          e.preventDefault()
-          navigate('/connections')
-          break
-        case '?':
+      case 'r':
+      case 'R':
+        navigate('/needs-review')
+        break
+      case '?':
           onToggleShortcuts()
           break
       }

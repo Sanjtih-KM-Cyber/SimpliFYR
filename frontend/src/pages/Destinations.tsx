@@ -5,6 +5,7 @@ import { Spinner } from '../components/Spinner'
 import { ErrorBanner } from '../components/Status'
 import { EmptyState, TBody, TD, TH, THead, TR, Table } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
+import { Dropdown } from '../components/Dropdown'
 
 const TYPES = ['console', 'http', 's3', 'kafka'] as const
 
@@ -91,17 +92,13 @@ export default function Destinations() {
               placeholder="Name (e.g. SIEM HEC)"
               className="input-glass px-3.5 py-2.5 text-body-sm text-on-surface"
             />
-            <select
+            <Dropdown
               value={type}
-              onChange={(e) => setType(e.target.value as (typeof TYPES)[number])}
-              className="input-glass px-3.5 py-2.5 text-body-sm text-on-surface"
-            >
-              {TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => setType(v as (typeof TYPES)[number])}
+              options={TYPES.map((t) => ({ value: t, label: t }))}
+              placeholder="Type"
+              className="w-full"
+            />
           </div>
           {type === 'http' && (
             <input

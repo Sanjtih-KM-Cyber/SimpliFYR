@@ -11,6 +11,7 @@ import { SemanticFieldInput } from './SemanticFieldInput'
 import { Modal, useToast } from './ui'
 import { useAsync } from '../hooks/useAsync'
 import { Spinner } from './Spinner'
+import { Dropdown } from './Dropdown'
 
 interface Row {
   input_field: string
@@ -144,18 +145,17 @@ export function OnboardModal({
       )}
       <div className="mb-4">
         <label className="mb-1.5 block text-label-sm font-medium text-on-surface-variant">Output profile</label>
-        <select
+        <Dropdown
           value={profileId}
-          onChange={(e) => setProfileId(e.target.value ? Number(e.target.value) : '')}
-          className="input-glass w-full px-3.5 py-2.5 text-body-sm text-on-surface"
-        >
-          <option value="">No output profile (normalized only)…</option>
-          {(profiles.data ?? []).map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => setProfileId(v ? Number(v) : '')}
+          options={[
+            { value: '', label: 'No output profile (normalized only)…' },
+            ...(profiles.data ?? []).map((p) => ({ value: p.id, label: p.name })),
+          ]}
+          placeholder="No output profile (normalized only)…"
+          searchable
+          className="w-full"
+        />
       </div>
       <div className="flex justify-end gap-2">
         <button
