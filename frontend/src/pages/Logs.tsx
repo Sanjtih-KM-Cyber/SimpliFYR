@@ -69,6 +69,22 @@ function padId(id: number): string {
   return id.toString().padStart(6, '0')
 }
 
+function batchSeq(all: BatchRun[], b: BatchRun): number {
+  // Upload indexes restart per connection: rank among same-source uploads.
+  const same = all
+    .filter((x) => (x.source ?? '') === (b.source ?? ''))
+    .map((x) => x.id)
+    .sort((a, b2) => a - b2)
+  return same.indexOf(b.id) + 1
+}
+
+function displayIndex(e: { id: number; source: string | null; source_seq: number | null }, scopeSource: string): string {
+  // Inside a connection, rows carry that connection's own 1-based number;
+  // everywhere else (or sourceless rows) the global id stands in.
+  if (scopeSource && e.source === scopeSource && e.source_seq != null) return padId(e.source_seq)
+  return padId(e.id)
+}
+
 function pageWindow(current: number, total: number): number[] {
   if (total <= 10) return Array.from({ length: total }, (_, i) => i + 1)
   const start = Math.min(Math.max(1, current - 4), total - 9)
@@ -748,11 +764,13 @@ function IndexExport({ source, batchId, ids }: { source?: string; batchId?: numb
 
 function UploadsSection({
   batches,
+  allBatches,
   loading,
   onScopeBatch,
   onScopeGroup,
 }: {
   batches: BatchRun[]
+  allBatches: BatchRun[]
   loading: boolean
   onScopeBatch: (b: BatchRun) => void
   onScopeGroup: (b: BatchRun, g: BatchGroup, letter: string) => void
@@ -804,7 +822,7 @@ function UploadsSection({
               >
                 <span className={`inline-block opacity-70 transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
               </button>
-              <span className="font-mono text-body-md font-semibold text-primary">Index #{b.id}</span>
+              <span className="font-mono text-body-md font-semibold text-primary">Index #{batchSeq(allBatches, b)}</span>
               <span className="text-body-sm text-on-surface-variant">{b.source ?? 'unassigned'}</span>
               <span className="font-mono text-body-sm text-on-surface">{b.total.toLocaleString()} logs</span>
               {held > 0 && (
@@ -828,7 +846,7 @@ function UploadsSection({
                         className="font-mono text-body-md font-semibold text-on-surface hover:text-primary hover:underline"
                         title="Open only this type"
                       >
-                        #{b.id}{letter}
+                        #{batchSeq(allBatches, b)}{letter}
                       </button>
                       <span className="font-mono text-mono-sm text-on-surface-variant">{g.format}</span>
                       <span className="min-w-0 flex-1 truncate font-mono text-mono-sm text-on-surface-variant/70" title={g.fields.join(', ')}>
@@ -1335,7 +1353,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     setBatchId(b.id)
     setGroupIds(g.event_ids)
     setGroupKey(`${b.id}${letter}`)
-    setGroupLabel(`#${b.id}${letter} · ${g.format} · ${g.count} logs`)
+    setGroupLabel(`#${batchSeq(batches.data ?? [], b)}${letter} · ${g.format} · ${g.count} logs`)
     setSelected(null)
     setTab('normalized')
   }
@@ -1558,7 +1576,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
           {reviewView === 'open' && scope && (
             <div className="flex items-center gap-3 surface-inset rounded-xl border border-primary/30 bg-primary-container/10 px-4 py-2 text-body-sm text-primary">
               <span>
-                Scoped to index <span className="font-mono font-bold">{padId(scope.id)}</span>
+                Scoped to index <span className="font-mono font-bold">{displayIndex(scope, source)}</span>
                 {' '}· {formatLabel(scope.detected_format)} · {scope.source ?? 'Unassigned origin'}
               </span>
               <button
@@ -1633,7 +1651,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
           {scope && (
             <div className="mb-4 flex items-center gap-3 surface-inset rounded-xl border border-primary/30 bg-primary-container/10 px-4 py-2 text-body-sm text-primary">
               <span>
-                Index <span className="font-mono font-bold">{padId(scope.id)}</span>
+                Index <span className="font-mono font-bold">{displayIndex(scope, source)}</span>
                 {' '}· {formatLabel(scope.detected_format)} · {scope.source ?? 'Unassigned origin'}
               </span>
             </div>
@@ -1661,6 +1679,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
       {tab === 'normalized' && (
         <UploadsSection
           batches={(batches.data ?? []).filter((b) => !source || (b.source ?? '') === source)}
+          allBatches={batches.data ?? []}
           loading={batches.loading}
           onScopeBatch={scopeBatch}
           onScopeGroup={scopeGroup}
@@ -1701,7 +1720,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
               {pageRows.map((e) => (
                 <TR key={e.id} onClick={tab === 'normalized' ? () => selectIndex(e) : undefined}>
                   <TD className={selected === e.id ? 'bg-primary/10 font-bold text-primary' : 'text-on-surface'}>
-                    {padId(e.id)}
+                    {displayIndex(e, source)}
                   </TD>
                   <TD className={selected === e.id ? 'bg-primary/10' : ''}>
                     <StatusBadge status={e.status} />

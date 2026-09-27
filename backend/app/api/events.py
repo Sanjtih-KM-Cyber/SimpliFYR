@@ -32,6 +32,7 @@ def _to_summary(event: Event) -> EventSummary:
         received_at=as_utc(event.received_at),
         source_id=event.source_id,
         source=event.source,
+        source_seq=event.source_seq,
         raw_hash=event.raw_hash,
         detected_format=event.detected_format,
         batch_id=event.batch_id,

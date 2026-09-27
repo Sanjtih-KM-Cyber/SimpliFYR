@@ -4,7 +4,7 @@ import hashlib
 import logging
 import time
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.converters import to_package_mapping, to_package_profile
@@ -106,6 +106,9 @@ class ProcessingEngine:
             environment=environment,
             source_id=source_id,
             source=resolved_source,
+            source_seq=self._max_source_seq(resolved_source, environment) + 1
+            if resolved_source
+            else None,
             raw=payload,
             raw_hash=raw_hash,
             raw_ref=raw_ref,
@@ -375,6 +378,7 @@ class ProcessingEngine:
             source_id = catalog_source.id
             resolved_source = catalog_source.name
         self.prefetch_hashes(lines, resolved_source, environment)
+        next_seq = self._max_source_seq(resolved_source, environment)
 
         results: list[dict] = []
         first_by_key: dict = {}
@@ -433,11 +437,14 @@ class ProcessingEngine:
                         continue
                     # Hash known but no row (stale prefetch): store normally.
                 raw_ref = get_raw_store().save(envelope.event_id, payload)
+                if resolved_source:
+                    next_seq += 1
                 event = Event(
                     event_id=envelope.event_id,
                     environment=environment,
                     source_id=source_id,
                     source=resolved_source,
+                    source_seq=next_seq if resolved_source else None,
                     raw=payload,
                     raw_hash=raw_hash,
                     raw_ref=raw_ref,
@@ -482,6 +489,19 @@ class ProcessingEngine:
                 checkpoint()
         checkpoint()
         return results
+
+    def _max_source_seq(self, source: str | None, environment: str) -> int:
+        """Highest per-connection sequence used so far (0 when none)."""
+        if not source:
+            return 0
+        return (
+            self.db.execute(
+                select(func.max(Event.source_seq)).where(
+                    Event.environment == environment, Event.source == source
+                )
+            ).scalar()
+            or 0
+        )
 
     def _lookup_duplicate_row(self, raw_hash: str, source: str | None, environment: str) -> Event | None:
         """Exact stored-row lookup for a prefetch hit (rare path)."""

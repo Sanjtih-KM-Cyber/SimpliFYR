@@ -53,6 +53,7 @@ export interface EventSummary {
   received_at: string
   source_id: number | null
   source: string | null
+  source_seq: number | null
   raw_hash: string
   detected_format: string | null
   batch_id?: number | null

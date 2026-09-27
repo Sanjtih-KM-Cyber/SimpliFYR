@@ -12,6 +12,7 @@ class EventSummary(BaseModel):
     received_at: datetime
     source_id: int | None = None
     source: str | None = None
+    source_seq: int | None = None
     raw_hash: str
     detected_format: str | None = None
     batch_id: int | None = None

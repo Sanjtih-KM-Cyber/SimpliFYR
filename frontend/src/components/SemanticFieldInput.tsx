@@ -233,6 +233,43 @@ export function SemanticFieldInput({
       setCustomizing(false)
       onChange(v)
       setOpen(false)
+      setSearch('')
+    }
+  }
+
+  // No match at all: jump straight into a custom value with what was typed.
+  function useAsCustom() {
+    const name = search.trim()
+    if (!name) return
+    setCustomizing(true)
+    onChange(name)
+    setSearch('')
+    setOpen(false)
+  }
+
+  // Flat visible options (group order) for Enter-to-pick.
+  const visibleOptions = useMemo(() => {
+    const out: string[] = []
+    for (const fields of Object.values(filteredGroups)) out.push(...fields)
+    return out
+  }, [filteredGroups])
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Escape') {
+      setOpen(false)
+      return
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      const exact = visibleOptions.find((f) => f.toLowerCase() === search.trim().toLowerCase())
+      if (exact) onSelect(exact)
+      else if (visibleOptions.length > 0) onSelect(visibleOptions[0])
+      else useAsCustom()
+      return
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      setOpen(true)
     }
   }
 
@@ -279,16 +316,17 @@ export function SemanticFieldInput({
   }
 
   return (
-    <div ref={wrapperRef} className="relative flex-1" onClick={() => setOpen(!open)}>
+    <div ref={wrapperRef} className="relative flex-1" onClick={() => { if (!open) { setSearch(''); setOpen(true) } }}>
       <input
         ref={inputRef}
         type="search"
-        value={search || value}
+        value={open ? search : value || search}
         onChange={(e) => { setSearch(e.target.value); setOpen(true) }}
-        placeholder={value ? value : 'Semantic field…'}
+        onKeyDown={onKeyDown}
+        onFocus={() => { setSearch(''); setOpen(true) }}
+        placeholder={value ? value : 'Semantic field… (type to filter)'}
+        autoComplete="off"
         className="input-glass flex-1 pr-10"
-        readOnly
-        onFocus={() => setOpen(true)}
       />
       <svg
         viewBox="0 0 20 20"
@@ -315,6 +353,21 @@ export function SemanticFieldInput({
           }}
           role="listbox"
         >
+          {search.trim() && visibleOptions.length === 0 && (
+            <li>
+              <button
+                onClick={useAsCustom}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-body-sm font-mono text-warning transition-all duration-150 ease-standard hover:bg-warning-container/10"
+                role="option"
+                aria-selected={false}
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                </svg>
+                Create custom “{search.trim()}”…
+              </button>
+            </li>
+          )}
           {Object.entries(filteredGroups).map(([group, fields]) => (
             <li key={group}>
               <p className="px-3 pt-2 pb-1 text-label-sm font-semibold text-on-surface-variant/70 uppercase tracking-wide">{group}</p>

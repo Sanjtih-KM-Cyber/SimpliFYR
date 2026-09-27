@@ -60,10 +60,10 @@ export default function ConnectionLayout() {
           <TabBar
             tabs={[
               { to: `/connections/${sourceName}`, label: 'OVERVIEW', end: true },
+              { to: `/connections/${sourceName}/logs`, label: 'LOGS' },
               { to: `/connections/${sourceName}/mappings`, label: 'SCHEMA MAP' },
               { to: `/connections/${sourceName}/learning`, label: 'AI KNOWLEDGE' },
               { to: `/connections/${sourceName}/live`, label: 'LIVE LOGS' },
-              { to: `/connections/${sourceName}/logs`, label: 'LOGS' },
             ]}
           />
 

@@ -38,6 +38,14 @@ export function useKeyboardShortcuts(onToggleShortcuts: () => void) {
 
       if (isTyping(e.target)) return
 
+      // Single-key shortcuts fire ONLY from a neutral page surface. Focus on
+      // any control (buttons, links, menus, dialogs, pickers) means the user
+      // is working — never teleport them mid-task for pressing 'r' or '2'.
+      if (e.target instanceof HTMLElement) {
+        if (e.target.closest('button, a, input, textarea, select, [role="listbox"], [role="dialog"], [role="menu"]'))
+          return
+      }
+
       switch (e.key) {
         case '1':
           navigate('/')

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { analyzeOnboarding, analyzeShapes, approveOnboarding, createOnboarding, ingest, listOutputProfiles, previewIngest } from '../api/client'
-import type { Format, IngestResponse, OnboardingShape } from '../api/types'
+import { analyzeOnboarding, analyzeShapes, approveOnboarding, createOnboarding, ingest, listConnections, listMappings, listOutputProfiles, previewIngest, processBatch } from '../api/client'
+import type { BatchResult, Format, IngestResponse, OnboardingShape } from '../api/types'
 import { Code } from '../components/Code'
 import { LOADTEST_SAMPLE_KEY } from '../components/LoadTestPanel'
 import { SemanticFieldInput } from '../components/SemanticFieldInput'
@@ -56,6 +56,8 @@ const SAMPLE = '<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 dstip=8.8.8.8 proto=tcp
 
 export default function AddConnection() {
   const profiles = useAsync(() => listOutputProfiles(), [])
+  const connections = useAsync(() => listConnections(), [])
+  const mappings = useAsync(() => listMappings(), [])
   const [raw, setRaw] = useState(() => {
     try {
       const adopted = sessionStorage.getItem(LOADTEST_SAMPLE_KEY)
@@ -80,6 +82,7 @@ export default function AddConnection() {
   const [preview, setPreview] = useState<IngestResponse | null>(null)
   const [previewing, setPreviewing] = useState(false)
   const [reprocessed, setReprocessed] = useState(0)
+  const [batchSummary, setBatchSummary] = useState<BatchResult | null>(null)
 
   function onFile(file: File | undefined) {
     if (!file) return
@@ -122,6 +125,8 @@ export default function AddConnection() {
     setAnalyzing(true)
     setError(null)
     setPreview(null)
+    setReprocessed(0)
+    setBatchSummary(null)
     setReprocessed(0)
     try {
       if (pastedLines > 1) {
@@ -232,6 +237,21 @@ export default function AddConnection() {
         outputProfileId: profileId ? Number(profileId) : undefined,
       })
       setPreview(res)
+      // Whole file goes with it: Publish ingests the full pasted content
+      // through the just-published mapping (explicit mapping id, so even a
+      // cold cache resolves it). One place, finished.
+      if (pastedLines > 1) {
+        setBatchSummary(
+          await processBatch({
+            raw,
+            source: connectionName.trim(),
+            mappingId: approved.mapping_id,
+            ...(profileId ? { outputProfileId: Number(profileId) } : {}),
+          }),
+        )
+      } else {
+        setBatchSummary(null)
+      }
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -272,6 +292,28 @@ export default function AddConnection() {
             placeholder="e.g. CrowdStrike Falcon, AWS CloudTrail"
             className="input-glass w-full px-3.5 py-2.5 text-body-md text-on-surface"
           />
+          {(() => {
+            const name = connectionName.trim()
+            if (!name) return null
+            const clashConnection = (connections.data ?? []).find(
+              (c) => c.name.toLowerCase() === name.toLowerCase(),
+            )
+            const clashMapping = (mappings.data ?? []).find(
+              (m) => (m.name || '').toLowerCase() === (mappingName.trim() || `${name} Mapping`).toLowerCase(),
+            )
+            if (!clashConnection && !clashMapping) return null
+            return (
+              <p className="mt-2 rounded-xl border border-warning/30 bg-warning-container/10 px-3.5 py-2 text-body-sm text-warning">
+                {clashConnection
+                  ? `“${clashConnection.name}” already exists — publishing adds a new version under it instead of a new card.`
+                  : ''}
+                {clashConnection && clashMapping ? ' ' : ''}
+                {clashMapping
+                  ? `Mapping name “${clashMapping.name}” already exists (v${clashMapping.version}) — publishing versions it up.`
+                  : ''}
+              </p>
+            )
+          })()}
         </section>
 
         <section className="glass-card rounded-2xl p-5 animate-slide-up" style={{ animationDelay: '50ms' }}>
@@ -444,13 +486,28 @@ export default function AddConnection() {
                 </span>
               )}
             </p>
-            <div className="mt-4">
+            {batchSummary && (
+              <p className="mt-2 text-body-md text-on-surface">
+                Whole file ingested here: {batchSummary.processed}/{batchSummary.total} lines
+                ({batchSummary.normalized + batchSummary.output} normalized · {batchSummary.quarantined} held · {batchSummary.dlq} dlq)
+                in {batchSummary.duration_seconds}s{batchSummary.batch_id != null ? ` — batch #${batchSummary.batch_id}` : ''}.
+              </p>
+            )}
+            <div className="mt-4 flex flex-wrap gap-3">
               <Link
                 to={`/connections/${encodeURIComponent(connectionName.trim())}`}
                 className="btn-success inline-block"
               >
                 Monitor Pipeline Sequence
               </Link>
+              {batchSummary?.batch_id != null && (
+                <Link
+                  to={`/connections/${encodeURIComponent(connectionName.trim())}/logs`}
+                  className="btn-outlined inline-block"
+                >
+                  Open these logs
+                </Link>
+              )}
             </div>
           </div>
         )}

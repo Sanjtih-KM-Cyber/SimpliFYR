@@ -18,10 +18,10 @@ def test_migrations_reach_head_with_phase10_schema(tmp_path):
     try:
         with engine.connect() as conn:
             head = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
-        assert head == "f1a2b3c4d5e6", f"expected head f1a2b3c4d5e6, got {head!r}"
+        assert head == "a3b4c5d6e7f8", f"expected head a3b4c5d6e7f8, got {head!r}"
 
         cols = {c["name"] for c in inspect(engine).get_columns("events")}
-        for required in ("processing_ms", "raw_hash", "environment", "raw_ref", "provenance", "detected_format", "batch_id"):
+        for required in ("processing_ms", "raw_hash", "environment", "raw_ref", "provenance", "detected_format", "batch_id", "source_seq"):
             assert required in cols, f"events.{required} missing after migrations"
 
         tables = set(inspect(engine).get_table_names())

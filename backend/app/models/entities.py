@@ -218,6 +218,10 @@ class Event(Base):
     __tablename__ = "events"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # Per-connection sequence: 1, 2, 3… scoped to (environment, source) so
+    # every connection's index starts at 1. Sourceless events stay NULL
+    # (no connection to number under) and display falls back to global id.
+    source_seq: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     event_id: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
     batch_id: Mapped[int | None] = mapped_column(ForeignKey("batch_runs.id"), nullable=True, index=True)
     source_id: Mapped[int | None] = mapped_column(ForeignKey("sources.id"), nullable=True)
