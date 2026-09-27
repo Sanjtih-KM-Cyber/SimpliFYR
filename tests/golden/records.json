@@ -69,7 +69,12 @@
       "src": "source.ip",
       "dst": "destination.ip",
       "proto": "network.protocol",
-      "act": "network.action"
+      "act": "network.action",
+      "device_vendor": "device.vendor",
+      "device_product": "device.product",
+      "device_version": "device.version",
+      "signature_id": "rule.id",
+      "severity": "event.severity"
     }
   },
   {
@@ -83,7 +88,10 @@
       "src": "source.ip",
       "dst": "destination.ip",
       "proto": "network.protocol",
-      "action": "network.action"
+      "action": "network.action",
+      "device_vendor": "device.vendor",
+      "device_product": "device.product",
+      "device_version": "device.version"
     }
   },
   {
@@ -93,7 +101,9 @@
     "version": "v1",
     "event_family": "network_traffic",
     "raw": "FW-01: denied TCP 10.1.1.5:43122 -> 8.8.8.8:443 (drop reason: policy)",
-    "expected_semantic": {}
+    "expected_semantic": {
+      "raw_text": "log.original"
+    }
   },
   {
     "id": "unknown-vendor-generic",

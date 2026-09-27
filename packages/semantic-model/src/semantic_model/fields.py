@@ -65,6 +65,23 @@ register("threat.severity", "int", "Numeric severity (higher = worse)")
 register("authentication.result", "string", "Authentication outcome (success/failure)")
 register("authentication.reason", "string", "Reason for an authentication outcome")
 
+# --- Observer (reporting device) -------------------------------------------
+register("observer.hostname", "string", "Reporting observer / firewall hostname (e.g. fw01)")
+
+# --- Rule ------------------------------------------------------------------
+register("rule.id", "string", "Firewall / detection rule identifier (e.g. ruleid)")
+register("rule.name", "string", "Rule name / signature name")
+
+# --- Threat (level as string; severity stays numeric) -----------------------
+register("threat.level", "string", "Threat level as reported (high/med/low)")
+
+# --- Network (volume) --------------------------------------------------------
+register("network.bytes", "int", "Session / transfer byte count (e.g. sessionbytes)")
+
+# --- Log (lossless fallback) -------------------------------------------------
+register("log.original", "string", "Original raw log line (fallback, never dropped)")
+register("log.format", "string", "Detected input format (syslog/cef/json/raw/...)")
+
 
 def get_semantic_field(name: str) -> SemanticField | None:
     return SEMANTIC_FIELDS.get(name)

@@ -138,6 +138,9 @@ def extract_fields(parsed: dict, fmt: Format) -> dict:
     Parsers keep format-specific structure (e.g. syslog header vs. body, CEF header
     vs. extensions). This collapses each shape into a simple {field: value} map so
     that mappings reference stable source field names regardless of format.
+
+    Zero-loss rule: header fields (CEF/LEEF device info, syslog pri/hostname)
+    and freeform raw text are preserved — never silently dropped.
     """
     if fmt == Format.SYSLOG:
         out = dict(parsed.get("fields", {}))
@@ -145,18 +148,57 @@ def extract_fields(parsed: dict, fmt: Format) -> dict:
             out.setdefault("timestamp", parsed["timestamp"])
         if parsed.get("hostname"):
             out.setdefault("hostname", parsed["hostname"])
+        if parsed.get("pri") is not None:
+            out.setdefault("pri", parsed["pri"])
         return out
     if fmt == Format.JSON:
         return parsed if isinstance(parsed, dict) else {}
     if fmt == Format.CEF:
-        return dict(parsed.get("extensions", {}))
+        # Preserve the CEF header (vendor/product/version/signature/severity)
+        # alongside extensions — previously only extensions were returned,
+        # dropping device and signature identity.
+        out: dict = {}
+        cef = parsed.get("cef") or {}
+        for key in (
+            "version",
+            "device_vendor",
+            "device_product",
+            "device_version",
+            "signature_id",
+            "name",
+            "severity",
+        ):
+            if cef.get(key) is not None:
+                out.setdefault(key, cef[key])
+        out.update(dict(parsed.get("extensions", {})))
+        return out
     if fmt == Format.LEEF:
-        return dict(parsed.get("fields", {}))
+        out = {}
+        leef = parsed.get("leef") or {}
+        for key in (
+            "version",
+            "device_vendor",
+            "device_product",
+            "device_version",
+            "event_id",
+        ):
+            if leef.get(key) is not None:
+                out.setdefault(key, leef[key])
+        out.update(dict(parsed.get("fields", {})))
+        return out
     if fmt == Format.CSV:
         rows = parsed.get("rows") or []
         return dict(rows[0]) if rows else {}
     if fmt == Format.XML:
         return parsed if isinstance(parsed, dict) else {}
     if fmt == Format.RAW:
-        return dict(parsed.get("fields", {}))
+        fields = dict(parsed.get("fields", {}))
+        if fields:
+            return fields
+        # Freeform text has no key=value pairs: expose it as raw_text so it
+        # can be mapped to log.original instead of vanishing to {}.
+        text = parsed.get("text")
+        if isinstance(text, str) and text.strip():
+            return {"raw_text": text.strip()}
+        return {}
     return {}

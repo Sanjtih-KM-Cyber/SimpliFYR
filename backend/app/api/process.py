@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from pydantic import BaseModel
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
@@ -38,7 +39,9 @@ async def process_batch(
     else:
         raise HTTPException(status_code=422, detail="Provide either 'file' or 'raw'")
 
-    lines = [ln.strip() for ln in content.splitlines() if ln.strip()]
+    from app.core.batch_split import split_batch_content
+
+    lines = split_batch_content(content)
     if not lines:
         raise HTTPException(status_code=422, detail="No events found in payload")
     if len(lines) > MAX_BATCH:
@@ -153,3 +156,75 @@ def list_batches(
         db.execute(select(BatchRun).order_by(BatchRun.id.desc()).limit(limit)).scalars().all()
     )
     return [_run_to_response(r) for r in runs]
+
+
+class BatchGroupResponse(BaseModel):
+    key: str
+    format: str
+    fields: list[str]
+    count: int
+    held: int
+    rep_id: int | None
+    event_ids: list[int]
+    truncated: bool
+
+
+_GROUP_IDS_CAP = 10_000
+
+
+@router.get("/batches/{batch_id}/groups", response_model=list[BatchGroupResponse])
+def batch_groups(batch_id: int, db: Session = Depends(get_db)):
+    """Deduplicated log types inside one upload (one row per field-shape).
+
+    Held (quarantined/dlq) lines are included in their type group with the
+    lossless fallback — a type is a shape, not a status. `event_ids` pins
+    the exact set for per-type download (capped at 10k ids; larger groups
+    download via the whole-batch export instead).
+    """
+    from app.core.normalized_view import field_keys
+
+    run = db.get(BatchRun, batch_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    rows = (
+        db.execute(select(Event).where(Event.batch_id == batch_id).order_by(Event.id))
+        .scalars()
+        .all()
+    )
+    buckets: dict[tuple, dict] = {}
+    order: list[tuple] = []
+    for event in rows:
+        fmt = str(event.detected_format or "unknown").lower()
+        try:
+            fields = tuple(field_keys(event.parsed))
+        except Exception:
+            fields = ()
+        key = (fmt, fields)
+        bucket = buckets.get(key)
+        if bucket is None:
+            bucket = {"ids": [], "held": 0, "rep_id": None}
+            buckets[key] = bucket
+            order.append(key)
+        bucket["ids"].append(event.id)
+        if bucket["rep_id"] is None:
+            bucket["rep_id"] = event.id
+        if str(event.status) in ("quarantined", "dlq"):
+            bucket["held"] += 1
+    groups: list[BatchGroupResponse] = []
+    for fmt, fields in order:
+        bucket = buckets[(fmt, fields)]
+        ids = bucket["ids"]
+        truncated = len(ids) > _GROUP_IDS_CAP
+        groups.append(
+            BatchGroupResponse(
+                key=f"{fmt}::{','.join(fields)}",
+                format=fmt,
+                fields=list(fields),
+                count=len(ids),
+                held=bucket["held"],
+                rep_id=bucket["rep_id"],
+                event_ids=ids[:_GROUP_IDS_CAP],
+                truncated=truncated,
+            )
+        )
+    return groups

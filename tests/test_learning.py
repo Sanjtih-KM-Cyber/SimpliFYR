@@ -106,29 +106,35 @@ def test_correct_requires_semantic_fields(client):
     assert res.status_code == 422
 
 
-def test_ignore_resolves_without_mapping_change(client):
+def test_reject_resolves_without_mapping_change(client):
     source = _setup_source(client, "Ignore-E")
     _ingest(client, source, OLD_RAW)
     drift = _ingest_and_get_drift(client, source)
 
-    res = client.post(f"/api/v1/drift/{drift['id']}/ignore")
+    res = client.post(f"/api/v1/drift/{drift['id']}/reject")
     assert res.status_code == 200
     body = res.json()
-    assert body["status"] == "ignored"
+    assert body["status"] == "rejected"
     assert body["resolved_at"] is not None
 
     mappings = client.get("/api/v1/mappings").json()
     assert max((m["version"] for m in mappings if m["source"] == source), default=1) == 1
 
     audit = client.get("/api/v1/audit").json()
-    assert any(a["action"] == "ignore" and a["entity_type"] == "drift" for a in audit)
+    assert any(a["action"] == "reject" and a["entity_type"] == "drift" for a in audit)
 
 
-def test_ignore_conflicts_after_resolution(client):
+def test_reject_conflicts_after_resolution(client):
     source = _setup_source(client, "Ignore-F")
     drift = _ingest_and_get_drift(client, source)
     client.post(f"/api/v1/drift/{drift['id']}/approve")
-    assert client.post(f"/api/v1/drift/{drift['id']}/ignore").status_code == 409
+    assert client.post(f"/api/v1/drift/{drift['id']}/reject").status_code == 409
+
+
+def test_ignore_route_removed(client):
+    source = _setup_source(client, "Ignore-G")
+    drift = _ingest_and_get_drift(client, source)
+    assert client.post(f"/api/v1/drift/{drift['id']}/ignore").status_code in (404, 405)
 
 
 def test_auto_apply_high_confidence(client):

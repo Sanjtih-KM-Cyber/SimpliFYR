@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from datetime import datetime, timezone
 
 from sqlalchemy import select
@@ -72,11 +73,14 @@ def create_drift(
     and stays its own item.
     """
     new_set = set(new_fields)
+    # Merge key is (source, field-shape) — NOT the mapping version. Approving
+    # a drift publishes a new mapping version, and without this the same
+    # shape re-opens as a "new" duplicate request against the new version,
+    # asking the operator to review the identical thing again and again.
     open_records = (
         db.execute(
             select(DriftRecord).where(
                 DriftRecord.source == source,
-                DriftRecord.mapping_id == mapping_id,
                 DriftRecord.status.in_(_OPEN_DRIFT),
             )
         )
@@ -90,6 +94,8 @@ def create_drift(
                 ids.append(event_id)
             candidate.event_ids = ids[-_MAX_DRIFT_EVENT_IDS:]
             candidate.sample = sample[:4000]
+            # Re-point at the newest baseline so approve versions from it.
+            candidate.mapping_id = mapping_id
             db.commit()
             db.refresh(candidate)
             return candidate
@@ -120,8 +126,9 @@ def _create_versioned_mapping(
     ).scalars().all()
     new_version = (max(max_version) if max_version else 0) + 1
 
+    base_name = re.sub(r"\s+v\d+\s*$", "", baseline.name or "", flags=re.IGNORECASE).strip() or baseline.name
     new_mapping = MappingModel(
-        name=f"{baseline.name} v{new_version}",
+        name=f"{base_name} v{new_version}",
         source=baseline.source,
         event_family=baseline.event_family,
         status=MappingStatus.PUBLISHED,
@@ -159,9 +166,11 @@ def _create_versioned_mapping(
     db.commit()
     db.refresh(new_mapping)
     if baseline.source:
+        from app.core.field_memory import invalidate_memory
         from app.core.mapping_cache import invalidate_active_mapping
 
         invalidate_active_mapping(baseline.source)
+        invalidate_memory()
     return new_mapping
 
 
@@ -183,6 +192,47 @@ def _rebind_recipe_to_mapping(db: Session, source: str | None, mapping: MappingM
         invalidate_active_mapping(source)
 
 
+def collapse_duplicate_siblings(db: Session, keeper: DriftRecord) -> int:
+    """Fold exact-duplicate open requests into the one being approved.
+
+    Duplicates (same source + same new-field shape, opened against older
+    mapping versions before cross-version merging existed) would otherwise
+    keep asking the operator for the identical decision. Their event ids
+    join the keeper; they resolve as rejected-duplicate (visible, audited).
+    """
+    from datetime import datetime as _dt
+    from datetime import timezone as _tz
+
+    keeper_set = set(keeper.new_fields or [])
+    collapsed = 0
+    siblings = (
+        db.execute(
+            select(DriftRecord).where(
+                DriftRecord.source == keeper.source,
+                DriftRecord.id != keeper.id,
+                DriftRecord.status.in_(_OPEN_DRIFT),
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for sibling in siblings:
+        if set(sibling.new_fields or []) != keeper_set:
+            continue
+        keeper_ids = list(keeper.event_ids or [])
+        for event_id in sibling.event_ids or []:
+            if event_id not in keeper_ids:
+                keeper_ids.append(event_id)
+        keeper.event_ids = keeper_ids[-_MAX_DRIFT_EVENT_IDS:]
+        sibling.status = "rejected"
+        sibling.resolved_at = _dt.now(_tz.utc)
+        collapsed += 1
+    if collapsed:
+        db.commit()
+        db.refresh(keeper)
+    return collapsed
+
+
 def apply_drift(db: Session, drift: DriftRecord, proposal: AIDriftProposal) -> MappingModel:
     """Publish a new mapping version from an AI proposal and reprocess quarantined events."""
     baseline = db.get(MappingModel, drift.mapping_id)
@@ -190,6 +240,7 @@ def apply_drift(db: Session, drift: DriftRecord, proposal: AIDriftProposal) -> M
         raise ValueError("Baseline mapping not found")
     new_mapping = _create_versioned_mapping(db, baseline, proposal.new_field_suggestions)
     _rebind_recipe_to_mapping(db, baseline.source, new_mapping)
+    collapse_duplicate_siblings(db, drift)
     return new_mapping
 
 
@@ -214,6 +265,7 @@ def apply_corrections(
         ],
     )
     _rebind_recipe_to_mapping(db, baseline.source, new_mapping)
+    collapse_duplicate_siblings(db, drift)
     return new_mapping
 
 
@@ -251,6 +303,7 @@ def _analyze_and_decide(db: Session, drift: DriftRecord) -> str:
     from app.core.ai.provider import analyze_drift_safe
 
     proposal = analyze_drift_safe(
+        db,
         source=drift.source,
         new_fields=set(drift.new_fields),
         missing_fields=set(drift.missing_fields),

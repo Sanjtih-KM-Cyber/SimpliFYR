@@ -7,7 +7,21 @@ from app.core.ai.base import AIDriftProposal, FieldSuggestion
 
 # Ordered (keyword, semantic_field) rules. More specific tokens come first so that
 # e.g. "srcport" is matched to source.port before the broader "src" -> source.ip.
+# NOTE: "sessionbytes" must precede "session" (otherwise it mis-maps to
+# identity.session_id), and "ruleid"/"threatlvl" must precede generic
+# "rule"/"threat" tokens.
 KEYWORD_RULES = [
+    ("ruleid", "rule.id"),
+    ("rule_id", "rule.id"),
+    ("signature_id", "rule.id"),
+    ("signatureid", "rule.id"),
+    ("rulename", "rule.name"),
+    ("rule_name", "rule.name"),
+    ("threatlvl", "threat.level"),
+    ("threat_level", "threat.level"),
+    ("threatlevel", "threat.level"),
+    ("sessionbytes", "network.bytes"),
+    ("session_bytes", "network.bytes"),
     ("srcip", "source.ip"),
     ("sourceip", "source.ip"),
     ("sourceaddress", "source.ip"),
@@ -36,8 +50,18 @@ KEYWORD_RULES = [
     ("user", "identity.user"),
     ("sessionid", "identity.session_id"),
     ("session", "identity.session_id"),
+    ("bytes", "network.bytes"),
+    ("observerhostname", "observer.hostname"),
+    ("devicehostname", "device.hostname"),
+    ("devicevendor", "device.vendor"),
+    ("deviceproduct", "device.product"),
+    ("deviceversion", "device.version"),
     ("hostname", "source.hostname"),
     ("host", "source.hostname"),
+    ("raw_text", "log.original"),
+    ("rawtext", "log.original"),
+    ("timestamp", "event.timestamp"),
+    ("eventtime", "event.timestamp"),
     ("severity", "event.severity"),
     ("sev", "event.severity"),
     ("outcome", "event.outcome"),

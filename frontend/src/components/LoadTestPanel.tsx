@@ -127,6 +127,14 @@ export function LoadTestPanel() {
     }
   }
 
+  function onFile(file: File | undefined) {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setBatch(String(reader.result ?? ''))
+    reader.onerror = () => setError('Could not read file')
+    reader.readAsText(file)
+  }
+
   async function downloadSet() {
     if (!result) return
     // Prefer the server-side batch pin: uncapped and complete (every member
@@ -246,13 +254,19 @@ export function LoadTestPanel() {
             triggerClassName="flex-1"
           />
         </div>
-        <button
-          onClick={runLoadTest}
-          disabled={busy}
-          className="btn-primary w-full sm:w-auto"
-        >
-          {busy ? <Spinner size="sm" label="Running…" /> : 'Run trial'}
-        </button>
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <label className="btn-text cursor-pointer px-3.5 py-2.5 text-label-sm">
+            Drop a file…
+            <input type="file" className="hidden" onChange={(e) => onFile(e.target.files?.[0])} />
+          </label>
+          <button
+            onClick={runLoadTest}
+            disabled={busy}
+            className="btn-primary flex-1 sm:flex-none"
+          >
+            {busy ? <Spinner size="sm" label="Running…" /> : 'Run trial'}
+          </button>
+        </div>
       </div>
       {chosen && (
         <p className="mt-2 text-body-sm text-on-surface-variant">

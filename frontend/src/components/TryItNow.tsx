@@ -7,8 +7,9 @@ import {
   listMappings,
   listOutputProfiles,
   listRecipes,
+  processBatch,
 } from '../api/client'
-import type { IngestResponse, Recipe } from '../api/types'
+import type { BatchResult, IngestResponse, Recipe } from '../api/types'
 import { Arrow } from './Arrow'
 import { Code } from './Code'
 import { ErrorBanner, StatusBadge } from './Status'
@@ -28,7 +29,43 @@ export function TryItNow({ sourceName }: { sourceName: string }) {
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<IngestResponse | null>(null)
+  const [batchResult, setBatchResult] = useState<BatchResult | null>(null)
   const { toast } = useToast()
+
+  const FORMAT_TITLES: Record<string, string> = {
+    syslog: 'Key-Value Syslog Logs',
+    cef: 'Common Event Format (CEF) Logs',
+    leef: 'LEEF Logs',
+    json: 'JSON Formatted Logs',
+    xml: 'XML Logs',
+    csv: 'CSV Logs',
+    raw: 'Unstructured / Unparsed Raw Logs',
+    unknown: 'Unknown Format Logs',
+  }
+
+  function formatTitle(fmt: string): string {
+    const key = (fmt || 'unknown').toLowerCase()
+    return FORMAT_TITLES[key] ?? `${key.toUpperCase()} Logs`
+  }
+
+  function batchGroups(res: BatchResult): { key: string; title: string; count: number }[] {
+    const counts = new Map<string, number>()
+    for (const r of res.results ?? []) {
+      const key = (r.detected_format || 'unknown').toLowerCase()
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+    const order = ['syslog', 'cef', 'leef', 'json', 'xml', 'csv', 'raw', 'unknown']
+    return [...counts.entries()]
+      .sort(([a], [b]) => {
+        const ai = order.indexOf(a)
+        const bi = order.indexOf(b)
+        if (ai !== -1 && bi !== -1) return ai - bi
+        if (ai !== -1) return -1
+        if (bi !== -1) return 1
+        return a.localeCompare(b)
+      })
+      .map(([key, count], i) => ({ key, title: `## ${i + 1}. ${formatTitle(key)}`, count }))
+  }
 
   const binding: Recipe | null =
     (bindings.data ?? []).find((r) => r.source === sourceName) ?? null
@@ -83,14 +120,33 @@ export function TryItNow({ sourceName }: { sourceName: string }) {
     setBusy(true)
     setError(null)
     setResult(null)
+    setBatchResult(null)
     try {
-      setResult(
-        await ingest({
+      const nonEmpty = raw.split('\n').filter((ln) => ln.trim().length > 0)
+      if (nonEmpty.length > 1) {
+        // Multi-line input: one log per line, each with its own format.
+        // A single /ingest call would detect+parse the whole blob as one
+        // event and drop lines — route through the batch pipeline so
+        // syslog/CEF/JSON/raw lines each survive with their own format.
+        const res = await processBatch({
           raw,
           source: sourceName,
-          outputProfileId: profileId ? Number(profileId) : undefined,
-        }),
-      )
+          ...(profileId ? { outputProfileId: Number(profileId) } : {}),
+        })
+        setBatchResult(res)
+        toast(
+          `Processed ${res.processed}/${res.total} lines (${res.normalized + res.output} normalized, ${res.quarantined} held, ${res.dlq} dlq)`,
+          res.quarantined + res.dlq > 0 ? 'info' : 'success',
+        )
+      } else {
+        setResult(
+          await ingest({
+            raw,
+            source: sourceName,
+            outputProfileId: profileId ? Number(profileId) : undefined,
+          }),
+        )
+      }
     } catch (e) {
       const msg = (e as Error).message
       setError(msg)
@@ -128,6 +184,24 @@ export function TryItNow({ sourceName }: { sourceName: string }) {
     try {
       const res = await exportLogs({ format: 'json', status: 'normalized,output' })
       toast(`Downloaded all ${res.total} logs (${res.normalized} normalized)`, 'success')
+    } catch (e) {
+      toast((e as Error).message, 'error')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  async function downloadBatchSet(segregated: boolean) {
+    if (!batchResult?.batch_id) return
+    setDownloading(true)
+    try {
+      if (segregated) {
+        const res = await exportLogs({ format: 'markdown', batch_id: batchResult.batch_id })
+        toast(`Downloaded segregated set (${res.total} logs, by format)`, 'success')
+      } else {
+        const res = await exportLogs({ format: 'json', batch_id: batchResult.batch_id, payload: 'output' })
+        toast(`Downloaded this run's ${res.total} logs (${res.normalized} normalized)`, 'success')
+      }
     } catch (e) {
       toast((e as Error).message, 'error')
     } finally {
@@ -222,6 +296,47 @@ export function TryItNow({ sourceName }: { sourceName: string }) {
             <span className="text-on-surface-variant">event #{result.stored_event_id}</span>
           </div>
           <Code value={result.output ?? result.normalized} truncate maxLines={15} />
+        </div>
+      )}
+      {batchResult && (
+        <div className="surface-inset rounded-xl p-3.5 text-body-sm text-on-surface">
+          <p>
+            Processed <span className="font-semibold">{batchResult.processed}/{batchResult.total}</span> lines
+            ({batchResult.normalized} normalized · {batchResult.output} output · {batchResult.quarantined} held · {batchResult.dlq} dlq)
+            {batchResult.batch_id != null && (
+              <span className="text-on-surface-variant"> — batch <span className="font-mono font-semibold text-primary">#{batchResult.batch_id}</span></span>
+            )}
+          </p>
+          <div className="mt-3 space-y-1.5">
+            {batchGroups(batchResult).map((g) => (
+              <p key={g.key} className="font-mono text-mono-sm">
+                <span className="font-semibold text-on-surface">{g.title}</span>
+                <span className="text-on-surface-variant"> — {g.count} line{g.count === 1 ? '' : 's'} ({g.key})</span>
+              </p>
+            ))}
+          </div>
+          {batchResult.quarantined + batchResult.dlq > 0 && (
+            <p className="mt-2 text-warning">
+              Held lines are preserved (never dropped) — open Review Queue to approve their fields (e.g. ruleid → rule.id, threatlvl → threat.level, sessionbytes → network.bytes), or download the segregated set below.
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              onClick={() => downloadBatchSet(false)}
+              disabled={downloading || batchResult.batch_id == null}
+              className="btn-outlined text-label-sm"
+            >
+              {downloading ? <Spinner size="sm" label="Bundling…" /> : 'Download this run (JSON)'}
+            </button>
+            <button
+              onClick={() => downloadBatchSet(true)}
+              disabled={downloading || batchResult.batch_id == null}
+              title="Grouped under ## headings per detected format, nested event/observer/source/destination/network/rule/log JSON, raw fallback for held lines"
+              className="btn-outlined text-label-sm"
+            >
+              {downloading ? <Spinner size="sm" label="Bundling…" /> : 'Download segregated (Markdown)'}
+            </button>
+          </div>
         </div>
       )}
     </section>

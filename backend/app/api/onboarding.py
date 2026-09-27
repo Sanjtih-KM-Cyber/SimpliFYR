@@ -21,6 +21,9 @@ from app.schemas.onboarding import (
     OnboardingApproveResponse,
     OnboardingCreate,
     OnboardingResponse,
+    OnboardingShape,
+    OnboardingShapesRequest,
+    OnboardingShapesResponse,
     OnboardingSuggestion,
 )
 from simplifyr_parsers import detect_format, extract_fields, parse
@@ -120,7 +123,7 @@ def analyze_onboarding_by_id(onboarding_id: int, db: Session = Depends(get_db)):
 
         src = db.get(Source, onboarding.source_id)
         source_name = src.name if src else None
-    proposal = propose_mapping_safe(source=source_name, field_map=field_map, sample=raw)
+    proposal = propose_mapping_safe(db, source=source_name, field_map=field_map, sample=raw)
 
     from app.core.training import suggestion_dicts
 
@@ -185,7 +188,7 @@ def approve_onboarding(
         if parsed is None:
             raise HTTPException(status_code=422, detail="Could not parse the sample")
         proposal = propose_mapping_safe(
-            source=source_name, field_map=extract_fields(parsed, detection.format), sample=raw
+            db, source=source_name, field_map=extract_fields(parsed, detection.format), sample=raw
         )
         fields = [(s.input_field, s.semantic_field) for s in proposal.new_field_suggestions if s.semantic_field]
     if not fields:
@@ -231,13 +234,87 @@ def approve_onboarding(
 
     invalidate_active_mapping(source.name)
 
+    # Publish releases the waiting room: quarantined rows already held for
+    # this source reprocess through the just-published mapping, so a
+    # multi-shape publish drains every shape it covers instead of parking them.
+    from app.core.drift import reprocess_quarantined
+
+    reprocessed = reprocess_quarantined(db, source.name)
+
     return OnboardingApproveResponse(
         onboarding_id=onboarding.id,
         source_id=source.id,
         mapping_id=mapping.id,
         mapping_version=mapping.version,
         recipe_id=recipe.id,
+        reprocessed_events=reprocessed,
     )
+
+
+@router.post("/shapes", response_model=OnboardingShapesResponse)
+def analyze_shapes(payload: OnboardingShapesRequest, db: Session = Depends(get_db)):
+    """Split a pasted sample into its shapes (one entry per field-shape).
+
+    The wizard maps ONE shape today (first line only), which is why the
+    remaining shapes park as leftovers after publish. Shapes share the
+    batch splitter + field-key logic with the pipeline and batch groups,
+    so wizard, pipeline, and downloads agree on what a "shape" is.
+    """
+    from app.core.batch_split import split_batch_content
+    from app.core.normalized_view import field_keys
+
+    raw = _check_sample(payload.raw)
+    pieces = split_batch_content(raw)
+    if not pieces:
+        raise HTTPException(status_code=422, detail="No events found in sample")
+
+    buckets: dict[tuple, dict] = {}
+    order: list[tuple] = []
+    for piece in pieces:
+        detection = detect_format(piece)
+        try:
+            parsed = parse(detection.format, piece)
+        except Exception:
+            parsed = None
+        try:
+            fields = tuple(field_keys(parsed)) if isinstance(parsed, dict) else ()
+        except Exception:
+            fields = ()
+        key = (str(getattr(detection.format, "value", detection.format)), fields)
+        bucket = buckets.get(key)
+        if bucket is None:
+            bucket = {"count": 0, "sample": piece[:2000]}
+            buckets[key] = bucket
+            order.append(key)
+        bucket["count"] += 1
+
+    source_name = (payload.source_name or "").strip() or None
+    shapes: list[OnboardingShape] = []
+    for fmt, fields in order:
+        bucket = buckets[(fmt, fields)]
+        field_map = {name: True for name in fields}
+        proposal = propose_mapping_safe(
+            db, source=source_name, field_map=field_map, sample=bucket["sample"]
+        )
+        shapes.append(
+            OnboardingShape(
+                key=f"{fmt}::{','.join(fields)}",
+                format=fmt,  # type: ignore[arg-type]
+                count=bucket["count"],
+                fields=list(fields),
+                sample=bucket["sample"],
+                suggestions=[
+                    OnboardingSuggestion(
+                        input_field=s.input_field,
+                        semantic_field=s.semantic_field,
+                        confidence=s.confidence,
+                        reason=s.reason,
+                    )
+                    for s in proposal.new_field_suggestions
+                ],
+            )
+        )
+    return OnboardingShapesResponse(source=source_name, shapes=shapes)
 
 
 @router.post("/analyze", response_model=OnboardingAnalyzeResponse)
@@ -269,7 +346,7 @@ def analyze_onboarding(
 
     field_map = extract_fields(parsed, detection.format)
     proposal = propose_mapping_safe(
-        source=source, field_map=field_map, sample=raw
+        db, source=source, field_map=field_map, sample=raw
     )
 
     return OnboardingAnalyzeResponse(

@@ -58,3 +58,22 @@ class OnboardingApproveResponse(BaseModel):
     mapping_version: int
     recipe_id: int
     reprocessed_events: int = 0
+
+
+class OnboardingShapesRequest(BaseModel):
+    raw: str
+    source_name: str | None = None
+
+
+class OnboardingShape(BaseModel):
+    key: str
+    format: Format
+    count: int
+    fields: list[str]
+    sample: str
+    suggestions: list[OnboardingSuggestion]
+
+
+class OnboardingShapesResponse(BaseModel):
+    source: str | None
+    shapes: list[OnboardingShape]

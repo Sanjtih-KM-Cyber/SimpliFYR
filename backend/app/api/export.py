@@ -18,13 +18,15 @@ from app.models import BatchRun, Event, EventStatus, Mapping
 
 router = APIRouter(prefix="/export", tags=["export"])
 
-FORMATS = ("json", "ndjson", "csv")
+FORMATS = ("json", "ndjson", "csv", "markdown", "md")
 SHAPES = ("full", "normalized")
 PAYLOADS = ("normalized", "output")
 _MEDIA_TYPES = {
     "json": "application/json",
     "ndjson": "application/x-ndjson",
     "csv": "text/csv",
+    "markdown": "text/markdown",
+    "md": "text/markdown",
 }
 
 
@@ -175,6 +177,7 @@ def _event_record(event: Event) -> dict:
         "received_at": as_utc_iso(event.received_at),
         "source": event.source,
         "batch_id": event.batch_id,
+        "detected_format": event.detected_format,
         "raw": event.raw,
         "parsed": event.parsed,
         "normalized": event.normalized,
@@ -206,6 +209,7 @@ def _slim_record(record: dict, payload: str = "normalized") -> dict:
             "status": record["status"],
             "received_at": record["received_at"],
             "batch_id": record.get("batch_id"),
+            "detected_format": record.get("detected_format"),
             "output": rendered,
         }
     return {
@@ -215,6 +219,7 @@ def _slim_record(record: dict, payload: str = "normalized") -> dict:
         "status": record["status"],
         "received_at": record["received_at"],
         "batch_id": record.get("batch_id"),
+        "detected_format": record.get("detected_format"),
         "normalized": record.get("normalized"),
     }
 
@@ -227,6 +232,73 @@ def _numbered(records: Iterator[dict]) -> Iterator[dict]:
     """
     for seq, record in enumerate(records):
         yield {"seq": seq, **record}
+
+
+def _get_path(data: dict, path: str):
+    value = data
+    for part in path.split("."):
+        if not isinstance(value, dict) or part not in value:
+            return None
+        value = value[part]
+    return value
+
+
+def _set_path(target: dict, path: str, value) -> None:
+    parts = path.split(".")
+    node = target
+    for part in parts[:-1]:
+        nxt = node.get(part)
+        if not isinstance(nxt, dict):
+            nxt = {}
+            node[part] = nxt
+        node = nxt
+    node[parts[-1]] = value
+
+
+def _render_against_version(record: dict, pkg_mapping) -> dict:
+    """Re-render one record's normalized payload against a mapping version.
+
+    Uses the stored parsed payload + detected format, so the schema comes
+    from the chosen version while the data stays the event's own. Semantic
+    slots the event cannot fill are set to None explicitly (stable schema:
+    missing scheme => null, never a dropped key).
+    """
+    from simplifyr_mappings import apply_mapping_with_provenance
+    from simplifyr_parsers import Format, extract_fields
+
+    parsed = record.get("parsed")
+    fmt_key = str(record.get("detected_format") or "unknown").lower()
+    try:
+        fmt = Format(fmt_key)
+    except ValueError:
+        fmt = Format.UNKNOWN
+    try:
+        field_map = extract_fields(parsed, fmt) if isinstance(parsed, dict) else {}
+    except Exception:
+        field_map = {}
+    try:
+        result = apply_mapping_with_provenance(field_map, pkg_mapping)
+        normalized = dict(result.get("normalized") or {})
+    except Exception:
+        normalized = {}
+    for fm in getattr(pkg_mapping, "fields", []) or []:
+        if _get_path(normalized, fm.semantic_field) is None:
+            _set_path(normalized, fm.semantic_field, None)
+    return normalized
+
+
+def _render_against_profile(normalized: dict, pkg_profile) -> dict:
+    """Render normalized through an output profile, null-filling gaps."""
+    from output_profiles import apply_output_profile
+
+    try:
+        rendered = dict(apply_output_profile(normalized or {}, pkg_profile) or {})
+    except Exception:
+        rendered = {}
+    for field in getattr(pkg_profile, "fields", []) or []:
+        if _get_path(rendered, field.output_field) is None:
+            _set_path(rendered, field.output_field, None)
+    return rendered
 
 
 def _mapping_name_for_source(db: Session, source: str | None) -> str | None:
@@ -286,10 +358,18 @@ def export_events(
     batch_id: int | None = Query(default=None, description="Batch run id: export exactly this run"),
     limit: int | None = Query(default=None, ge=1),
     ids: str | None = Query(default=None, description="Comma-separated event row ids: export exactly this set"),
+    mapping_id: int | None = Query(
+        default=None,
+        description="Mapping version id: re-render every row against this version's schema (missing scheme => null). Omit for stored payloads (latest).",
+    ),
+    output_profile_id: int | None = Query(
+        default=None,
+        description="Output profile id (SIEM/SOC/…): render every row through this profile (missing fields => null). Omit for stored payloads.",
+    ),
     environment: str = Depends(get_environment),
     db: Session = Depends(get_db),
 ):
-    """Download processed logs as a file (json, ndjson, or csv).
+    """Download processed logs as a file (json, ndjson, csv, or markdown).
 
     Default `shape=normalized` returns the slim row: traceability
     (id/event_id/source/status/received_at/batch/mapping) plus the mapped
@@ -297,11 +377,19 @@ def export_events(
     payload to the selected/bound output-profile result (`output`, falling
     back to `normalized` where no profile applied) without changing which
     rows ship. `shape=full` keeps the legacy diagnostic row
-    (raw/parsed/output) for debugging. `limit`
+    (raw/parsed/output) for debugging. `format=markdown` segregates the set
+    under `## N. <Format> Logs` headings with nested JSON
+    (event/observer/source/destination/network/rule/log) per event, wrapping
+    unparsed/quarantined rows in a lossless `log.original` fallback so no
+    line is ever dropped. `limit`
     omitted = the whole matching set, uncapped. Counts travel in the
     filename, the JSON meta block, and X-Export-* headers. `ids` pins the
     export to an explicit set (e.g. one trial run's rows); `batch_id` pins
     it to one batch run (e.g. the batch index the user clicked).
+    `mapping_id` re-renders rows against one mapping version (Logs-only
+    version picker; default = stored latest, missing scheme => null).
+    `output_profile_id` renders rows through one output profile
+    (SIEM/SOC/…; missing fields => null).
     """
     fmt = format.strip().lower()
     if fmt not in FORMATS:
@@ -332,6 +420,32 @@ def export_events(
         if len(wanted) > 10_000:
             raise HTTPException(status_code=422, detail="ids set too large (max 10000)")
 
+    from app.models import Mapping as MappingModel
+    from app.models import OutputProfile
+
+    pkg_mapping = None
+    version_label: str | None = None
+    if mapping_id is not None:
+        mapping_row = db.get(MappingModel, mapping_id)
+        if mapping_row is None:
+            raise HTTPException(status_code=404, detail="Mapping not found")
+        from app.core.converters import to_package_mapping
+
+        pkg_mapping = to_package_mapping(mapping_row)
+        version_label = f"{mapping_row.name} v{mapping_row.version}"
+    pkg_profile = None
+    profile_label: str | None = None
+    if output_profile_id is not None:
+        profile_row = db.get(OutputProfile, output_profile_id)
+        if profile_row is None:
+            raise HTTPException(status_code=404, detail="Output profile not found")
+        from app.core.converters import to_package_profile
+
+        pkg_profile = to_package_profile(profile_row)
+        profile_label = profile_row.name
+        # A chosen profile means output rendering.
+        payload_key = "output"
+
     total, normalized_count = _count_matching(
         db, environment, statuses, source, batch_id, wanted, limit
     )
@@ -350,22 +464,68 @@ def export_events(
         "source": source,
         "batch_id": batch_id,
         "mapping": mapping_name,
+        "mapping_version": version_label,
+        "mapping_id": mapping_id,
+        "output_profile": profile_label,
+        "output_profile_id": output_profile_id,
         "statuses": [str(s) for s in statuses],
     }
 
+    def _rerender(record: dict) -> dict:
+        # Version/profile re-render (Logs-only pickers). Stored rows keep
+        # their ingested payloads; only an explicit picker rerenders.
+        if pkg_mapping is None and pkg_profile is None:
+            return record
+        out = dict(record)
+        base = out.get("normalized")
+        if pkg_mapping is not None:
+            base = _render_against_version(out, pkg_mapping)
+            out["normalized"] = base
+        if pkg_profile is not None:
+            out["output"] = _render_against_profile(
+                base if isinstance(base, dict) else (out.get("normalized") or {}),
+                pkg_profile,
+            )
+        return out
+
     def generate() -> Iterator[str]:
-        records = _iter_record_dicts(environment, statuses, source, batch_id, limit, wanted)
+        records = (_rerender(r) for r in _iter_record_dicts(environment, statuses, source, batch_id, limit, wanted))
+        if fmt in ("markdown", "md"):
+            from app.core.normalized_view import nested_view, render_markdown_sections
+
+            # Markdown is always lossless: normalized when present, otherwise
+            # a nested fallback built from raw/parsed/detected_format.
+            materialized = list(records)
+            if slim:
+                # Keep traceability + detected_format for headings.
+                slimmed = [_slim_record(r, payload_key) for r in materialized]
+                for full, slim_row in zip(materialized, slimmed):
+                    slim_row["raw"] = full.get("raw")
+                    slim_row["parsed"] = full.get("parsed")
+                    payload_val = slim_row.get(payload_key)
+                    if payload_val is None:
+                        slim_row["normalized"] = nested_view(full)
+                        slim_row["output"] = full.get("output")
+                    else:
+                        slim_row["normalized"] = payload_val
+                materialized = slimmed
+            else:
+                for row in materialized:
+                    row["nested"] = nested_view(row)
+            label = f"Simplifyr export — {scope} ({total} events)"
+            yield render_markdown_sections(materialized, scope_label=label)
+            return
         if slim:
             records = _numbered(_slim_record(r, payload_key) for r in records)
         if fmt == "json":
-            yield '{"meta": ' + json.dumps(meta) + ', "events": ['
+            yield '{\n"meta": ' + json.dumps(meta, indent=2) + ',\n"events": [\n'
             first = True
             for record in records:
                 if not first:
-                    yield ","
+                    yield ",\n"
                 first = False
-                yield json.dumps(record)
-            yield "]}"
+                yield json.dumps(record, indent=2)
+            yield "\n]\n}"
         elif fmt == "ndjson":
             for record in records:
                 yield json.dumps(record) + "\n"

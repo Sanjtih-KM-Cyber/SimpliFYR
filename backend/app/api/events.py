@@ -135,6 +135,87 @@ def search_events(
     return [_to_summary(e) for e in rows]
 
 
+class EventGroupResponse(BaseModel):
+    key: str
+    format: str
+    source: str | None
+    fields: list[str]
+    count: int
+    rep_id: int | None
+    event_ids: list[int]
+    truncated: bool
+
+
+_GROUP_IDS_CAP = 10_000
+_GROUP_SCAN_CHUNK = 2000
+
+
+@router.get("/groups", response_model=list[EventGroupResponse])
+def event_groups(
+    status: EventStatus = EventStatus.QUARANTINED,
+    source: str | None = None,
+    environment: str = Depends(get_environment),
+    db: Session = Depends(get_db),
+):
+    """Quarantine groups by exact field-shape (format + source + field set).
+
+    The inspection "approve all" acts per shape: grouping any coarser (e.g.
+    format + source) mixes shapes, so one approval only peels one shape and
+    the operator is asked again. Shape-exact groups resolve completely in
+    one approval. Held lines are never hidden — every row belongs to a
+    group. Counts are exact (chunked scan); `event_ids` caps at 10k per
+    group for approve/purge calls (larger groups repeat the action).
+    """
+    from app.core.normalized_view import field_keys
+
+    stmt = select(Event).where(Event.environment == environment, Event.status == status)
+    if source:
+        stmt = stmt.where(Event.source == source)
+    stmt = stmt.order_by(Event.id.desc())
+
+    buckets: dict[tuple, dict] = {}
+    order: list[tuple] = []
+    offset = 0
+    while True:
+        rows = db.execute(stmt.limit(_GROUP_SCAN_CHUNK).offset(offset)).scalars().all()
+        if not rows:
+            break
+        for event in rows:
+            fmt = str(event.detected_format or "unknown").lower()
+            try:
+                fields = tuple(field_keys(event.parsed))
+            except Exception:
+                fields = ()
+            key = (fmt, event.source, fields)
+            bucket = buckets.get(key)
+            if bucket is None:
+                bucket = {"ids": [], "rep_id": None, "count": 0}
+                buckets[key] = bucket
+                order.append(key)
+            if len(bucket["ids"]) < _GROUP_IDS_CAP:
+                bucket["ids"].append(event.id)
+            if bucket["rep_id"] is None:
+                bucket["rep_id"] = event.id
+            bucket["count"] += 1
+        if len(rows) < _GROUP_SCAN_CHUNK:
+            break
+        offset += len(rows)
+
+    return [
+        EventGroupResponse(
+            key=f"{fmt}::{src or ''}::{','.join(fields)}",
+            format=fmt,
+            source=src,
+            fields=list(fields),
+            count=buckets[(fmt, src, fields)]["count"],
+            rep_id=buckets[(fmt, src, fields)]["rep_id"],
+            event_ids=buckets[(fmt, src, fields)]["ids"],
+            truncated=buckets[(fmt, src, fields)]["count"] > len(buckets[(fmt, src, fields)]["ids"]),
+        )
+        for fmt, src, fields in order
+    ]
+
+
 @router.get("/{event_id}", response_model=EventDetail)
 def get_event(event_id: int, db: Session = Depends(get_db)):
     event = db.get(Event, event_id)
@@ -238,7 +319,7 @@ def suggest_event_mapping(event_id: int, db: Session = Depends(get_db)):
     field_map, source = _event_field_map(event)
     if not field_map:
         raise HTTPException(status_code=422, detail="No mappable fields in this event")
-    proposal = propose_mapping_safe(source=source, field_map=field_map, sample=_load_raw(event))
+    proposal = propose_mapping_safe(db, source=source, field_map=field_map, sample=_load_raw(event))
     return [
         EventSuggestion(
             input_field=s.input_field,
@@ -274,7 +355,7 @@ def onboard_event(event_id: int, payload: EventOnboardRequest, db: Session = Dep
         field_map, _ = _event_field_map(event)
         if not field_map:
             raise HTTPException(status_code=422, detail="No mappable fields in this event")
-        proposal = propose_mapping_safe(source=connection_name or None, field_map=field_map, sample=_load_raw(event))
+        proposal = propose_mapping_safe(db, source=connection_name or None, field_map=field_map, sample=_load_raw(event))
         fields = [(s.input_field, s.semantic_field) for s in proposal.new_field_suggestions if s.semantic_field]
     if not fields:
         raise HTTPException(status_code=422, detail="No mappable fields found; provide fields explicitly")

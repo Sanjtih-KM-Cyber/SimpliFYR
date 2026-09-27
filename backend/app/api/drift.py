@@ -224,6 +224,7 @@ def approve_drift(drift_id: int, db: Session = Depends(get_db)):
         from app.core.ai.provider import analyze_drift_safe
 
         proposal = analyze_drift_safe(
+            db,
             source=drift.source,
             new_fields=set(drift.new_fields),
             missing_fields=set(drift.missing_fields),
@@ -373,21 +374,3 @@ def correct_drift(drift_id: int, payload: CorrectPayload, db: Session = Depends(
         new_mapping_version=new_mapping.version,
         reprocessed_events=reprocessed,
     )
-
-
-@router.post("/{drift_id}/ignore", response_model=DriftDetail)
-def ignore_drift(drift_id: int, db: Session = Depends(get_db)):
-    """Ignore a drift: no mapping change, the record is resolved as noise."""
-    drift = _get_drift(db, drift_id)
-    if drift.status in ("approved", "rejected", "ignored"):
-        raise HTTPException(status_code=409, detail=f"Drift already {drift.status}")
-    drift.status = "ignored"
-    drift.resolved_at = datetime.now(timezone.utc)
-    db.commit()
-    _record_approval(db, drift.id, ApprovalStatus.REJECTED, "ignored as noise")
-    log_action(
-        db, action="ignore", entity_type="drift", entity_id=drift.id, after={"status": "ignored"}
-    )
-    db.commit()
-    db.refresh(drift)
-    return _to_detail(drift)

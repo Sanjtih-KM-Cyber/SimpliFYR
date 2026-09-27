@@ -98,7 +98,7 @@ export default function ConnectionOverview() {
               ))}
             </div>
             <Link
-              to="/needs-review"
+              to={`/connections/${encodeURIComponent(c.name)}/logs?tab=review`}
               className="mt-4 block surface-inset rounded-xl py-2 text-center text-label-sm font-bold uppercase tracking-wider text-warning transition-colors hover:bg-warning-container/10 hover:underline"
             >
               Analyze Queue

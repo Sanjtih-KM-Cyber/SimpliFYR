@@ -329,7 +329,7 @@ function DropdownMenu<T>({
         fixed
         z-50
         glass-flyout
-        overflow-auto
+        overflow-hidden
         rounded-2xl
         border border-glass-strong
         p-1.5

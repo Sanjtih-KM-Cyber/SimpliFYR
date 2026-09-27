@@ -74,11 +74,14 @@ const FIELD_GROUPS: Record<string, string[]> = {
   Event: ['event.timestamp', 'event.type', 'event.severity', 'event.outcome'],
   Source: ['source.ip', 'source.port', 'source.hostname', 'source.user', 'source.mac'],
   Destination: ['destination.ip', 'destination.port', 'destination.hostname'],
-  Network: ['network.protocol', 'network.action', 'network.transport'],
+  Network: ['network.protocol', 'network.action', 'network.transport', 'network.bytes'],
   Identity: ['identity.user', 'identity.session_id'],
   Device: ['device.hostname', 'device.product', 'device.vendor', 'device.version'],
-  Threat: ['threat.signature', 'threat.category', 'threat.severity'],
+  Observer: ['observer.hostname'],
+  Rule: ['rule.id', 'rule.name'],
+  Threat: ['threat.signature', 'threat.category', 'threat.severity', 'threat.level'],
   Authentication: ['authentication.result', 'authentication.reason'],
+  Log: ['log.original', 'log.format'],
 }
 
 export function SemanticFieldInput({

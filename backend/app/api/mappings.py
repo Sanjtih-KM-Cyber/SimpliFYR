@@ -157,9 +157,11 @@ def update_mapping_status(
     mapping.status = payload.status
     db.commit()
     if mapping.source and payload.status == MappingStatus.PUBLISHED:
+        from app.core.field_memory import invalidate_memory
         from app.core.mapping_cache import invalidate_active_mapping
 
         invalidate_active_mapping(mapping.source)
+        invalidate_memory()
     log_action(
         db,
         action="update_status",
@@ -225,6 +227,12 @@ def delete_mapping(mapping_id: int, db: Session = Depends(get_db)):
         drift.mapping_id = None
     db.delete(mapping)  # fields cascade via delete-orphan
     db.commit()
+    if mapping.source:
+        from app.core.field_memory import invalidate_memory
+        from app.core.mapping_cache import invalidate_active_mapping
+
+        invalidate_active_mapping(mapping.source)
+        invalidate_memory()
     log_action(
         db,
         action="delete",

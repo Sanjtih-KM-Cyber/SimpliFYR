@@ -299,7 +299,12 @@ def delete_connection(
     if not names and not has_events and not has_mappings:
         raise HTTPException(status_code=404, detail="Connection not found")
 
-    counts: dict[str, int] = {"events": 0, "mappings": 0, "drift": 0, "recipes": 0}
+    counts: dict[str, int] = {"events": 0, "mappings": 0, "drift": 0, "recipes": 0, "batches": 0}
+    from app.models import BatchRun as _BatchRun
+
+    for run in db.execute(select(_BatchRun).where(_BatchRun.source == source_name)).scalars().all():
+        db.delete(run)
+        counts["batches"] += 1
     store = get_raw_store()
     for event in db.execute(
         select(Event).where(Event.environment == environment, Event.source == source_name)
@@ -323,6 +328,11 @@ def delete_connection(
     for source in names:
         db.delete(source)  # versions cascade via delete-orphan
     db.commit()
+    from app.core.field_memory import invalidate_memory
+    from app.core.mapping_cache import invalidate_active_mapping
+
+    invalidate_active_mapping(source_name)
+    invalidate_memory()
     log_action(
         db,
         action="delete",

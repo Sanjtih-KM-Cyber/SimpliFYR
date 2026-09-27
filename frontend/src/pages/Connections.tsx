@@ -1,8 +1,7 @@
-import { useEffect, useState, type MouseEvent } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useState, type MouseEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { deleteConnection, listConnections } from '../api/client'
 import type { ConnectionSummary } from '../api/types'
-import { QuickParseModal } from '../components/QuickParseModal'
 import { Spinner } from '../components/Spinner'
 import { EmptyState, PageHeader, useToast } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
@@ -119,18 +118,6 @@ function ConnectionCard({ c, onDeleted }: { c: ConnectionSummary; onDeleted: () 
 export default function Connections() {
   const connections = useAsync(() => listConnections(), [])
   const rows = connections.data ?? []
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [quickParse, setQuickParse] = useState(false)
-
-  // Deep entry: ?new=1 (keyboard N) opens the New Connection flow directly.
-  useEffect(() => {
-    if (searchParams.get('new') === '1') setQuickParse(true)
-  }, [searchParams])
-
-  function closeQuickParse() {
-    setQuickParse(false)
-    setSearchParams({}, { replace: true })
-  }
 
   return (
     <div className="h-full flex flex-col">
@@ -138,16 +125,15 @@ export default function Connections() {
         title="Integration Hub"
         subtitle="Universal device configuration matrix. Manage ingestion, mappings, and outbound sinks."
         actions={
-          <button
-            onClick={() => setQuickParse(true)}
+          <Link
+            to="/connections/new"
             className="btn-primary"
           >
             + New Connection
-          </button>
+          </Link>
         }
       />
 
-      {quickParse && <QuickParseModal onClose={closeQuickParse} />}
 
       {connections.loading && <div className="mt-12 flex justify-center"><Spinner /></div>}
       {connections.error && <p className="mt-4 text-body-md font-medium text-error">{connections.error}</p>}

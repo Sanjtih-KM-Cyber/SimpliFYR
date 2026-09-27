@@ -5,7 +5,6 @@ import {
   createSynthesisJob,
   getDrift,
   getSynthesisJob,
-  ignoreDrift,
   listDrift,
   listSynthesisJobs,
   rejectDrift,
@@ -26,7 +25,6 @@ const STATUS_LABELS: Record<string, string> = {
   review: 'needs input',
   approved: 'approved',
   rejected: 'rejected',
-  ignored: 'ignored',
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -35,7 +33,6 @@ const STATUS_COLORS: Record<string, string> = {
   review: 'border-error/30 bg-error-container/20 text-error',
   approved: 'border-success/30 bg-success-container/20 text-success',
   rejected: 'border-error/30 bg-error-container/20 text-error',
-  ignored: 'border-outline/30 bg-surface-variant text-on-surface-variant',
 }
 
 function StatusPill({ status }: { status: string }) {
@@ -91,7 +88,7 @@ function CorrectModal({
   }
 
   return (
-    <Modal open title="Teach Pattern — Override Interpretation" onClose={onClose} width="max-w-xl">
+    <Modal open title="Teach Pattern — Manual Correction" onClose={onClose} width="max-w-xl">
       <p className="mb-4 text-body-sm text-on-surface-variant">
         Your correction becomes a newly published mapping version. Future telemetry from{' '}
         <span className="font-mono text-primary">{detail.source ?? 'this sequence'}</span> will automatically inherit these properties.
@@ -124,7 +121,7 @@ function CorrectModal({
           disabled={busy}
           className="btn-primary"
         >
-          {busy ? 'Applying…' : 'Apply Override'}
+          {busy ? 'Applying…' : 'Apply Manual'}
         </button>
       </div>
     </Modal>
@@ -143,7 +140,7 @@ function ReviewCard({
   const [correcting, setCorrecting] = useState(false)
   const [job, setJob] = useState<SynthesisJob | null>(null)
 
-  const resolved = detail.status === 'approved' || detail.status === 'rejected' || detail.status === 'ignored'
+  const resolved = detail.status === 'approved' || detail.status === 'rejected'
   const jobActive = job !== null && (job.status === 'queued' || job.status === 'running')
 
   // Reconnect: an in-flight synthesis survives navigation because it lives
@@ -179,7 +176,7 @@ function ReviewCard({
     return () => clearInterval(timer)
   }, [jobActive, job?.id, job, onChanged])
 
-  async function run(action: 'analyze' | 'approve' | 'reject' | 'ignore') {
+  async function run(action: 'analyze' | 'approve' | 'reject') {
     setBusy(action)
     setError(null)
     try {
@@ -189,7 +186,6 @@ function ReviewCard({
         if (started.status === 'completed') onChanged()
         return
       } else if (action === 'approve') await approveDrift(detail.id)
-      else if (action === 'ignore') await ignoreDrift(detail.id)
       else await rejectDrift(detail.id)
       onChanged()
     } catch (e) {
@@ -293,7 +289,7 @@ function ReviewCard({
           disabled={busy !== null || resolved || jobActive}
           className="btn-outlined text-label-sm"
         >
-          {busy === 'analyze' ? 'Starting…' : jobActive ? 'Synthesizing…' : job?.status === 'failed' ? 'Retry synthesis' : 'Synthesize AI'}
+          {busy === 'analyze' ? 'Starting…' : jobActive ? 'Synthesizing…' : job?.status === 'failed' ? 'Retry AI synthesis' : 'AI Synthesizer'}
         </button>
         <button
           onClick={() => run('approve')}
@@ -307,17 +303,9 @@ function ReviewCard({
           disabled={busy !== null || resolved}
           className="btn-secondary text-label-sm"
         >
-          Override
+          Manual
         </button>
         <div className="flex-1"></div>
-        <button
-          onClick={() => run('ignore')}
-          disabled={busy !== null || resolved}
-          title="Dismiss as noise. No mapping change; events stay quarantined. Can still be approved later."
-          className="btn-text text-error text-label-sm"
-        >
-          {busy === 'ignore' ? '…' : 'Ignore'}
-        </button>
         <button
           onClick={() => run('reject')}
           disabled={busy !== null || resolved}
@@ -374,7 +362,7 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
     (d) => !sourceFilter || d.source === sourceFilter,
   )
   const open = all.filter((d) => d.status === 'detected' || d.status === 'analyzed' || d.status === 'review')
-  const resolved = all.filter((d) => d.status === 'approved' || d.status === 'rejected' || d.status === 'ignored')
+  const resolved = all.filter((d) => d.status === 'approved' || d.status === 'rejected')
 
   const openGroups = useMemo(() => {
     const bySource = new Map<string, typeof open>()
@@ -388,14 +376,13 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
   }, [open])
 
   const resolvedVendors = useMemo(() => {
-    const bySource = new Map<string, { total: number; approved: number; rejected: number; ignored: number }>()
+    const bySource = new Map<string, { total: number; approved: number; rejected: number }>()
     for (const d of resolved) {
       const key = d.source ?? 'Unassigned origin'
-      const g = bySource.get(key) ?? { total: 0, approved: 0, rejected: 0, ignored: 0 }
+      const g = bySource.get(key) ?? { total: 0, approved: 0, rejected: 0 }
       g.total += 1
       if (d.status === 'approved') g.approved += 1
-      else if (d.status === 'rejected') g.rejected += 1
-      else g.ignored += 1
+      else g.rejected += 1
       bySource.set(key, g)
     }
     return [...bySource.entries()].sort((a, b) => b[1].total - a[1].total)
@@ -410,7 +397,7 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
       {!sourceFilter && (
         <PageHeader
           title="Review Queue"
-          subtitle="One decision per new shape: approve the AI names, correct them, or dismiss as noise."
+          subtitle="One decision per new shape: approve the AI names, correct them, or reject as noise."
         />
       )}
 
@@ -446,7 +433,7 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
             description={
               view === 'open'
                 ? 'Active parser maps match all incoming telemetry structures. Quarantined payloads live under Logs → Telemetry Inspection.'
-                : 'Approved, rejected, and ignored proposals will appear here.'
+                : 'Approved and rejected proposals will appear here.'
             }
           />
         </div>
@@ -483,7 +470,6 @@ export default function NeedsReview({ sourceFilter }: { sourceFilter?: string })
                 <p className="mt-1 flex gap-2 font-mono text-label-sm">
                   <span className="text-success">{counts.approved} approved</span>
                   <span className="text-error">{counts.rejected} rejected</span>
-                  <span className="text-on-surface-variant/60">{counts.ignored} ignored</span>
                 </p>
               </div>
               <span className="flex items-center gap-2">

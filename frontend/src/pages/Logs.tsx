@@ -1,37 +1,48 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import {
+  approveDrift,
   batchDeleteEvents,
+  createSynthesisJob,
+  getSynthesisJob,
+  listSynthesisJobs,
+  correctDrift,
+  getDrift,
+  rejectDrift,
   batchRetryEvents,
   deleteEvent,
   exportLogs,
+  getBatchGroups,
   getEvent,
-  ingest,
   listBatches,
   listConnections,
   listDrift,
+  listEventGroups,
   listEvents,
   listMappings,
+  listOutputProfiles,
   retryEvent,
   searchEventsRaw,
 } from '../api/client'
-import type { EventDetail, EventStatus, EventSummary, IngestResponse } from '../api/types'
+import type { BatchGroup, BatchRun, DriftDetail, DriftSummary, EventDetail, EventGroup, EventStatus, EventSummary, SynthesisJob } from '../api/types'
+import { Arrow } from '../components/Arrow'
 import { Code } from '../components/Code'
 import { Spinner } from '../components/Spinner'
 import { StatusBadge } from '../components/Status'
 import { OnboardModal } from '../components/OnboardModal'
-import { EmptyState, PageHeader, TBody, TD, TH, THead, TR, Table, useToast } from '../components/ui'
+import { EmptyState, Modal, PageHeader, TBody, TD, TH, THead, TR, Table, useToast } from '../components/ui'
 import { FOCUS_SEARCH_EVENT } from '../hooks/useKeyboardShortcuts'
 import { useAsync } from '../hooks/useAsync'
 import { useLive } from '../hooks/useLive'
 import { Dropdown } from '../components/Dropdown'
+import { SemanticFieldInput } from '../components/SemanticFieldInput'
 
 type LogTab = 'normalized' | 'index-detail' | 'inspection' | 'failed'
 
 const TABS: { key: LogTab; label: string }[] = [
   { key: 'normalized', label: 'Normalized' },
   { key: 'index-detail', label: 'Index Detail' },
-  { key: 'inspection', label: 'Telemetry Inspection' },
+  { key: 'inspection', label: 'Review' },
   { key: 'failed', label: 'Failed' },
 ]
 
@@ -67,107 +78,6 @@ function matchesId(e: EventSummary, q: string): boolean {
 
 function formatLabel(fmt: string | null): string {
   return fmt ?? 'unknown'
-}
-
-function IngestPanel({ onDone }: { onDone: (id: number) => void }) {
-  const connections = useAsync(() => listConnections(), [])
-  const [raw, setRaw] = useState('')
-  const [source, setSource] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<IngestResponse | null>(null)
-  const { toast } = useToast()
-
-  async function submit() {
-    if (!raw.trim()) {
-      setError('Paste logs or drop a file first')
-      return
-    }
-    setBusy(true)
-    setError(null)
-    setResult(null)
-    try {
-      const res = await ingest({ raw, source: source || undefined })
-      setResult(res)
-      toast(
-        res.duplicate
-          ? `Duplicate — already stored as event #${res.stored_event_id}`
-          : `Ingested as event #${res.stored_event_id} (${res.status})`,
-        res.status === 'quarantined' || res.status === 'dlq' ? 'info' : 'success',
-      )
-      onDone(res.stored_event_id)
-    } catch (e) {
-      const msg = (e as Error).message
-      setError(msg)
-      toast(msg, 'error')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  function onFile(file: File | undefined) {
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => setRaw(String(reader.result ?? ''))
-    reader.onerror = () => setError('Could not read file')
-    reader.readAsText(file)
-  }
-
-  return (
-    <div className="mb-6 animate-slide-up surface-panel rounded-2xl p-5">
-      <h3 className="mb-2 text-label-lg font-bold uppercase tracking-wide text-on-surface">Instant Ingestion Portal</h3>
-      <p className="mb-4 max-w-3xl text-body-sm text-on-surface-variant">
-        Submit raw telemetry. The system autonomously attempts structural normalization using the global context. Unrecognized signatures will be flagged for review.
-      </p>
-      <div className="mb-3 flex flex-wrap gap-2">
-        <Dropdown
-          value={source}
-          onChange={(v) => setSource(v ?? '')}
-          options={[
-            { value: '', label: 'Auto-detect origin…' },
-            ...(connections.data ?? []).map((c) => ({ value: c.name, label: c.name })),
-          ]}
-          placeholder="Auto-detect origin…"
-          searchable
-          className="flex-1 min-w-[180px]"
-        />
-        <label className="btn-secondary cursor-pointer px-3 py-1.5 text-body-sm">
-          Upload Context (File)
-          <input
-            type="file"
-            className="hidden"
-            onChange={(e) => onFile(e.target.files?.[0])}
-          />
-        </label>
-      </div>
-      <textarea
-        value={raw}
-        onChange={(e) => setRaw(e.target.value)}
-        rows={5}
-        placeholder="<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 dstip=8.8.8.8 proto=tcp action=deny"
-        className="input-glass w-full px-3 py-2 font-mono text-mono-sm text-on-surface"
-      />
-      {error && <p className="mt-2 font-medium text-body-sm text-error">{error}</p>}
-      <div className="mt-3 flex items-center gap-3">
-        <button
-          onClick={submit}
-          disabled={busy || !raw.trim()}
-          className="btn-primary"
-        >
-          {busy ? 'Processing Data…' : 'Execute Ingest'}
-        </button>
-        {result && (
-          <span className="flex items-center gap-2 surface-inset rounded px-2 py-1 text-body-sm">
-            <StatusBadge status={result.status} />
-            <span className="font-mono text-on-surface-variant">
-              EVT-{result.stored_event_id}
-              {result.duplicate ? ' · DUPLICATE' : ''}
-            </span>
-          </span>
-        )}
-      </div>
-    </div>
-  )
 }
 
 function Detail({
@@ -282,40 +192,35 @@ function Detail({
         </section>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        {detail.views.parsed && (
+      {(detail.views.parsed || detail.views.output || detail.provenance) && (
+        <div className="mt-4">
           <details className="group">
             <summary className="cursor-pointer select-none text-body-sm font-semibold text-on-surface-variant transition-colors group-open:text-on-surface">
-              <span className="mr-1 inline-block opacity-50 transition-transform group-open:rotate-90">▶</span> Structural AST (Parsed)
+              <span className="mr-1 inline-block opacity-50 transition-transform group-open:rotate-90">▶</span> Details
             </summary>
-            <div className="mt-2 border-l border-outline-variant pl-4">
-              <Code value={detail.views.parsed} />
+            <div className="mt-2 space-y-3 border-l border-outline-variant pl-4">
+              {detail.views.parsed && (
+                <div>
+                  <p className="mb-1 text-label-sm font-semibold uppercase tracking-widest text-on-surface-variant/70">Parsed</p>
+                  <Code value={detail.views.parsed} truncate maxLines={8} />
+                </div>
+              )}
+              {detail.views.output && (
+                <div>
+                  <p className="mb-1 text-label-sm font-semibold uppercase tracking-widest text-on-surface-variant/70">Delivery payload</p>
+                  <Code value={detail.views.output} truncate maxLines={8} />
+                </div>
+              )}
+              {detail.provenance && (
+                <div>
+                  <p className="mb-1 text-label-sm font-semibold uppercase tracking-widest text-on-surface-variant/70">Provenance</p>
+                  <Code value={detail.provenance} truncate maxLines={8} />
+                </div>
+              )}
             </div>
           </details>
-        )}
-
-        {detail.views.output && (
-          <details className="group">
-            <summary className="cursor-pointer select-none text-body-sm font-semibold text-on-surface-variant transition-colors group-open:text-on-surface">
-              <span className="mr-1 inline-block opacity-50 transition-transform group-open:rotate-90">▶</span> Delivery Payload (Output)
-            </summary>
-            <div className="mt-2 border-l border-outline-variant pl-4">
-              <Code value={detail.views.output} />
-            </div>
-          </details>
-        )}
-
-        {detail.provenance && (
-          <details className="group lg:col-span-2">
-            <summary className="cursor-pointer select-none text-body-sm font-semibold text-on-surface-variant transition-colors group-open:text-on-surface">
-              <span className="mr-1 inline-block opacity-50 transition-transform group-open:rotate-90">▶</span> Provenance History
-            </summary>
-            <div className="mt-2 border-l border-outline-variant pl-4">
-              <Code value={detail.provenance} />
-            </div>
-          </details>
-        )}
-      </div>
+        </div>
+      )}
 
       {onboarding && (
         <OnboardModal
@@ -329,10 +234,89 @@ function Detail({
 }
 
 interface QuarantineGroup {
+  key: string
   format: string
   source: string | null
   ids: number[]
   repId: number
+  count: number
+  truncated: boolean
+  fields: string[]
+}
+
+function CorrectModal({
+  drift,
+  onClose,
+  onDone,
+}: {
+  drift: DriftDetail
+  onClose: () => void
+  onDone: () => void
+}) {
+  const [rows, setRows] = useState(() => {
+    if (drift.proposal && drift.proposal.new_field_suggestions.length > 0) {
+      return drift.proposal.new_field_suggestions.map((s) => ({
+        input_field: s.input_field,
+        semantic_field: s.semantic_field,
+      }))
+    }
+    return drift.new_fields.map((f) => ({ input_field: f, semantic_field: '' }))
+  })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
+
+  async function submit() {
+    if (rows.every((r) => !r.semantic_field.trim())) {
+      setError('Assign at least one semantic field')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await correctDrift(
+        drift.id,
+        rows.filter((r) => r.semantic_field.trim()),
+      )
+      toast(`Corrected \u2014 mapping v${res.new_mapping_version}, ${res.reprocessed_events} logs reprocessed`, 'success')
+      onDone()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal open title="Teach Pattern \u2014 Manual Correction" onClose={onClose} width="max-w-xl">
+      <p className="mb-4 text-body-sm text-on-surface-variant">
+        Your correction becomes a newly published mapping version for{' '}
+        <span className="font-mono text-primary">{drift.source ?? 'this origin'}</span>.
+      </p>
+      {error && <p className="mb-3 text-body-sm font-medium text-error">{error}</p>}
+      <div className="mb-5 space-y-2 surface-inset rounded-xl p-2">
+        {rows.map((row, i) => (
+          <div key={row.input_field} className="flex items-center gap-3">
+            <span className="w-1/3 truncate surface-inset rounded px-3 py-1.5 font-mono text-mono-sm text-warning border border-warning/20">
+              {row.input_field}
+            </span>
+            <SemanticFieldInput
+              value={row.semantic_field}
+              onChange={(v) => setRows((prev) => prev.map((r, j) => (j === i ? { ...r, semantic_field: v } : r)))}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-end gap-3 pt-2">
+        <button onClick={onClose} disabled={busy} className="btn-secondary text-label-sm">
+          Abort
+        </button>
+        <button onClick={submit} disabled={busy} className="btn-primary">
+          {busy ? 'Applying\u2026' : 'Apply Manual'}
+        </button>
+      </div>
+    </Modal>
+  )
 }
 
 function InspectionCard({
@@ -341,40 +325,215 @@ function InspectionCard({
   issue,
   hasMapping,
   busy,
-  openDrift,
+  drift,
   onApprove,
   onReview,
+  onCorrect,
+  onReject,
   onPurge,
+  onDriftChanged,
 }: {
   group: QuarantineGroup
   rep: EventDetail | null
   issue: string
   hasMapping: boolean
   busy: boolean
-  openDrift: number
+  drift: DriftDetail | null
   onApprove: () => void
   onReview: () => void
+  onCorrect: () => void
+  onReject: () => void
   onPurge: () => void
+  onDriftChanged: () => void
 }) {
+  const [job, setJob] = useState<SynthesisJob | null>(null)
+  const [synthError, setSynthError] = useState<string | null>(null)
+  const jobActive = job !== null && (job.status === 'queued' || job.status === 'running')
+
+  useEffect(() => {
+    if (!drift) return
+    let cancelled = false
+    listSynthesisJobs()
+      .then((jobs) => {
+        if (cancelled) return
+        const active = jobs.find(
+          (j) => j.drift_id === drift.id && (j.status === 'queued' || j.status === 'running'),
+        )
+        if (active) setJob(active)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [drift])
+
+  useEffect(() => {
+    if (!jobActive || !job) return
+    const timer = setInterval(async () => {
+      try {
+        const next = await getSynthesisJob(job.id)
+        setJob(next)
+        if (next.status === 'completed') onDriftChanged()
+      } catch {
+        /* keep last known state; next tick retries */
+      }
+    }, 2000)
+    return () => clearInterval(timer)
+  }, [jobActive, job, onDriftChanged])
+
+  async function startSynthesis() {
+    if (!drift) return
+    setSynthError(null)
+    try {
+      const started = await createSynthesisJob(drift.id)
+      setJob(started)
+      if (started.status === 'completed') onDriftChanged()
+    } catch (e) {
+      setSynthError((e as Error).message)
+    }
+  }
+
+  const pill = drift ? (
+    <span
+      className={`inline-flex items-center rounded-sm border px-2 py-0.5 text-label-sm font-bold uppercase tracking-widest ${drift.status === 'analyzed'
+        ? 'border-info/30 bg-info-container/20 text-info'
+        : drift.status === 'review'
+          ? 'border-error/30 bg-error-container/20 text-error'
+          : 'border-warning/30 bg-warning-container/20 text-warning'
+        }`}
+    >
+      {drift.status === 'analyzed' ? 'proposal ready' : drift.status === 'review' ? 'needs input' : 'needs review'}
+    </span>
+  ) : (
+    <span className="inline-flex items-center rounded-sm border border-outline/30 bg-surface-variant px-2 py-0.5 text-label-sm font-bold uppercase tracking-widest text-on-surface-variant">
+      held
+    </span>
+  )
+
   return (
-    <div className="animate-slide-up glass-card rounded-xl p-5 border-l-4 border-warning">
-      <div className="mb-3 flex flex-wrap items-center gap-3">
-        <span className="surface-inset rounded px-2 py-0.5 font-mono text-body-sm font-bold uppercase tracking-wider text-warning border border-warning/20">
-          {group.format}
-        </span>
-        <span className="text-body-md font-medium text-on-surface">{group.source ?? 'Unassigned origin'}</span>
-        <span className="surface-inset rounded-full border border-outline-variant/50 px-2.5 py-0.5 font-mono text-body-sm text-on-surface-variant">
-          × {group.ids.length} like this
-        </span>
-        <span className="ml-auto flex gap-2">
+    <div className="glass-card rounded-xl p-5 animate-slide-up">
+      <div className="mb-3 flex items-center justify-between border-b border-outline-variant/50 pb-3">
+        <h3 className="text-body-md font-bold text-on-surface flex items-center gap-2">
+          {drift ? 'Delta Request' : 'Held Logs'}
+          <span className="surface-inset rounded px-1.5 py-0.5 font-mono text-label-sm text-on-surface-variant">#{drift ? drift.id : group.repId}</span>
+          <span className="mx-1 text-on-surface-variant/50">|</span>
+          <span className="font-mono text-mono-sm text-primary">{group.source ?? 'UNTITLED'}</span>
+          <span className="surface-inset rounded-full border border-warning/30 bg-warning-container/15 px-2 py-0.5 font-mono text-label-sm font-bold text-warning">
+            \u00d7 {group.count} events
+          </span>
+        </h3>
+        {pill}
+      </div>
+
+      {drift && (
+        <div className="mb-4 flex flex-wrap gap-4 surface-inset rounded-xl border border-outline-variant/50 p-2">
+          <span className="text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+            New Fields: <span className="font-mono text-warning/80 bg-warning-container/15 px-1 rounded ml-1 lowercase">{drift.new_fields.join(', ') || '\u2014'}</span>
+          </span>
+          <span className="text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+            Missing: <span className="font-mono text-error bg-error-container/15 px-1 rounded ml-1 lowercase">{drift.missing_fields.join(', ') || '\u2014'}</span>
+          </span>
+        </div>
+      )}
+      {!drift && (
+        <p className="mb-2 text-body-sm text-on-surface-variant">
+          <span className="font-semibold uppercase tracking-wider text-warning/80">Issue \u2014 </span>
+          {issue}
+        </p>
+      )}
+
+      {drift && drift.proposal && (
+        <div className="mb-4 surface-inset rounded-xl border border-info/30 bg-info-container/10 p-3">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-label-sm font-bold uppercase tracking-widest text-info">Model Inference (Pattern Proposal)</div>
+            <div className="flex items-center gap-1.5">
+              <div className="h-1.5 w-16 overflow-hidden rounded-full bg-surface-variant">
+                <div
+                  className={`h-full ${drift.proposal.confidence > 0.8 ? 'bg-success' : 'bg-warning'}`}
+                  style={{ width: `${Math.round(drift.proposal.confidence * 100)}%` }}
+                ></div>
+              </div>
+              <span className="font-mono text-label-sm text-on-surface-variant/70">{Math.round(drift.proposal.confidence * 100)}% Match</span>
+            </div>
+          </div>
+
+          <div className="mb-3 space-y-1.5 border-l-2 border-info/50 pl-3">
+            {drift.proposal.new_field_suggestions.map((s) => (
+              <div key={s.input_field} className="flex items-center gap-2 text-body-sm">
+                <span className="font-mono text-on-surface bg-surface-container-low px-1 rounded">{s.input_field}</span>
+                <span className={`font-mono font-bold ${s.semantic_field ? 'text-primary' : 'text-on-surface-variant/60'}`}>
+                  {s.semantic_field || '(UNCERTAIN)'}
+                </span>
+                <span className="ml-auto font-mono text-label-sm text-on-surface-variant/70">conf {Math.round(s.confidence * 100)}%</span>
+              </div>
+            ))}
+          </div>
+          {drift.proposal.explanation && (
+            <p className="text-body-sm leading-relaxed text-on-surface-variant/80 italic">" {drift.proposal.explanation} "</p>
+          )}
+        </div>
+      )}
+
+      {jobActive && job && (
+        <div className="mb-4 surface-inset rounded-xl border border-primary/30 bg-primary-container/10 p-3">
+          <div className="flex items-center justify-between gap-3 text-label-sm font-bold uppercase tracking-widest text-primary">
+            <span>Synthesis {job.status} · job #{job.id}</span>
+            <span className="font-mono normal-case tracking-normal text-on-surface-variant/70">
+              {job.stage ?? 'working…'}
+            </span>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-variant">
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${Math.max(4, Math.min(100, job.progress))}%` }}
+            />
+          </div>
+          <p className="mt-1.5 text-body-sm text-on-surface-variant/70">
+            Running in the background — safe to navigate away; this card reconnects when you return.
+          </p>
+        </div>
+      )}
+      {job?.status === 'failed' && (
+        <div className="mb-4 surface-inset rounded-xl border border-error/30 bg-error-container/10 p-3 text-body-sm">
+          <span className="font-bold uppercase tracking-widest text-error text-label-sm">Synthesis failed</span>
+          <p className="mt-1 text-on-surface-variant">{job.error ?? 'Unknown error.'}</p>
+        </div>
+      )}
+      {synthError && <p className="mb-3 text-body-sm font-medium text-error">{synthError}</p>}
+      <div className="mt-4 flex flex-wrap gap-2 pt-2 border-t border-outline-variant/50">
+        {drift && (
           <button
-            onClick={onApprove}
-            disabled={busy}
-            title={hasMapping ? 'Retry all with the existing mapping' : 'Establish a mapping, then normalize all'}
-            className="btn-primary text-label-sm"
+            onClick={startSynthesis}
+            disabled={busy || jobActive}
+            className="btn-outlined text-label-sm"
           >
-            {busy ? 'Working…' : `Approve all (${group.ids.length})`}
+            {busy ? 'Working…' : jobActive ? 'Synthesizing…' : job?.status === 'failed' ? 'Retry AI synthesis' : 'AI Synthesizer'}
           </button>
+        )}
+        <button
+          onClick={onApprove}
+          disabled={busy}
+          title={
+            group.truncated
+              ? 'Group exceeds 10k — approves the first 10k, repeat for the rest'
+              : drift
+                ? 'Authorize the schema decision and drain these logs'
+                : hasMapping ? 'Retry all with the existing mapping' : 'Establish a mapping, then normalize all'
+          }
+          className="btn-primary text-label-sm"
+        >
+          {busy ? 'Working…' : drift ? 'Authorize AI' : `Approve all (${group.count})`}
+        </button>
+        {drift ? (
+          <button
+            onClick={onCorrect}
+            disabled={busy}
+            title="Correct the AI proposal manually, then normalize all"
+            className="btn-secondary text-label-sm"
+          >
+            Manual
+          </button>
+        ) : (
           <button
             onClick={onReview}
             disabled={busy || !rep}
@@ -383,38 +542,119 @@ function InspectionCard({
           >
             Review fields
           </button>
+        )}
+        <button
+          onClick={onPurge}
+          disabled={busy}
+          title="Delete every log of this type"
+          className="btn-text text-error text-label-sm"
+        >
+          Purge all
+        </button>
+        <div className="flex-1"></div>
+        {drift && (
           <button
-            onClick={onPurge}
+            onClick={onReject}
             disabled={busy}
-            title="Delete every log of this type"
+            title="Disagree with the proposal and close it terminally. No mapping change; events stay quarantined."
             className="btn-text text-error text-label-sm"
           >
-            Purge all
+            Reject
           </button>
+        )}
+      </div>
+
+      <details className="mt-4 group">
+        <summary className="cursor-pointer select-none text-label-sm font-bold uppercase tracking-widest text-on-surface-variant/70 transition-colors group-open:text-on-surface-variant">
+          <span className="mr-1 inline-block opacity-50 transition-transform group-open:rotate-90">\u25b6</span> Sample Evidence Payload
+        </summary>
+        <div className="mt-2 border-l border-outline-variant pl-3 opacity-80">
+          {rep ? (
+            <Code value={rep.views.raw} truncate maxLines={15} />
+          ) : (
+            <p className="font-mono text-mono-sm text-on-surface-variant/50">Loading representative log…</p>
+          )}
+        </div>
+      </details>
+    </div>
+  )
+}
+
+function ResolvedCard({ summary }: { summary: DriftSummary }) {
+  const [full, setFull] = useState<DriftDetail | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    getDrift(summary.id)
+      .then((d) => {
+        if (!cancelled) setFull(d)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [summary.id])
+
+  const proposal = full?.proposal ?? null
+  return (
+    <div className="glass-card rounded-xl p-5 animate-slide-up">
+      <div className="mb-3 flex items-center justify-between border-b border-outline-variant/50 pb-3">
+        <h3 className="text-body-md font-bold text-on-surface flex items-center gap-2">
+          Delta Request
+          <span className="surface-inset rounded px-1.5 py-0.5 font-mono text-label-sm text-on-surface-variant">#{summary.id}</span>
+          <span className="mx-1 text-on-surface-variant/50">|</span>
+          <span className="font-mono text-mono-sm text-primary">{summary.source ?? 'UNTITLED'}</span>
+        </h3>
+        <span
+          className={`inline-flex items-center rounded-sm border px-2 py-0.5 text-label-sm font-bold uppercase tracking-widest ${
+            summary.status === 'approved'
+              ? 'border-success/30 bg-success-container/20 text-success'
+              : 'border-error/30 bg-error-container/20 text-error'
+          }`}
+        >
+          {summary.status}
         </span>
       </div>
-      <p className="mb-2 text-body-sm text-on-surface-variant">
-        <span className="font-semibold uppercase tracking-wider text-warning/80">Issue — </span>
-        {issue}
-        {openDrift > 0 && (
-          <>
-            {' '}
-            <Link
-              to="/needs-review"
-              className="font-medium text-primary hover:text-primary/70 hover:underline transition-colors"
-            >
-              {openDrift} open drift proposal{openDrift === 1 ? '' : 's'} — review
-            </Link>
-          </>
-        )}
-      </p>
-      <div className="surface-inset rounded-xl p-3">
-        {rep ? (
-          <Code value={rep.views.raw} truncate maxLines={12} />
-        ) : (
-          <p className="font-mono text-mono-sm text-on-surface-variant/50">Loading representative log…</p>
-        )}
+
+      <div className="mb-4 flex flex-wrap gap-4 surface-inset rounded-xl border border-outline-variant/50 p-2">
+        <span className="text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+          New Fields: <span className="font-mono text-warning/80 bg-warning-container/15 px-1 rounded ml-1 lowercase">{summary.new_fields.join(', ') || '\u2014'}</span>
+        </span>
+        <span className="text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
+          Missing: <span className="font-mono text-error bg-error-container/15 px-1 rounded ml-1 lowercase">{summary.missing_fields.join(', ') || '\u2014'}</span>
+        </span>
       </div>
+
+      {proposal && (
+        <div className="mb-4 surface-inset rounded-xl border border-info/30 bg-info-container/10 p-3">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-label-sm font-bold uppercase tracking-widest text-info">Model Inference (Pattern Proposal)</div>
+            <span className="font-mono text-label-sm text-on-surface-variant/70">{Math.round(proposal.confidence * 100)}% Match</span>
+          </div>
+          <div className="space-y-1.5 border-l-2 border-info/50 pl-3">
+            {proposal.new_field_suggestions.map((s) => (
+              <div key={s.input_field} className="flex items-center gap-2 text-body-sm">
+                <span className="font-mono text-on-surface bg-surface-container-low px-1 rounded">{s.input_field}</span>
+                <span className={`font-mono font-bold ${s.semantic_field ? 'text-primary' : 'text-on-surface-variant/60'}`}>
+                  {s.semantic_field || '(UNCERTAIN)'}
+                </span>
+                <span className="ml-auto font-mono text-label-sm text-on-surface-variant/70">conf {Math.round(s.confidence * 100)}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {full?.sample && (
+        <details className="mt-4 group">
+          <summary className="cursor-pointer select-none text-label-sm font-bold uppercase tracking-widest text-on-surface-variant/70 transition-colors group-open:text-on-surface-variant">
+            <span className="mr-1 inline-block opacity-50 transition-transform group-open:rotate-90">\u25b6</span> Sample Evidence Payload
+          </summary>
+          <div className="mt-2 border-l border-outline-variant pl-3 opacity-80">
+            <Code value={full.sample} truncate maxLines={15} />
+          </div>
+        </details>
+      )}
     </div>
   )
 }
@@ -422,6 +662,14 @@ function InspectionCard({
 function IndexExport({ source, batchId, ids }: { source?: string; batchId?: number; ids?: number[] }) {
   const { toast } = useToast()
   const [downloading, setDownloading] = useState<string | null>(null)
+  const [mappingId, setMappingId] = useState<number | ''>('')
+  const [profileId, setProfileId] = useState<number | ''>('')
+  const mappings = useAsync(() => listMappings(), [])
+  const profiles = useAsync(() => listOutputProfiles(), [])
+
+  const versions = (mappings.data ?? [])
+    .filter((m) => !source || m.source === source)
+    .sort((a, b) => b.version - a.version || b.id - a.id)
 
   async function download(format: 'json' | 'ndjson' | 'csv') {
     setDownloading(format)
@@ -432,6 +680,8 @@ function IndexExport({ source, batchId, ids }: { source?: string; batchId?: numb
         ...(source ? { source } : {}),
         ...(batchId !== undefined ? { batch_id: batchId } : {}),
         ...(ids?.length ? { ids } : {}),
+        ...(mappingId === '' ? {} : { mappingId }),
+        ...(profileId === '' ? {} : { outputProfileId: profileId, payload: 'output' as const }),
       })
       toast(`Downloaded ${res.total} logs (${res.normalized} normalized)`, 'success')
     } catch (e) {
@@ -444,9 +694,11 @@ function IndexExport({ source, batchId, ids }: { source?: string; batchId?: numb
   const label =
     ids?.length === 1
       ? 'Download this index normalized'
-      : batchId !== undefined
-        ? `Download batch #${batchId} normalized`
-        : 'Download all normalized'
+      : ids && ids.length > 1
+        ? `Download this set (${ids.length} logs)`
+        : batchId !== undefined
+          ? `Download batch #${batchId} normalized`
+          : 'Download all normalized'
 
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2 surface-panel rounded-xl px-4 py-3">
@@ -463,16 +715,155 @@ function IndexExport({ source, batchId, ids }: { source?: string; batchId?: numb
           {downloading === fmt ? <Spinner size="sm" /> : fmt}
         </button>
       ))}
+      <Dropdown<number>
+        value={mappingId === '' ? undefined : mappingId}
+        onChange={(v) => setMappingId(v ?? '')}
+        options={versions.map((m) => ({
+          value: m.id,
+          label: `${m.name} · v${m.version} · ${m.status}`,
+        }))}
+        placeholder="Latest version…"
+        searchable
+        allowClear
+        className="w-56 shrink-0"
+      />
+      <Dropdown<number>
+        value={profileId === '' ? undefined : profileId}
+        onChange={(v) => setProfileId(v ?? '')}
+        options={(profiles.data ?? []).map((p) => ({ value: p.id, label: p.name }))}
+        placeholder="Stored output…"
+        searchable
+        allowClear
+        className="w-56 shrink-0"
+      />
+    </div>
+  )
+}
+
+function UploadsSection({
+  batches,
+  loading,
+  onScopeBatch,
+  onScopeGroup,
+}: {
+  batches: BatchRun[]
+  loading: boolean
+  onScopeBatch: (b: BatchRun) => void
+  onScopeGroup: (b: BatchRun, g: BatchGroup, letter: string) => void
+}) {
+  const { toast } = useToast()
+  const [expanded, setExpanded] = useState<Set<number>>(new Set())
+  const [groups, setGroups] = useState<Record<number, BatchGroup[]>>({})
+  const [groupsLoading, setGroupsLoading] = useState<number | null>(null)
+
+  async function toggle(batchId: number) {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(batchId)) next.delete(batchId)
+      else next.add(batchId)
+      return next
+    })
+    if (groups[batchId] !== undefined || groupsLoading === batchId) return
+    setGroupsLoading(batchId)
+    try {
+      const fetched = await getBatchGroups(batchId)
+      setGroups((prev) => ({ ...prev, [batchId]: fetched }))
+    } catch (e) {
+      toast((e as Error).message, 'error')
+    } finally {
+      setGroupsLoading(null)
+    }
+  }
+
+  if (loading) return <div className="mt-8 flex justify-center"><Spinner /></div>
+  if (batches.length === 0) return null
+
+  return (
+    <div className="mb-6 space-y-4">
+      {batches.map((b) => {
+        const isOpen = expanded.has(b.id)
+        const held = b.quarantined + b.dlq
+        return (
+          <section key={b.id} className="surface-panel rounded-xl p-1">
+            <div
+              onClick={() => onScopeBatch(b)}
+              className="flex cursor-pointer flex-wrap items-center gap-3 px-4 py-3 transition-colors hover:bg-primary/5"
+              title="Open this upload"
+            >
+              <button
+                onClick={(e) => { e.stopPropagation(); toggle(b.id) }}
+                className="control-icon h-7 w-7 shrink-0"
+                aria-label={isOpen ? 'Collapse types' : 'Expand types'}
+                title={isOpen ? 'Collapse types' : 'Expand types'}
+              >
+                <span className={`inline-block opacity-70 transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
+              </button>
+              <span className="font-mono text-body-md font-semibold text-primary">Index #{b.id}</span>
+              <span className="text-body-sm text-on-surface-variant">{b.source ?? 'unassigned'}</span>
+              <span className="font-mono text-body-sm text-on-surface">{b.total.toLocaleString()} logs</span>
+              {held > 0 && (
+                <span className="rounded-full border border-warning/30 bg-warning-container/20 px-2 py-0.5 font-mono text-label-sm text-warning">
+                  {held} held
+                </span>
+              )}
+              <span className="ml-auto flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                <span className="font-mono text-mono-sm text-on-surface-variant/60">Open to download</span>
+              </span>
+            </div>
+            {isOpen && (
+              <div className="border-t border-outline-variant/50 px-4 py-2">
+                {groupsLoading === b.id && <div className="flex justify-center py-3"><Spinner size="sm" /></div>}
+                {(groups[b.id] ?? []).map((g, i) => {
+                  const letter = String.fromCharCode(97 + i)
+                  return (
+                    <div key={g.key} className="flex flex-wrap items-center gap-3 border-b border-outline-variant/30 py-2.5 last:border-b-0">
+                      <button
+                        onClick={() => onScopeGroup(b, g, letter)}
+                        className="font-mono text-body-md font-semibold text-on-surface hover:text-primary hover:underline"
+                        title="Open only this type"
+                      >
+                        #{b.id}{letter}
+                      </button>
+                      <span className="font-mono text-mono-sm text-on-surface-variant">{g.format}</span>
+                      <span className="min-w-0 flex-1 truncate font-mono text-mono-sm text-on-surface-variant/70" title={g.fields.join(', ')}>
+                        {g.fields.join(', ') || '—'}
+                      </span>
+                      <span className="font-mono text-body-sm text-on-surface">{g.count.toLocaleString()}</span>
+                      {g.held > 0 && (
+                        <span className="rounded-full border border-warning/30 bg-warning-container/15 px-2 py-0.5 font-mono text-label-sm text-warning">
+                          {g.held} held
+                        </span>
+                      )}
+                      <span className="flex items-center gap-2">
+                        <button onClick={() => onScopeGroup(b, g, letter)} className="btn-text text-label-sm">
+                          Open
+                        </button>
+                      </span>
+                    </div>
+                  )
+                })}
+                {groups[b.id] !== undefined && groups[b.id].length === 0 && (
+                  <p className="py-2 text-body-sm text-on-surface-variant/70">No stored rows for this upload (replays deduplicate).</p>
+                )}
+              </div>
+            )}
+          </section>
+        )
+      })}
     </div>
   )
 }
 
 export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
-  const [tab, setTab] = useState<LogTab>('normalized')
-  const [ingesting, setIngesting] = useState(false)
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState<LogTab>(() => (searchParams.get('tab') === 'review' ? 'inspection' : 'normalized'))
+  const [reviewView, setReviewView] = useState<'open' | 'resolved'>('open')
+  const [resolvedVendor, setResolvedVendor] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [vendor, setVendor] = useState('')
   const [batchId, setBatchId] = useState<number | ''>('')
+  const [groupIds, setGroupIds] = useState<number[] | null>(null)
+  const [groupLabel, setGroupLabel] = useState<string | null>(null)
   const [clearAllLoading, setClearAllLoading] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const vendors = useAsync(() => listConnections(), [])
@@ -536,10 +927,10 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     return () => clearTimeout(timer)
   }, [search, source])
 
-  useLive({ source: source || undefined, onEvent: () => { events.reload(); unsourced.reload(); driftList.reload(); batches.reload() } })
+  useLive({ source: source || undefined, onEvent: () => { events.reload(); serverGroups.reload(); driftList.reload(); batches.reload() } })
 
   useEffect(() => {
-    const timer = setInterval(() => { events.reload(); unsourced.reload(); driftList.reload(); batches.reload() }, 30000)
+    const timer = setInterval(() => { events.reload(); serverGroups.reload(); driftList.reload(); batches.reload() }, 30000)
     return () => clearInterval(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -569,47 +960,48 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     )
   }
 
-  const unsourced = useAsync(
-    () =>
-      sourceFilter
-        ? listEvents({ status: 'quarantined', limit: 200 })
-        : Promise.resolve([] as EventSummary[]),
-    [sourceFilter],
-  )
   const inBatch = (e: EventSummary) => batchId === '' || e.batch_id === batchId
-  const quarantined = [...all, ...(unsourced.data ?? []).filter((u) => u.source == null)]
-    .filter((e, i, arr) => arr.findIndex((x) => x.id === e.id) === i)
-    .filter((e) => e.status === 'quarantined')
-    .filter(matchesSearch)
-    .filter(inBatch)
-    .filter((e) => !scope || (e.source === scope.source && formatLabel(e.detected_format) === formatLabel(scope.detected_format)))
-
+  // Shape-exact server groups: one approval resolves one group completely.
+  // (Client-side format+source grouping mixed shapes, so each approval only
+  // peeled one shape and asked again.)
+  const serverGroups = useAsync<EventGroup[]>(
+    () =>
+      tab === 'inspection'
+        ? listEventGroups('quarantined', source || undefined)
+        : Promise.resolve([] as EventGroup[]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tab, source],
+  )
   const groups: QuarantineGroup[] = useMemo(() => {
-    const byKey = new Map<string, QuarantineGroup>()
-    for (const e of quarantined) {
-      const format = formatLabel(e.detected_format)
-      const key = `${format}::${e.source ?? ''}`
-      const g = byKey.get(key)
-      if (g) {
-        g.ids.push(e.id)
-      } else {
-        byKey.set(key, { format, source: e.source, ids: [e.id], repId: e.id })
-      }
-    }
-    return [...byKey.values()]
-  }, [quarantined])
+    const rows = (serverGroups.data ?? []).filter(
+      (g) => g.rep_id !== null && (!scope || (g.source === scope.source && g.format === formatLabel(scope.detected_format))),
+    )
+    return rows.map((g) => ({
+      key: g.key,
+      format: g.format,
+      source: g.source,
+      ids: g.event_ids,
+      repId: g.rep_id as number,
+      count: g.count,
+      truncated: g.truncated,
+      fields: g.fields,
+    }))
+  }, [serverGroups.data, scope])
+
+  const [driftDetails, setDriftDetails] = useState<Record<number, DriftDetail>>({})
+  const [correctTarget, setCorrectTarget] = useState<DriftDetail | null>(null)
 
   const [reps, setReps] = useState<Record<string, EventDetail>>({})
   useEffect(() => {
     let cancelled = false
-    const missing = groups.filter((g) => reps[`${g.format}::${g.source ?? ''}`] === undefined)
+    const missing = groups.filter((g) => reps[g.key] === undefined)
     if (missing.length === 0) return
     Promise.all(missing.map((g) => getEvent(g.repId).catch(() => null))).then((details) => {
       if (cancelled) return
       setReps((prev) => {
         const next = { ...prev }
         missing.forEach((g, i) => {
-          if (details[i]) next[`${g.format}::${g.source ?? ''}`] = details[i] as EventDetail
+          if (details[i]) next[g.key] = details[i] as EventDetail
         })
         return next
       })
@@ -618,6 +1010,27 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
       cancelled = true
     }
   }, [groups, reps])
+
+  useEffect(() => {
+    let cancelled = false
+    const ids = groups
+      .map((g) => matchOpenDrift(g)?.id)
+      .filter((id): id is number => id !== undefined && driftDetails[id] === undefined)
+    if (ids.length === 0) return
+    Promise.all([...new Set(ids)].map((id) => getDrift(id).catch(() => null))).then((details) => {
+      if (cancelled) return
+      setDriftDetails((prev) => {
+        const next = { ...prev }
+        for (const d of details) {
+          if (d) next[d.id] = d
+        }
+        return next
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [groups, driftDetails, driftList.data])
 
   const [groupBusy, setGroupBusy] = useState<string | null>(null)
   const [onboarding, setOnboarding] = useState<QuarantineGroup | null>(null)
@@ -677,8 +1090,40 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     }
   }
 
+  // One approve finishes the job: when an open drift decision matches this
+  // shape, authorize it (mapping version bumps AND its logs drain) instead of
+  // retrying against the stale mapping and bouncing back into quarantine.
+  function matchOpenDrift(group: QuarantineGroup) {
+    const open = (driftList.data ?? []).filter(
+      (d) =>
+        (d.status === 'detected' || d.status === 'analyzed' || d.status === 'review') &&
+        (d.source ?? '') === (group.source ?? '') &&
+        d.new_fields.every((f) => group.fields.includes(f)),
+    )
+    open.sort((a, b) => b.confidence - a.confidence)
+    return open[0] ?? null
+  }
+
   async function approveGroup(group: QuarantineGroup) {
-    const key = `${group.format}::${group.source ?? ''}`
+    const key = group.key
+    const drift = matchOpenDrift(group)
+    if (drift) {
+      setGroupBusy(key)
+      try {
+        const res = await approveDrift(drift.id)
+        toast(`Approved — mapping v${res.new_mapping_version}, ${res.reprocessed_events} logs reprocessed`, 'success')
+        mappings.reload()
+        events.reload()
+        serverGroups.reload()
+        driftList.reload()
+        batches.reload()
+      } catch (e) {
+        toast((e as Error).message, 'error')
+      } finally {
+        setGroupBusy(null)
+      }
+      return
+    }
     if (!mappingFor(group.source)) {
       setOnboarding(group)
       return
@@ -688,7 +1133,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
       const res = await batchRetryEvents(group.ids)
       reportOutcome(group, res)
       events.reload()
-      unsourced.reload()
+      serverGroups.reload()
       driftList.reload()
       batches.reload()
     } catch (e) {
@@ -699,7 +1144,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
   }
 
   async function approveAfterOnboard(group: QuarantineGroup) {
-    const key = `${group.format}::${group.source ?? ''}`
+    const key = group.key
     setOnboarding(null)
     setGroupBusy(key)
     try {
@@ -707,7 +1152,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
       reportOutcome(group, res)
       mappings.reload()
       events.reload()
-      unsourced.reload()
+      serverGroups.reload()
       driftList.reload()
       batches.reload()
     } catch (e) {
@@ -719,13 +1164,13 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
 
   async function purgeGroup(group: QuarantineGroup) {
     if (!window.confirm(`Purge all ${group.ids.length} ${group.format} logs${group.source ? ` from ${group.source}` : ''}?`)) return
-    const key = `${group.format}::${group.source ?? ''}`
+    const key = group.key
     setGroupBusy(key)
     try {
       const res = await batchDeleteEvents(group.ids)
       toast(`Purged ${res.deleted.length} logs`, 'success')
       events.reload()
-      unsourced.reload()
+      serverGroups.reload()
       driftList.reload()
       batches.reload()
     } catch (e) {
@@ -735,20 +1180,76 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     }
   }
 
-  const openDriftBySource = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const d of driftList.data ?? []) {
-      if (d.status === 'detected' || d.status === 'analyzed' || d.status === 'review') {
-        counts.set(d.source ?? '', (counts.get(d.source ?? '') ?? 0) + 1)
-      }
+  async function rejectCardDrift(group: QuarantineGroup, d: DriftDetail) {
+    setGroupBusy(group.key)
+    try {
+      await rejectDrift(d.id)
+      toast('Rejected \u2014 events stay quarantined', 'success')
+      events.reload()
+      serverGroups.reload()
+      driftList.reload()
+      batches.reload()
+    } catch (e) {
+      toast((e as Error).message, 'error')
+    } finally {
+      setGroupBusy(null)
     }
-    return counts
-  }, [driftList.data])
+  }
 
+  function refreshDecision(driftId: number) {
+    setDriftDetails((prev) => {
+      if (!(driftId in prev)) return prev
+      const next = { ...prev }
+      delete next[driftId]
+      return next
+    })
+    driftList.reload()
+    serverGroups.reload()
+  }
+
+  function doneCorrecting() {
+    setCorrectTarget(null)
+    mappings.reload()
+    events.reload()
+    serverGroups.reload()
+    driftList.reload()
+    batches.reload()
+  }
+
+  const resolvedDrifts = useMemo(
+    () =>
+      (driftList.data ?? [])
+        .filter(
+          (d) =>
+            (d.status === 'approved' || d.status === 'rejected') &&
+            (!source || (d.source ?? '') === source),
+        )
+        .sort((a, b) => b.id - a.id),
+    [driftList.data, source],
+  )
+
+  const resolvedVendors = useMemo(() => {
+    const bySource = new Map<string, { total: number; approved: number; rejected: number }>()
+    for (const d of resolvedDrifts) {
+      const key = d.source ?? 'Unassigned origin'
+      const g = bySource.get(key) ?? { total: 0, approved: 0, rejected: 0 }
+      g.total += 1
+      if (d.status === 'approved') g.approved += 1
+      else g.rejected += 1
+      bySource.set(key, g)
+    }
+    return [...bySource.entries()].sort((a, b) => b[1].total - a[1].total)
+  }, [resolvedDrifts])
+  const resolvedShown = resolvedVendor
+    ? resolvedDrifts.filter((d) => (d.source ?? 'Unassigned origin') === resolvedVendor)
+    : []
+
+  const groupIdSet = useMemo(() => (groupIds ? new Set(groupIds) : null), [groupIds])
   const rows = all
     .filter((e: EventSummary) => matchesTab(e.status, tab))
     .filter(matchesSearch)
     .filter((e: EventSummary) => inBatch(e))
+    .filter((e: EventSummary) => !groupIdSet || groupIdSet.has(e.id))
     .filter((e: EventSummary) => {
       if (!scope || tab === 'normalized' || tab === 'index-detail') return true
       return e.source === scope.source && formatLabel(e.detected_format) === formatLabel(scope.detected_format)
@@ -758,6 +1259,26 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     setSelected(e.id)
     setScope(e)
     setTab('index-detail')
+  }
+
+  function clearGroup() {
+    setGroupIds(null)
+    setGroupLabel(null)
+  }
+
+  function scopeBatch(b: BatchRun) {
+    setBatchId(b.id)
+    clearGroup()
+    setSelected(null)
+    setTab('normalized')
+  }
+
+  function scopeGroup(b: BatchRun, g: BatchGroup, letter: string) {
+    setBatchId(b.id)
+    setGroupIds(g.event_ids)
+    setGroupLabel(`#${b.id}${letter} · ${g.format} · ${g.count} logs`)
+    setSelected(null)
+    setTab('normalized')
   }
 
   async function handleClearAll() {
@@ -794,7 +1315,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
       }
       toast(`Cleared ${deleted} event${deleted === 1 ? '' : 's'}`, 'success')
       events.reload()
-      unsourced.reload()
+      serverGroups.reload()
       batches.reload()
       setSelected(null)
     } catch (e) {
@@ -811,7 +1332,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     ).length
   }, [all, scope])
 
-  const onboardingRep = onboarding ? reps[`${onboarding.format}::${onboarding.source ?? ''}`] : undefined
+  const onboardingRep = onboarding ? reps[onboarding.key] : undefined
 
   return (
     <div className="flex h-full flex-col">
@@ -831,13 +1352,12 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
                 onClick={() => {
                   if (gated) return
                   setTab(t.key)
-                  setIngesting(false)
                 }}
                 title={gated ? 'Click an index in Normalized first' : undefined}
                 className={`rounded px-3 py-1.5 text-body-sm font-medium transition-all ${
                   gated
                     ? 'cursor-not-allowed border border-transparent text-on-surface-variant/40'
-                    : tab === t.key && !ingesting
+                    : tab === t.key
                     ? 'border border-primary/30 bg-primary-container/10 text-primary shadow-[0_0_10px_var(--color-primary)]'
                     : 'border border-transparent text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
                 }`}
@@ -846,17 +1366,6 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
               </button>
             )
           })}
-          <div className="mx-2 h-5 w-px bg-outline-variant/50"></div>
-          <button
-            onClick={() => setIngesting(true)}
-            className={`rounded px-3 py-1.5 text-body-sm font-bold tracking-wide transition-all ${
-              ingesting
-                ? 'bg-primary text-on-primary shadow-[0_0_10px_var(--color-primary)]'
-                : 'border border-primary/30 text-primary hover:bg-primary-container/10'
-            }`}
-          >
-            + Ingest Payload
-          </button>
         </div>
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
           <div className="relative min-w-64 flex-1 search-primary" role="search">
@@ -877,6 +1386,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
                 setExtra([])
                 setSelected(null)
                 setBatchId('')
+                clearGroup()
               }}
               options={[
                 { value: '', label: 'Global context…' },
@@ -889,7 +1399,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
           )}
           <Dropdown<number>
             value={batchId === '' ? undefined : batchId}
-            onChange={(v) => setBatchId(v ?? '')}
+            onChange={(v) => { setBatchId(v ?? ''); clearGroup() }}
             options={(batches.data ?? []).map((b) => ({
               value: b.id,
               label: `#${b.id} · ${b.source ?? 'unassigned'} · ${b.total}`,
@@ -918,19 +1428,75 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
       {events.loading && <div className="mt-8 flex justify-center"><Spinner /></div>}
       {events.error && <p className="text-body-md font-medium text-error">{events.error}</p>}
 
-      {ingesting && (
-        <IngestPanel
-          onDone={(id) => {
-            events.reload()
-            unsourced.reload()
-            setSelected(id)
-          }}
-        />
-      )}
-
       {tab === 'inspection' && (
         <div className="mb-6 space-y-4">
-          {scope && (
+          <div className="flex items-center gap-1.5">
+            {(['open', 'resolved'] as const).map((v) => {
+              const n = v === 'open' ? groups.length : resolvedDrifts.length
+              return (
+                <button
+                  key={v}
+                  onClick={() => { setReviewView(v); setResolvedVendor(null) }}
+                  className={`rounded px-3 py-1.5 text-body-sm font-medium capitalize transition-all ${
+                    reviewView === v
+                      ? 'border border-primary/30 bg-primary-container/10 text-primary shadow-[0_0_10px_var(--color-primary)]'
+                      : 'border border-transparent text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                  }`}
+                >
+                  {v} ({n})
+                </button>
+              )
+            })}
+          </div>
+          {reviewView === 'resolved' && resolvedVendor === null && (
+            <div>
+              {resolvedVendors.length === 0 && (
+                <p className="py-4 text-center text-body-md text-on-surface-variant/70">No resolved items.</p>
+              )}
+              <div className="grid gap-4 lg:grid-cols-2">
+                {resolvedVendors.map(([vendor, counts]) => (
+                  <button
+                    key={vendor}
+                    onClick={() => setResolvedVendor(vendor)}
+                    className="glass-card group flex items-center justify-between rounded-xl p-5 text-left transition-all hover:border-primary/30 hover:shadow-e2"
+                  >
+                    <div>
+                      <p className="font-mono text-body-lg font-semibold text-on-surface group-hover:text-primary">{vendor}</p>
+                      <p className="mt-1 flex gap-2 font-mono text-label-sm">
+                        <span className="text-success">{counts.approved} approved</span>
+                        <span className="text-error">{counts.rejected} rejected</span>
+                      </p>
+                    </div>
+                    <span className="flex items-center gap-2">
+                      <span className="surface-inset rounded-full border border-outline-variant/50 px-2.5 py-0.5 font-mono text-label-sm text-on-surface-variant">
+                        {counts.total}
+                      </span>
+                      <Arrow variant="inline" size="sm" />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {reviewView === 'resolved' && resolvedVendor !== null && (
+            <div className="space-y-2">
+              <div className="mb-1 flex items-center gap-3">
+                <button onClick={() => setResolvedVendor(null)} className="btn-secondary text-label-sm">
+                  Vendors
+                </button>
+                <h3 className="font-mono text-body-lg font-semibold text-on-surface">{resolvedVendor}</h3>
+                <span className="surface-inset rounded-full border border-outline-variant/50 px-2 py-0.5 font-mono text-label-sm text-on-surface-variant">
+                  {resolvedShown.length} resolved
+                </span>
+              </div>
+              <div className="grid gap-4 lg:grid-cols-2">
+                {resolvedShown.map((d) => (
+                  <ResolvedCard key={d.id} summary={d} />
+                ))}
+              </div>
+            </div>
+          )}
+          {reviewView === 'open' && scope && (
             <div className="flex items-center gap-3 surface-inset rounded-xl border border-primary/30 bg-primary-container/10 px-4 py-2 text-body-sm text-primary">
               <span>
                 Scoped to index <span className="font-mono font-bold">{padId(scope.id)}</span>
@@ -940,36 +1506,47 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
                 onClick={() => setScope(null)}
                 className="ml-auto btn-text text-error text-label-sm"
               >
-                Clear scope (inspection)
+                Clear scope (review)
               </button>
             </div>
           )}
-          {groups.length === 0 && !events.loading && (
+          {reviewView === 'open' && groups.length === 0 && !serverGroups.loading && (
             <EmptyState
-              title="Nothing awaiting inspection"
-              description={scope ? 'No quarantined logs of the scoped type.' : 'Quarantined logs will appear here grouped by type.'}
+              title="Nothing awaiting review"
+              description={scope ? 'No held logs of the scoped type.' : 'Stuck shapes and their schema decisions will appear here.'}
             />
           )}
-          {groups.map((g) => {
-            const key = `${g.format}::${g.source ?? ''}`
+          {reviewView === 'open' && groups.map((g) => {
             return (
               <InspectionCard
-                key={key}
+                key={g.key}
                 group={g}
-                rep={reps[key] ?? null}
+                rep={reps[g.key] ?? null}
                 issue={issueFor(g)}
                 hasMapping={mappingFor(g.source)}
-                busy={groupBusy === key}
-                openDrift={openDriftBySource.get(g.source ?? '') ?? 0}
+                busy={groupBusy === g.key}
+                drift={(() => { const m = matchOpenDrift(g); return m ? driftDetails[m.id] ?? null : null })()}
                 onApprove={() => approveGroup(g)}
                 onReview={() => setOnboarding(g)}
+                onCorrect={() => {
+                  const m = matchOpenDrift(g)
+                  if (m && driftDetails[m.id]) setCorrectTarget(driftDetails[m.id])
+                }}
+                onReject={() => {
+                  const m = matchOpenDrift(g)
+                  const d = m ? driftDetails[m.id] : undefined
+                  if (d) rejectCardDrift(g, d)
+                }}
+                onDriftChanged={() => {
+                  const m = matchOpenDrift(g)
+                  if (m) refreshDecision(m.id)
+                }}
                 onPurge={() => purgeGroup(g)}
               />
             )
           })}
         </div>
       )}
-
       {tab !== 'inspection' && tab !== 'index-detail' && !events.loading && !events.error && rows.length === 0 && (
         <div className="mt-8">
           <EmptyState
@@ -1001,7 +1578,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
                 siblingCount={siblingCount}
                 onChanged={() => {
                   events.reload()
-                  unsourced.reload()
+                  serverGroups.reload()
                   detail.reload()
                 }}
                 onDeleted={() => setSelected(null)}
@@ -1011,6 +1588,34 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
             <div className="mt-8 flex justify-center"><Spinner /></div>
           )}
         </div>
+      )}
+
+      {tab === 'normalized' && (
+        <UploadsSection
+          batches={(batches.data ?? []).filter((b) => !source || (b.source ?? '') === source)}
+          loading={batches.loading}
+          onScopeBatch={scopeBatch}
+          onScopeGroup={scopeGroup}
+        />
+      )}
+
+      {groupIds && (tab === 'normalized' || tab === 'failed') && (
+        <div className="mb-4 flex items-center gap-3 surface-inset rounded-xl border border-primary/30 bg-primary-container/10 px-4 py-2 text-body-sm text-primary">
+          <span>
+            Scoped to set <span className="font-mono font-bold">{groupLabel}</span>
+          </span>
+          <button onClick={clearGroup} className="ml-auto btn-text text-error text-label-sm">
+            Clear scope
+          </button>
+        </div>
+      )}
+
+      {(tab === 'normalized' || tab === 'failed') && (batchId !== '' || groupIds) && (
+        <IndexExport
+          source={source || undefined}
+          batchId={batchId === '' ? undefined : batchId}
+          ids={groupIds ?? undefined}
+        />
       )}
 
       {(tab === 'normalized' || tab === 'failed') && rows.length > 0 && (
@@ -1051,6 +1656,14 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
             Execute Paginate ({all.length} Indexed)
           </button>
         </div>
+      )}
+
+      {correctTarget && (
+        <CorrectModal
+          drift={correctTarget}
+          onClose={() => setCorrectTarget(null)}
+          onDone={doneCorrecting}
+        />
       )}
 
       {onboarding && onboardingRep && (

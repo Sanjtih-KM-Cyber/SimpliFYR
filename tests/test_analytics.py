@@ -123,12 +123,18 @@ def test_dedup_groups_by_pattern_keep_first(client):
     body = res.json()
     assert body["total"] == 5
     patterns = body["patterns"]
-    assert len(patterns) == 4, patterns
+    # Syslog base shape x2 groups; unstructured raw lines share the
+    # raw_text fallback shape and group (same structural-shape rule as
+    # syslog) instead of vanishing or splitting per distinct junk.
+    assert len(patterns) == 3, patterns
     by_count = sorted(p["count"] for p in patterns)
-    assert by_count == [1, 1, 1, 2], patterns
-    first = next(p for p in patterns if p["count"] == 2)
+    assert by_count == [1, 2, 2], patterns
+    first = next(p for p in patterns if p["count"] == 2 and p["format"] == "syslog")
     assert first["sample"].endswith("10.1.1.5 action=deny")
     assert first["format"] == "syslog"
+    raw_group = next(p for p in patterns if p["format"] == "raw")
+    assert raw_group["count"] == 2
+    assert raw_group["fields"] == ["raw_text"]
 
 
 def test_dedup_rejects_empty(client):

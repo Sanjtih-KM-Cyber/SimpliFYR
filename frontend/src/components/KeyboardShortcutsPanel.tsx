@@ -6,7 +6,7 @@ const SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ['3'], action: 'Analytics' },
   { keys: ['4'], action: 'Settings' },
   { keys: ['N'], action: 'New Connection' },
-  { keys: ['R'], action: 'Needs Review' },
+  { keys: ['R'], action: 'Review' },
   { keys: ['Esc'], action: 'Close / Back' },
   { keys: ['Ctrl', 'I'], action: 'Toggle this panel' },
 ]

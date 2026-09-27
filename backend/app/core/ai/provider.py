@@ -55,26 +55,50 @@ def _heuristic():
     return HeuristicAIProvider()
 
 
-def analyze_drift_safe(**kwargs):
+def analyze_drift_safe(db=None, **kwargs):
     """Analyze drift, falling back to the heuristic provider per call.
 
     Construction-time fallback (above) only covers startup misconfiguration.
     A running Ollama can still fail per request (timeout, malformed JSON);
     callers use this so one bad model response never breaks the workflow.
+
+    Afterwards the online field memory fills any abstained suggestions from
+    globally approved mappings, so custom semantics a human taught are
+    reused without retraining (pass the caller's ``db`` session).
     """
     provider = get_ai_provider()
     try:
-        return provider.analyze_drift(**kwargs)
+        proposal = provider.analyze_drift(**kwargs)
     except Exception as exc:  # noqa: BLE001
         logger.warning("AI analyze_drift failed (%s); heuristic fallback", exc)
-        return _heuristic().analyze_drift(**kwargs)
+        proposal = _heuristic().analyze_drift(**kwargs)
+    if db is not None:
+        try:
+            from app.core.field_memory import overlay_memory
+
+            overlay_memory(db, proposal.new_field_suggestions)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("field memory overlay failed (%s)", exc)
+    return proposal
 
 
-def propose_mapping_safe(**kwargs):
-    """Propose a mapping, falling back to the heuristic provider per call."""
+def propose_mapping_safe(db=None, **kwargs):
+    """Propose a mapping, falling back to the heuristic provider per call.
+
+    Afterwards the online field memory fills abstained suggestions from
+    globally approved mappings (pass the caller's ``db`` session).
+    """
     provider = get_ai_provider()
     try:
-        return provider.propose_mapping(**kwargs)
+        proposal = provider.propose_mapping(**kwargs)
     except Exception as exc:  # noqa: BLE001
         logger.warning("AI propose_mapping failed (%s); heuristic fallback", exc)
-        return _heuristic().propose_mapping(**kwargs)
+        proposal = _heuristic().propose_mapping(**kwargs)
+    if db is not None:
+        try:
+            from app.core.field_memory import overlay_memory
+
+            overlay_memory(db, proposal.new_field_suggestions)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("field memory overlay failed (%s)", exc)
+    return proposal

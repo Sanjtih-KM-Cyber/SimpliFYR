@@ -13,7 +13,7 @@ import { ConnectionLearning, ConnectionLogs, ConnectionMappings } from './pages/
 import Connections from './pages/Connections'
 import Dashboard from './pages/Dashboard'
 import Destinations from './pages/Destinations'
-import NeedsReview from './pages/NeedsReview'
+import Logs from './pages/Logs'
 import Profiles from './pages/Profiles'
 import Settings, { SettingsGeneral } from './pages/Settings'
 
@@ -21,7 +21,6 @@ const NAV = [
   { to: '/', label: 'Home' },
   { to: '/connections', label: 'Connections' },
   { to: '/analytics', label: 'Analytics' },
-  { to: '/needs-review', label: 'Review Queue' },
   { to: '/settings', label: 'Settings' },
 ]
 
@@ -116,7 +115,7 @@ function Shell() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/connections" element={<Connections />} />
-            <Route path="/connections/new" element={<AddConnection />} />
+            <Route path="/connections/new" element={<AddConnection />} caseSensitive />
             <Route path="/connections/:sourceName" element={<ConnectionLayout />}>
               <Route index element={<ConnectionOverview />} />
               <Route path="mappings" element={<ConnectionMappings />} />
@@ -125,7 +124,7 @@ function Shell() {
               <Route path="live" element={<ConnectionLive />} />
             </Route>
             <Route path="/analytics" element={<Analytics />} />
-            <Route path="/needs-review" element={<NeedsReview />} />
+            <Route path="/logs" element={<Logs />} />
             <Route path="/settings" element={<Settings />}>
               <Route index element={<SettingsGeneral />} />
               <Route path="profiles" element={<Profiles />} />

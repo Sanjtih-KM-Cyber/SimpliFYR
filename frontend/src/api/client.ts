@@ -3,8 +3,10 @@ import type {
   AnalyticsEvent,
   Anomalies,
   AuditEntry,
+  BatchGroup,
   BatchResult,
   BatchRun,
+  EventGroup,
   Config,
   ConnectionDetail,
   ConnectionSummary,
@@ -20,6 +22,7 @@ import type {
   Onboarding,
   OnboardingAnalyze,
   OnboardingApproveResult,
+  OnboardingShapes,
   OutputProfile,
   Recipe,
   SemanticFieldEntry,
@@ -357,13 +360,15 @@ export async function deleteDestination(id: number): Promise<void> {
 }
 
 export interface ExportParams {
-  format: 'json' | 'ndjson' | 'csv'
+  format: 'json' | 'ndjson' | 'csv' | 'markdown' | 'md'
   status?: string
   source?: string
   batch_id?: number
   limit?: number
   ids?: number[]
   payload?: 'normalized' | 'output'
+  mappingId?: number
+  outputProfileId?: number
 }
 
 export interface ExportResult {
@@ -380,6 +385,8 @@ export async function exportLogs(params: ExportParams): Promise<ExportResult> {
   if (params.payload) qs.set('payload', params.payload)
   if (params.limit) qs.set('limit', String(params.limit))
   if (params.ids?.length) qs.set('ids', params.ids.join(','))
+  if (params.mappingId !== undefined) qs.set('mapping_id', String(params.mappingId))
+  if (params.outputProfileId !== undefined) qs.set('output_profile_id', String(params.outputProfileId))
   const res = await fetch(`${BASE}/export?${qs.toString()}`)
   if (!res.ok) {
     let detail = `Download failed: ${res.status}`
@@ -451,6 +458,16 @@ export function processBatch(input: BatchInput): Promise<BatchResult> {
 
 export function listBatches(limit = 50): Promise<BatchRun[]> {
   return request(`${BASE}/process/batches?limit=${limit}`)
+}
+
+export function getBatchGroups(batchId: number): Promise<BatchGroup[]> {
+  return request(`${BASE}/process/batches/${batchId}/groups`)
+}
+
+export function listEventGroups(status = 'quarantined', source?: string): Promise<EventGroup[]> {
+  const qs = new URLSearchParams({ status })
+  if (source) qs.set('source', source)
+  return request(`${BASE}/events/groups?${qs.toString()}`)
 }
 
 export function listSemanticFields(): Promise<SemanticFieldEntry[]> {
@@ -527,10 +544,6 @@ export function correctDrift(
   })
 }
 
-export function ignoreDrift(id: number): Promise<DriftDetail> {
-  return request(`${BASE}/drift/${id}/ignore`, { method: 'POST' })
-}
-
 export function rejectDrift(id: number): Promise<DriftDetail> {
   return request(`${BASE}/drift/${id}/reject`, { method: 'POST' })
 }
@@ -555,6 +568,14 @@ export function createOnboarding(sample: string, sourceName?: string): Promise<O
 
 export function analyzeOnboardingById(id: number): Promise<OnboardingAnalyze> {
   return request(`${BASE}/onboarding/${id}/analyze`, { method: 'POST' })
+}
+
+export function analyzeShapes(raw: string, source?: string): Promise<OnboardingShapes> {
+  return request(`${BASE}/onboarding/shapes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ raw, source_name: source ?? null }),
+  })
 }
 
 export interface OnboardingApproveInput {

@@ -108,7 +108,9 @@ def publish_mapping_knowledge(
         if profile is not None:
             recipe.output_profile_id = profile.id
 
+    from app.core.field_memory import invalidate_memory
     from app.core.mapping_cache import invalidate_active_mapping
 
     invalidate_active_mapping(source.name)
+    invalidate_memory()
     return source, version_row, mapping, recipe

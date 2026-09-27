@@ -64,6 +64,83 @@ async def ingest(
     if len(content.encode("utf-8")) > MAX_PAYLOAD:
         raise HTTPException(status_code=413, detail="Payload exceeds size limit")
 
+    # Line-oriented formats (syslog/CEF/LEEF/raw) are one event per line.
+    # A multi-line blob through single-event /ingest would detect+parse as
+    # ONE event and silently drop lines — fail loudly and point at the
+    # batch endpoint which preserves every line with its own format.
+    # A JSON array is N events whether or not it spans lines — route to
+    # batch so every element survives (single-event ingest would quarantine
+    # it whole, and the single-event response schema cannot carry a list).
+    if hint is None:
+        from simplifyr_parsers import Format as _Format
+
+        _probe_early = detect_format(content, content_type=content_type)
+        if _probe_early.format == _Format.JSON:
+            import json as _json_early
+
+            try:
+                _doc_early = _json_early.loads(content)
+            except Exception:
+                _doc_early = None
+            if isinstance(_doc_early, list):
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"JSON array with {len(_doc_early)} elements: "
+                        "POST /api/v1/process/batch instead (one event per element, zero loss)"
+                    ),
+                )
+
+    _non_empty = [ln for ln in content.splitlines() if ln.strip()]
+    if len(_non_empty) > 1 and hint is None:
+        from simplifyr_parsers import Format as _Format
+
+        _probe = detect_format(content, content_type=content_type)
+        if _probe.format in (_Format.SYSLOG, _Format.CEF, _Format.LEEF, _Format.RAW):
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Multi-line {_probe.format.value} payload ({len(_non_empty)} lines): "
+                    "POST /api/v1/process/batch instead (one event per line, "
+                    "per-line format detection, zero loss)"
+                ),
+            )
+        if _probe.format == _Format.JSON:
+            import json as _json
+
+            try:
+                _doc = _json.loads(content)
+            except Exception:
+                _doc = None
+            # A JSON array is N events, not one — route to batch so every
+            # element survives (single-event ingest would quarantine it whole).
+            if isinstance(_doc, list):
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"JSON array with {len(_doc)} elements: "
+                        "POST /api/v1/process/batch instead (one event per element, zero loss)"
+                    ),
+                )
+        if _probe.format == _Format.CSV:
+            try:
+                from simplifyr_parsers.detect import parse_csv as _parse_csv
+
+                _rows = [r for r in _parse_csv(content) if any(c.strip() for c in r)]
+            except Exception:
+                _rows = []
+            # Header + N rows = N events. Single-event ingest keeps the first
+            # row only — route multi-row tables to batch.
+            if len(_rows) > 2:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"CSV table with {len(_rows) - 1} rows: "
+                        "POST /api/v1/process/batch instead (one event per row, zero loss)"
+                    ),
+                )
+
+
     if mapping_id is not None and db.get(MappingModel, mapping_id) is None:
         raise HTTPException(status_code=404, detail="Mapping not found")
     if output_profile_id is not None and db.get(OutputProfile, output_profile_id) is None:

@@ -255,6 +255,28 @@ export interface BatchRun {
   created_at: string | null
 }
 
+export interface BatchGroup {
+  key: string
+  format: string
+  fields: string[]
+  count: number
+  held: number
+  rep_id: number | null
+  event_ids: number[]
+  truncated: boolean
+}
+
+export interface EventGroup {
+  key: string
+  format: string
+  source: string | null
+  fields: string[]
+  count: number
+  rep_id: number | null
+  event_ids: number[]
+  truncated: boolean
+}
+
 export interface SemanticFieldEntry {
   id: number
   name: string
@@ -276,6 +298,20 @@ export interface OnboardingAnalyze {
   detected_format: Format
   confidence: number
   suggestions: OnboardingSuggestion[]
+}
+
+export interface OnboardingShape {
+  key: string
+  format: string
+  count: number
+  fields: string[]
+  sample: string
+  suggestions: DriftFieldSuggestion[]
+}
+
+export interface OnboardingShapes {
+  source: string | null
+  shapes: OnboardingShape[]
 }
 
 export interface Onboarding {
@@ -393,15 +429,22 @@ export const SEMANTIC_FIELDS = [
   'network.protocol',
   'network.action',
   'network.transport',
+  'network.bytes',
   'identity.user',
   'identity.session_id',
   'device.hostname',
   'device.product',
   'device.vendor',
   'device.version',
+  'observer.hostname',
+  'rule.id',
+  'rule.name',
   'threat.signature',
   'threat.category',
   'threat.severity',
+  'threat.level',
   'authentication.result',
   'authentication.reason',
+  'log.original',
+  'log.format',
 ]

@@ -91,7 +91,7 @@ export default function Dashboard() {
     {
       label: 'Approve a mapping',
       done: (s?.mappings ?? 0) > 0,
-      to: '/needs-review',
+      to: '/logs?tab=review',
       action: 'Open review queue',
     },
     {
