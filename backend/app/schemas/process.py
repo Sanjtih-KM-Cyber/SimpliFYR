@@ -38,3 +38,8 @@ class BatchRunResponse(BaseModel):
     failed: int
     duration_seconds: float | None = None
     created_at: datetime | None = None
+    # Live counters: BatchRun.* froze at ingest time, but reprocessing (drift
+    # approve, retry, onboard) moves rows afterwards. These reflect the rows
+    # as they stand now, so badges clear the moment held logs drain.
+    live_normalized: int = 0
+    live_held: int = 0

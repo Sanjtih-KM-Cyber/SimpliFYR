@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -345,6 +346,33 @@ def _export_scope(
     return f"all-{total}records", None
 
 
+class ExportRequest(BaseModel):
+    """POST body twin of the GET query params (ids travel in JSON, not the URL)."""
+
+    format: str = "json"
+    shape: str = "normalized"
+    payload: str = "normalized"
+    status: str | None = None
+    source: str | None = None
+    batch_id: int | None = None
+    limit: int | None = None
+    ids: list[int] | None = None
+    mapping_id: int | None = None
+    output_profile_id: int | None = None
+
+
+def _parse_ids_param(ids: str | None) -> list[int] | None:
+    if not ids:
+        return None
+    try:
+        wanted = [int(p) for p in ids.split(",") if p.strip()]
+    except ValueError:
+        raise HTTPException(status_code=422, detail="ids must be comma-separated integers")
+    if len(wanted) > 10_000:
+        raise HTTPException(status_code=422, detail="ids set too large (max 10000)")
+    return wanted
+
+
 @router.get("")
 def export_events(
     format: str = Query(default="json"),
@@ -368,6 +396,63 @@ def export_events(
     ),
     environment: str = Depends(get_environment),
     db: Session = Depends(get_db),
+):
+    """Download processed logs as a file (GET variant; large id sets: use POST)."""
+    return _run_export(
+        format=format,
+        shape=shape,
+        payload=payload,
+        status=status,
+        source=source,
+        batch_id=batch_id,
+        limit=limit,
+        wanted=_parse_ids_param(ids),
+        mapping_id=mapping_id,
+        output_profile_id=output_profile_id,
+        environment=environment,
+        db=db,
+    )
+
+
+@router.post("")
+def export_events_post(
+    body: ExportRequest,
+    environment: str = Depends(get_environment),
+    db: Session = Depends(get_db),
+):
+    """Download processed logs as a file (POST twin: ids ride in JSON, no URL cap)."""
+    if body.ids is not None and len(body.ids) > 10_000:
+        raise HTTPException(status_code=422, detail="ids set too large (max 10000)")
+    return _run_export(
+        format=body.format,
+        shape=body.shape,
+        payload=body.payload,
+        status=body.status,
+        source=body.source,
+        batch_id=body.batch_id,
+        limit=body.limit,
+        wanted=body.ids,
+        mapping_id=body.mapping_id,
+        output_profile_id=body.output_profile_id,
+        environment=environment,
+        db=db,
+    )
+
+
+def _run_export(
+    *,
+    format: str,
+    shape: str,
+    payload: str,
+    status: str | None,
+    source: str | None,
+    batch_id: int | None,
+    limit: int | None,
+    wanted: list[int] | None,
+    mapping_id: int | None,
+    output_profile_id: int | None,
+    environment: str,
+    db: Session,
 ):
     """Download processed logs as a file (json, ndjson, csv, or markdown).
 
@@ -411,14 +496,6 @@ def export_events(
             detail=f"Unsupported payload: {payload} (use one of {', '.join(PAYLOADS)})",
         )
     statuses = _parse_statuses(status)
-    wanted: list[int] | None = None
-    if ids:
-        try:
-            wanted = [int(p) for p in ids.split(",") if p.strip()]
-        except ValueError:
-            raise HTTPException(status_code=422, detail="ids must be comma-separated integers")
-        if len(wanted) > 10_000:
-            raise HTTPException(status_code=422, detail="ids set too large (max 10000)")
 
     from app.models import Mapping as MappingModel
     from app.models import OutputProfile

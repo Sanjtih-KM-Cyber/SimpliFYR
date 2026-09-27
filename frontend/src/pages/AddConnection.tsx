@@ -83,9 +83,18 @@ export default function AddConnection() {
 
   function onFile(file: File | undefined) {
     if (!file) return
+    // Hold the action buttons until the file lands: FileReader is async and
+    // a fast click would otherwise analyze the previous one-line sample.
+    setAnalyzing(true)
     const reader = new FileReader()
-    reader.onload = () => setRaw(String(reader.result ?? ''))
-    reader.onerror = () => setError('Could not read file')
+    reader.onload = () => {
+      setRaw(String(reader.result ?? ''))
+      setAnalyzing(false)
+    }
+    reader.onerror = () => {
+      setError('Could not read file')
+      setAnalyzing(false)
+    }
     reader.readAsText(file)
   }
 
@@ -358,7 +367,7 @@ export default function AddConnection() {
               <div className="flex items-end pb-0.5">
                 <button
                   onClick={autoSuggest}
-                  disabled={suggesting || !raw.trim()}
+                  disabled={suggesting || analyzing || !raw.trim()}
                   className="btn-outlined w-full"
                 >
                   {suggesting ? <Spinner size="sm" /> : 'Run Autopilot Suggestion'}

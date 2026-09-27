@@ -69,6 +69,12 @@ function padId(id: number): string {
   return id.toString().padStart(6, '0')
 }
 
+function pageWindow(current: number, total: number): number[] {
+  if (total <= 10) return Array.from({ length: total }, (_, i) => i + 1)
+  const start = Math.min(Math.max(1, current - 4), total - 9)
+  return Array.from({ length: 10 }, (_, i) => start + i)
+}
+
 function matchesId(e: EventSummary, q: string): boolean {
   if (!/^\d+$/.test(q)) return false
   const stripped = q.replace(/^0+/, '')
@@ -782,7 +788,7 @@ function UploadsSection({
     <div className="mb-6 space-y-4">
       {batches.map((b) => {
         const isOpen = expanded.has(b.id)
-        const held = b.quarantined + b.dlq
+        const held = b.live_held
         return (
           <section key={b.id} className="surface-panel rounded-xl p-1">
             <div
@@ -863,12 +869,24 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
   const [vendor, setVendor] = useState('')
   const [batchId, setBatchId] = useState<number | ''>('')
   const [groupIds, setGroupIds] = useState<number[] | null>(null)
+  const [groupKey, setGroupKey] = useState<string | null>(null)
   const [groupLabel, setGroupLabel] = useState<string | null>(null)
   const [clearAllLoading, setClearAllLoading] = useState(false)
+  const [pageSize, setPageSize] = useState(50)
+  const [page, setPage] = useState(1)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [exhausted, setExhausted] = useState(false)
+  const moreRef = useRef<HTMLDivElement | null>(null)
+
   const searchRef = useRef<HTMLInputElement>(null)
   const vendors = useAsync(() => listConnections(), [])
   const batches = useAsync(() => listBatches(), [])
   const source = sourceFilter ?? vendor
+
+  useEffect(() => {
+    setPage(1)
+    setExhausted(false)
+  }, [tab, source, batchId, groupIds, search])
   const events = useAsync(
     () => listEvents({ limit: 200, ...(source ? { source } : {}) }),
     [source],
@@ -891,18 +909,38 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
   }, [tab, selected])
 
   async function loadMore() {
+    if (loadingMore || exhausted) return
+    setLoadingMore(true)
     try {
       const more = await listEvents({ limit: 200, offset: all.length, ...(source ? { source } : {}) })
       if (more.length === 0) {
-        toast('No older logs — you have the full history', 'info')
+        setExhausted(true)
         return
       }
       const seen = new Set(all.map((e) => e.id))
       setExtra((prev) => [...prev, ...more.filter((e) => !seen.has(e.id))])
+      if (more.length < 200) setExhausted(true)
     } catch (e) {
       toast((e as Error).message, 'error')
+    } finally {
+      setLoadingMore(false)
     }
   }
+
+  // Older logs fetch themselves as you scroll (no button): the sentinel
+  // below the pager fires the next 200 the moment it scrolls into view.
+  useEffect(() => {
+    const el = moreRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((en) => en.isIntersecting)) loadMore()
+      },
+      { rootMargin: '400px' },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  })
 
   useEffect(() => {
     const focus = () => searchRef.current?.focus()
@@ -1255,6 +1293,15 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
       return e.source === scope.source && formatLabel(e.detected_format) === formatLabel(scope.detected_format)
     })
 
+  // Row table only opens on a scope (upload/type) or search; uploads-first
+  // otherwise. Paged Google-style: size options + numbered buttons.
+  const showTable =
+    tab === 'failed' ||
+    (tab === 'normalized' && (batchId !== '' || groupIds || search.trim().length >= 2))
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize))
+  const safePage = Math.min(page, totalPages)
+  const pageRows = rows.slice((safePage - 1) * pageSize, safePage * pageSize)
+
   function selectIndex(e: EventSummary) {
     setSelected(e.id)
     setScope(e)
@@ -1263,10 +1310,17 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
 
   function clearGroup() {
     setGroupIds(null)
+    setGroupKey(null)
     setGroupLabel(null)
   }
 
   function scopeBatch(b: BatchRun) {
+    if (batchId === b.id) {
+      setBatchId('')
+      clearGroup()
+      setSelected(null)
+      return
+    }
     setBatchId(b.id)
     clearGroup()
     setSelected(null)
@@ -1274,8 +1328,13 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
   }
 
   function scopeGroup(b: BatchRun, g: BatchGroup, letter: string) {
+    if (groupKey === `${b.id}${letter}`) {
+      clearGroup()
+      return
+    }
     setBatchId(b.id)
     setGroupIds(g.event_ids)
+    setGroupKey(`${b.id}${letter}`)
     setGroupLabel(`#${b.id}${letter} · ${g.format} · ${g.count} logs`)
     setSelected(null)
     setTab('normalized')
@@ -1547,7 +1606,16 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
           })}
         </div>
       )}
-      {tab !== 'inspection' && tab !== 'index-detail' && !events.loading && !events.error && rows.length === 0 && (
+      {tab === 'normalized' && batchId === '' && !groupIds && search.trim().length < 2 && (batches.data ?? []).length === 0 && all.length === 0 && !events.loading && (
+        <div className="mt-8">
+          <EmptyState
+            title="Telemetry Empty"
+            description="Awaiting telemetry ingestion. Upload a file via Event processing — each upload becomes one index."
+          />
+        </div>
+      )}
+
+      {showTable && !events.loading && !events.error && rows.length === 0 && (
         <div className="mt-8">
           <EmptyState
             title={all.length === 0 ? 'Telemetry Empty' : 'No Results'}
@@ -1618,8 +1686,8 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
         />
       )}
 
-      {(tab === 'normalized' || tab === 'failed') && rows.length > 0 && (
-        <div className="data-scroll-region mt-2 surface-panel rounded-xl p-[1px]">
+      {showTable && rows.length > 0 && (
+        <div className="mt-2 surface-panel rounded-xl p-[1px]">
           <Table>
             <THead>
               <TR>
@@ -1630,7 +1698,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
               </TR>
             </THead>
             <TBody>
-              {rows.map((e) => (
+              {pageRows.map((e) => (
                 <TR key={e.id} onClick={tab === 'normalized' ? () => selectIndex(e) : undefined}>
                   <TD className={selected === e.id ? 'bg-primary/10 font-bold text-primary' : 'text-on-surface'}>
                     {padId(e.id)}
@@ -1647,14 +1715,60 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
         </div>
       )}
 
-      {(tab === 'normalized' || tab === 'failed') && rows.length >= 200 && (
-        <div className="mt-8 border-t border-outline-variant/50 pt-5 text-center">
-          <button
-            onClick={loadMore}
-            className="btn-secondary text-label-sm"
-          >
-            Execute Paginate ({all.length} Indexed)
-          </button>
+      {showTable && rows.length > 0 && (
+        <div className="mt-4 flex flex-wrap items-center gap-3 surface-panel rounded-xl px-4 py-3">
+          <span className="font-mono text-body-sm text-on-surface-variant">
+            Showing {(safePage - 1) * pageSize + 1}&ndash;{Math.min(safePage * pageSize, rows.length)} of {rows.length}
+          </span>
+          <Dropdown<number>
+            value={pageSize}
+            onChange={(v) => { if (v) { setPageSize(v); setPage(1) } }}
+            options={[10, 50, 100].map((n) => ({ value: n, label: `${n} / page` }))}
+            className="w-36 shrink-0"
+          />
+          <span className="ml-auto flex items-center gap-1">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={safePage <= 1}
+              className="btn-text text-label-sm disabled:opacity-40"
+            >
+              &lsaquo; Prev
+            </button>
+            {pageWindow(safePage, totalPages).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPage(p)}
+                className={`min-w-8 rounded-lg px-2 py-1 font-mono text-body-sm transition-colors ${
+                  p === safePage
+                    ? 'bg-primary font-semibold text-on-primary'
+                    : 'text-primary hover:bg-primary/10'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safePage >= totalPages}
+              className="btn-text text-label-sm disabled:opacity-40"
+            >
+              Next &rsaquo;
+            </button>
+          </span>
+        </div>
+      )}
+
+      {showTable && rows.length > 0 && (
+        <div ref={moreRef} className="mt-4 border-t border-outline-variant/50 pt-4 text-center">
+          <p className="font-mono text-body-sm text-on-surface-variant/70">
+            {loadingMore ? (
+              <span className="inline-flex items-center gap-2"><Spinner size="sm" /> Loading older logs…</span>
+            ) : exhausted ? (
+              <span>{all.length} indexed — full history</span>
+            ) : (
+              <span>{all.length} indexed — scroll for older logs</span>
+            )}
+          </p>
         </div>
       )}
 

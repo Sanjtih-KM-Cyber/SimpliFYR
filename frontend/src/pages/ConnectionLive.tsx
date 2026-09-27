@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getConnection, listEvents } from '../api/client'
 import type { ConnectionSummary } from '../api/types'
@@ -25,6 +25,12 @@ export default function ConnectionLive() {
   const [events, setEvents] = useState<LiveEvent[]>([])
   const [paused, setPaused] = useState(false)
   const [showConnect, setShowConnect] = useState(false)
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 15000)
+    return () => clearInterval(timer)
+  }, [])
 
   const history = useAsync(
     () => (c?.name ? listEvents({ source: c.name, limit: 50 }) : Promise.resolve([])),
@@ -85,6 +91,12 @@ export default function ConnectionLive() {
             }
           />
           <ConnectLiveModal open={showConnect} onClose={() => setShowConnect(false)} />
+
+          {connected && !paused && rows.length > 0 && now - new Date(rows[0].received_at).getTime() > 5 * 60 * 1000 && (
+            <p className="mb-3 surface-inset rounded-xl border border-outline-variant/50 px-4 py-2 text-body-sm text-on-surface-variant">
+              Quiet for 5+ min — the stream may have stopped. Anything held back waits under Review.
+            </p>
+          )}
 
           <section className="flex-1 min-h-[50vh]">
             {rows.length === 0 ? (

@@ -108,6 +108,23 @@ export function LoadTestPanel() {
     }
   }
 
+  function onFile(file: File | undefined) {
+    if (!file) return
+    // Same race as TryItNow: FileReader is async — hold the Run button
+    // until the dropped file actually lands in the input.
+    setBusy(true)
+    const reader = new FileReader()
+    reader.onload = () => {
+      setBatch(String(reader.result ?? ''))
+      setBusy(false)
+    }
+    reader.onerror = () => {
+      setError('Could not read file')
+      setBusy(false)
+    }
+    reader.readAsText(file)
+  }
+
   async function runLoadTest() {
     setBusy(true)
     setError(null)
@@ -125,14 +142,6 @@ export function LoadTestPanel() {
     } finally {
       setBusy(false)
     }
-  }
-
-  function onFile(file: File | undefined) {
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => setBatch(String(reader.result ?? ''))
-    reader.onerror = () => setError('Could not read file')
-    reader.readAsText(file)
   }
 
   async function downloadSet() {

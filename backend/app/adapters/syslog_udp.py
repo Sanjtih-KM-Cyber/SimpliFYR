@@ -24,12 +24,14 @@ class SyslogDatagramProtocol(asyncio.DatagramProtocol):
 
 def build_syslog_handler():
     """Return a callback that wraps a syslog payload for the processing pipeline."""
+    from app.adapters.syslog_source import resolve_syslog_source
     from app.core import pipeline
 
     def handle(payload: str, addr: tuple) -> None:
         pipeline.enqueue(
             {
                 "payload": payload,
+                "source": resolve_syslog_source(addr),
                 "ingestion_type": "syslog",
                 "address": f"{addr[0]}:{addr[1]}",
                 "content_type": "text/plain",

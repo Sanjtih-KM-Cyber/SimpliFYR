@@ -12,11 +12,16 @@ class Settings(BaseSettings):
     raw_storage_dir: str = "./data/raw"
 
     syslog_enabled: bool = True
-    syslog_udp_host: str = "127.0.0.1"
+    syslog_udp_host: str = "0.0.0.0"
     syslog_udp_port: int = 5514
+    # Name-tag live arrivals: optional fixed source plus an IP->name map
+    # ("192.168.1.1=fw01,10.0.0.5=fw02"). Untagged senders stay sourceless
+    # (quarantined, ownerless) exactly as before.
+    syslog_default_source: str | None = None
+    syslog_source_map: str = ""
 
     syslog_tcp_enabled: bool = False
-    syslog_tcp_host: str = "127.0.0.1"
+    syslog_tcp_host: str = "0.0.0.0"
     syslog_tcp_port: int = 5515
 
     file_watch_enabled: bool = False
@@ -45,8 +50,8 @@ class Settings(BaseSettings):
     ai_review_threshold: float = 0.5
 
     # --- Horizontal scaling ---
-    pipeline_workers: int = 1
-    pipeline_max_queue: int = 10000  # in-memory buffer; full queue sheds load
+    pipeline_workers: int = 4
+    pipeline_max_queue: int = 50000  # in-memory buffer; full queue sheds load
 
     # --- Scale backends ("inmemory" = dev default; production swaps) ---
     pipeline_backend: str = "inmemory"  # "inmemory" | "kafka"

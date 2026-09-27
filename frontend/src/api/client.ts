@@ -378,16 +378,23 @@ export interface ExportResult {
 }
 
 export async function exportLogs(params: ExportParams): Promise<ExportResult> {
-  const qs = new URLSearchParams({ format: params.format })
-  if (params.status) qs.set('status', params.status)
-  if (params.source) qs.set('source', params.source)
-  if (params.batch_id !== undefined) qs.set('batch_id', String(params.batch_id))
-  if (params.payload) qs.set('payload', params.payload)
-  if (params.limit) qs.set('limit', String(params.limit))
-  if (params.ids?.length) qs.set('ids', params.ids.join(','))
-  if (params.mappingId !== undefined) qs.set('mapping_id', String(params.mappingId))
-  if (params.outputProfileId !== undefined) qs.set('output_profile_id', String(params.outputProfileId))
-  const res = await fetch(`${BASE}/export?${qs.toString()}`)
+  // POST with a JSON body: id sets ride in the payload, never the URL
+  // (thousands of ids in a query string blow past header limits -> 431).
+  const res = await fetch(`${BASE}/export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      format: params.format,
+      ...(params.status ? { status: params.status } : {}),
+      ...(params.source ? { source: params.source } : {}),
+      ...(params.batch_id !== undefined ? { batch_id: params.batch_id } : {}),
+      ...(params.payload ? { payload: params.payload } : {}),
+      ...(params.limit ? { limit: params.limit } : {}),
+      ...(params.ids?.length ? { ids: params.ids } : {}),
+      ...(params.mappingId !== undefined ? { mapping_id: params.mappingId } : {}),
+      ...(params.outputProfileId !== undefined ? { output_profile_id: params.outputProfileId } : {}),
+    }),
+  })
   if (!res.ok) {
     let detail = `Download failed: ${res.status}`
     try {

@@ -11,10 +11,17 @@ export function ConnectLiveModal({ open, onClose }: { open: boolean; onClose: ()
     navigator.clipboard.writeText(text)
   }
 
+  // 0.0.0.0 means "listen on every interface" — you dial 127.0.0.1 from here.
+  const dialHost = !c?.syslog_udp_host || c.syslog_udp_host === '0.0.0.0' ? '127.0.0.1' : c.syslog_udp_host
+  const udpTest = `$u = New-Object Net.Sockets.UdpClient; $b = [Text.Encoding]::UTF8.GetBytes('<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 action=deny'); $u.Send($b, $b.Length, '${dialHost}', ${c?.syslog_udp_port ?? 5514}); $u.Close()`
+  const tcpTest = `$t = New-Object Net.Sockets.TcpClient('${dialHost}', ${c?.syslog_tcp_port ?? 5515}); $s = $t.GetStream(); $b = [Text.Encoding]::UTF8.GetBytes("<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 action=deny\`n"); $s.Write($b, 0, $b.Length); $t.Close()`
+  const httpTest = `curl.exe -X POST ${origin}/api/v1/ingest -F "raw=<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 action=deny" -F "source=fw01"`
+
   return (
     <Modal open={open} title="Live Log Ingestion" onClose={onClose} width="max-w-2xl">
       <p className="mb-5 text-body-md leading-relaxed text-on-surface-variant">
-        Direct live device logs to the framework exactly once. The ingestion pipeline matches events to configured sources autonomously using vector fingerprinting.
+        Point a device or script at these doors. Every arrival normalizes on the spot through your mappings —
+        unknown shapes park under Review, tagged senders land under their connection.
       </p>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -33,7 +40,18 @@ export function ConnectLiveModal({ open, onClose }: { open: boolean; onClose: ()
                   className="ml-auto control-icon h-8 w-8"
                   aria-label="Copy address"
                 >
-                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" /><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" /></svg>
+                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" /><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 002-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" /></svg>
+                </button>
+              </div>
+              <p className="mb-2 mt-3 text-body-sm text-on-surface-variant">Prove it from PowerShell:</p>
+              <div className="flex items-center gap-2 surface-inset rounded-xl px-3 py-2 font-mono text-mono-sm text-on-surface-variant">
+                <span className="min-w-0 flex-1 truncate">{udpTest}</span>
+                <button
+                  onClick={() => copy(udpTest)}
+                  className="ml-auto control-icon h-8 w-8 shrink-0"
+                  aria-label="Copy test command"
+                >
+                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" /><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 002-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" /></svg>
                 </button>
               </div>
             </>
@@ -52,14 +70,42 @@ export function ConnectLiveModal({ open, onClose }: { open: boolean; onClose: ()
               className="ml-auto control-icon h-8 w-8"
               aria-label="Copy endpoint"
             >
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" /><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" /></svg>
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" /><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 002-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" /></svg>
             </button>
           </div>
           <p className="mt-3 text-label-sm text-on-surface-variant/70">
             Requires <code className="surface-inset rounded px-1 px-1.5 font-mono text-label-sm text-on-surface">raw</code> and <code className="surface-inset rounded px-1 px-1.5 font-mono text-label-sm text-on-surface">source</code> form payload.
           </p>
+          <p className="mb-2 mt-3 text-body-sm text-on-surface-variant">Prove it from a terminal:</p>
+          <div className="flex items-center gap-2 surface-inset rounded-xl px-3 py-2 font-mono text-mono-sm text-on-surface-variant">
+            <span className="min-w-0 flex-1 truncate">{httpTest}</span>
+            <button
+              onClick={() => copy(httpTest)}
+              className="ml-auto control-icon h-8 w-8 shrink-0"
+              aria-label="Copy test command"
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" /><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 002-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" /></svg>
+            </button>
+          </div>
         </section>
       </div>
+
+      {c?.syslog_tcp_enabled && (
+        <section className="surface-panel mt-4 rounded-xl p-4">
+          <h4 className="mb-3 text-label-lg font-semibold text-on-surface">Syslog (TCP, reliable)</h4>
+          <p className="mb-2 text-body-sm text-on-surface-variant">Prove it from PowerShell:</p>
+          <div className="flex items-center gap-2 surface-inset rounded-xl px-3 py-2 font-mono text-mono-sm text-on-surface-variant">
+            <span className="min-w-0 flex-1 truncate">{tcpTest}</span>
+            <button
+              onClick={() => copy(tcpTest)}
+              className="ml-auto control-icon h-8 w-8 shrink-0"
+              aria-label="Copy test command"
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" /><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 002-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" /></svg>
+            </button>
+          </div>
+        </section>
+      )}
 
       <div className="mt-6 flex justify-end pt-4 border-t border-outline-variant/50">
         <button onClick={onClose} className="btn-text text-label-sm">

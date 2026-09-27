@@ -55,41 +55,35 @@ async def process_batch(
     results: list[BatchItemResult] = []
     counts = {"normalized": 0, "output": 0, "quarantined": 0, "dlq": 0, "failed": 0}
 
-    # Commit in chunks instead of once per event: at 100k lines, per-event
-    # commits dominate latency. Rows are flushed per event (PKs assigned, dedup
-    # stays exact); durability is checkpointed every 500.
+    # Batched I/O fast path: one mapping resolve, one duplicate prefetch, one
+    # flush per 1000 lines (was: one SELECT + one flush per event). Same
+    # per-line semantics (status/dedup/quarantine/drift) as N single ingests.
     start = time.perf_counter()
     latencies: list[float] = []
-    for index, line in enumerate(lines):
-        t0 = time.perf_counter()
-        try:
-            res = engine.process_payload(
-                line,
-                source=source,
-                mapping_id=mapping_id,
-                output_profile_id=output_profile_id,
-                ingestion_type="batch",
-                commit=False,
+    engine_results = engine.process_lines(
+        lines,
+        source=source,
+        mapping_id=mapping_id,
+        output_profile_id=output_profile_id,
+        ingestion_type="batch",
+    )
+    per_event_ms = (time.perf_counter() - start) * 1000 / max(len(lines), 1)
+    for index, res in enumerate(engine_results):
+        status = res["status"]
+        status_value = status.value if hasattr(status, "value") else str(status)
+        if status_value in counts:
+            counts[status_value] += 1
+        detection = res.get("detection")
+        results.append(
+            BatchItemResult(
+                index=index,
+                status=status_value,
+                detected_format=detection.format.value if detection is not None else "",
+                stored_event_id=res.get("stored_event_id"),
+                duplicate=bool(res.get("duplicate", False)),
             )
-            status = res["status"].value
-            if status in counts:
-                counts[status] += 1
-            results.append(
-                BatchItemResult(
-                    index=index,
-                    status=status,
-                    detected_format=res["detection"].format.value,
-                    stored_event_id=res.get("stored_event_id"),
-                    duplicate=bool(res.get("duplicate", False)),
-                )
-            )
-        except Exception:
-            counts["failed"] += 1
-            results.append(BatchItemResult(index=index, status="failed", detected_format=""))
-        latencies.append((time.perf_counter() - t0) * 1000)
-        if (index + 1) % 500 == 0:
-            db.commit()
-    db.commit()
+        )
+        latencies.append(per_event_ms)
     duration = time.perf_counter() - start
 
     processed = sum(1 for r in results if r.status != "failed")
@@ -130,7 +124,9 @@ async def process_batch(
     )
 
 
-def _run_to_response(run: BatchRun) -> BatchRunResponse:
+def _run_to_response(
+    run: BatchRun, live_normalized: int = 0, live_held: int = 0
+) -> BatchRunResponse:
     return BatchRunResponse(
         id=run.id,
         source=run.source,
@@ -143,6 +139,8 @@ def _run_to_response(run: BatchRun) -> BatchRunResponse:
         failed=run.failed,
         duration_seconds=run.duration_seconds,
         created_at=run.created_at,
+        live_normalized=live_normalized,
+        live_held=live_held,
     )
 
 
@@ -152,10 +150,31 @@ def list_batches(
     db: Session = Depends(get_db),
 ):
     """Recent batch runs, newest first — one row per set parsed at one time."""
+    from sqlalchemy import func
+
     runs = (
         db.execute(select(BatchRun).order_by(BatchRun.id.desc()).limit(limit)).scalars().all()
     )
-    return [_run_to_response(r) for r in runs]
+    live: dict[int, dict[str, int]] = {}
+    if runs:
+        for batch_id, status, count in db.execute(
+            select(Event.batch_id, Event.status, func.count(Event.id))
+            .where(Event.batch_id.in_([r.id for r in runs]))
+            .group_by(Event.batch_id, Event.status)
+        ).all():
+            entry = live.setdefault(batch_id, {"normalized": 0, "held": 0})
+            if str(status) in ("normalized", "output"):
+                entry["normalized"] += count
+            elif str(status) in ("quarantined", "dlq"):
+                entry["held"] += count
+    return [
+        _run_to_response(
+            r,
+            live_normalized=live.get(r.id, {}).get("normalized", 0),
+            live_held=live.get(r.id, {}).get("held", 0),
+        )
+        for r in runs
+    ]
 
 
 class BatchGroupResponse(BaseModel):

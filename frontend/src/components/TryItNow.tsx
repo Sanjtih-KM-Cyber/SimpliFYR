@@ -158,9 +158,18 @@ export function TryItNow({ sourceName }: { sourceName: string }) {
 
   function onFile(file: File | undefined) {
     if (!file) return
+    // Block Run until the file lands in the box: FileReader is async, and
+    // a fast click would otherwise ingest the previous one-line sample.
+    setBusy(true)
     const reader = new FileReader()
-    reader.onload = () => setRaw(String(reader.result ?? ''))
-    reader.onerror = () => setError('Could not read file')
+    reader.onload = () => {
+      setRaw(String(reader.result ?? ''))
+      setBusy(false)
+    }
+    reader.onerror = () => {
+      setError('Could not read file')
+      setBusy(false)
+    }
     reader.readAsText(file)
   }
 

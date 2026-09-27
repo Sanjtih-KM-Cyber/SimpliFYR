@@ -36,12 +36,14 @@ async def _handle_connection(
 
 def build_syslog_tcp_handler():
     """Return a callback that wraps a TCP syslog line for the pipeline."""
+    from app.adapters.syslog_source import resolve_syslog_source
     from app.core import pipeline
 
     def handle(payload: str, addr: tuple) -> None:
         pipeline.enqueue(
             {
                 "payload": payload,
+                "source": resolve_syslog_source(addr),
                 "ingestion_type": "syslog",
                 "address": f"{addr[0]}:{addr[1]}",
                 "content_type": "text/plain",

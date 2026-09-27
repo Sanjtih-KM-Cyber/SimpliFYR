@@ -57,6 +57,13 @@ class ProcessingEngine:
         # lifetime (one request / one batch): a mapping published mid-batch
         # applies from the next request, consistent with the 30s mapping cache.
         self._package_cache: dict = {}
+        # Batch fast path: (source, mapping_id) -> (mapping, recipe), resolved
+        # once per batch instead of one SELECT per event (even cache-warm the
+        # per-event `db.get` costs ~1ms — the top hot spot in profiling).
+        self._resolved_cache: dict = {}
+        # Batch fast path: pre-fetched {(raw_hash, source)} identities so the
+        # per-event duplicate SELECT collapses into one IN query per batch.
+        self._known_hashes: set | None = None
 
     def process_payload(
         self,
@@ -164,12 +171,34 @@ class ProcessingEngine:
         result["mapping_id"] = self._resolved_mapping_id
         return result
 
+    def prefetch_hashes(self, payloads: list[str], source: str | None, environment: str) -> None:
+        """Load {(raw_hash, source)} identities for a batch in ONE query.
+
+        The batch loop then checks membership with zero roundtrips; only an
+        actual duplicate hit falls back to the exact row lookup below.
+        """
+        hashes = list({hashlib.sha256(p.encode("utf-8")).hexdigest() for p in payloads})
+        known: set = set()
+        # Chunked: SQLite caps bound variables per statement (999 on old
+        # builds), so one giant IN list would fail on large batches.
+        for start in range(0, len(hashes), 500):
+            chunk = hashes[start : start + 500]
+            rows = self.db.execute(
+                select(Event.raw_hash, Event.source).where(
+                    Event.raw_hash.in_(chunk), Event.environment == environment
+                )
+            ).all()
+            known.update((h, s) for h, s in rows)
+        self._known_hashes = known
+
     def _find_duplicate(self, raw_hash: str, source: str | None, environment: str) -> Event | None:
         """Find a previously stored event with identical payload identity (§58).
 
         Identity = payload hash + source label + environment. Scoped to the
         environment so identical payloads from different tenants never collide.
         """
+        if self._known_hashes is not None and (raw_hash, source) not in self._known_hashes:
+            return None
         candidates = self.db.execute(
             select(Event).where(Event.raw_hash == raw_hash, Event.environment == environment)
         ).scalars().all()
@@ -291,7 +320,20 @@ class ProcessingEngine:
 
         Order: explicit per-request mapping_id -> configure-once recipe -> active
         mapping by name. Returns (mapping, recipe-or-None).
+
+        Resolved once per (source, mapping_id) per engine lifetime: batch runs
+        share one source/mapping, so this collapses N per-event SELECTs into
+        one (snapshot semantics unchanged — a mapping published mid-batch
+        applies from the next request).
         """
+        key = (source, mapping_id)
+        if key not in self._resolved_cache:
+            self._resolved_cache[key] = self._lookup_mapping(source, mapping_id)
+        return self._resolved_cache[key]
+
+    def _lookup_mapping(
+        self, source: str | None, mapping_id: int | None
+    ) -> tuple[MappingModel | None, Recipe | None]:
         if mapping_id is not None:
             return self.db.get(MappingModel, mapping_id), None
         if source:
@@ -302,6 +344,154 @@ class ProcessingEngine:
 
             return find_cached_or_lookup(self.db, source), None
         return None, None
+
+    def process_lines(
+        self,
+        lines: list[str],
+        *,
+        source: str | None = None,
+        mapping_id: int | None = None,
+        output_profile_id: int | None = None,
+        content_type: str = "text/plain",
+        hint: Format | None = None,
+        environment: str = "default",
+        ingestion_type: str = "batch",
+        address: str | None = None,
+        segment: int = 1000,
+    ) -> list[dict]:
+        """Process a batch of lines with batched I/O (same semantics as N calls).
+
+        Fast path over process_payload: one mapping resolve, one duplicate
+        prefetch query, one flush per `segment` lines (instead of per-event
+        SELECTs/flushes). Duplicate identity, quarantine/drift behavior, live
+        publish, and delivery are unchanged — including intra-batch replays,
+        which reference the first occurrence's outcome like a stored replay.
+        """
+        # Resolve catalog identity + duplicate history once for the whole batch.
+        source_id: int | None = None
+        resolved_source: str | None = None
+        if source is not None and source.strip():
+            catalog_source = get_or_create_source(self.db, source, environment, self._source_cache)
+            source_id = catalog_source.id
+            resolved_source = catalog_source.name
+        self.prefetch_hashes(lines, resolved_source, environment)
+
+        results: list[dict] = []
+        first_by_key: dict = {}
+        pending: list[tuple] = []  # (event, result) awaiting segment flush
+        backfills: list[tuple] = []  # (dupe result, first event) for PK backfill
+
+        def checkpoint() -> None:
+            for event, _result in pending:
+                self.db.add(event)
+            if pending:
+                self.db.flush()  # PKs for the whole segment at once
+            for event, result in pending:
+                result["stored_event_id"] = event.id
+            for dupe_result, first_event in backfills:
+                dupe_result["stored_event_id"] = first_event.id
+            if pending:
+                self.db.commit()
+            pending.clear()
+            backfills.clear()
+
+        for payload in lines:
+            try:
+                envelope = new_envelope(
+                    raw_payload=payload,
+                    ingestion_type=ingestion_type,
+                    address=address,
+                    content_type=content_type,
+                )
+                raw_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+                key = (raw_hash, resolved_source)
+                if key in first_by_key:
+                    # Intra-batch replay: same outcome as the first occurrence.
+                    first_result, first_event = first_by_key[key]
+                    dupe = {
+                        "detection": first_result["detection"],
+                        "parsed": first_result["parsed"],
+                        "normalized": first_result["normalized"],
+                        "provenance": first_result["provenance"],
+                        "output": first_result["output"],
+                        "status": first_result["status"],
+                        "duplicate": True,
+                        "envelope": envelope,
+                        "stored_event_id": None,  # backfilled at checkpoint
+                        "mapping_id": first_result.get("mapping_id"),
+                    }
+                    backfills.append((dupe, first_event))
+                    results.append(dupe)
+                    continue
+                if key in (self._known_hashes or set()):
+                    # Historical replay: exact row lookup only for real hits.
+                    duplicate_of = self._lookup_duplicate_row(raw_hash, resolved_source, environment)
+                    if duplicate_of is not None:
+                        results.append(
+                            self._duplicate_result(duplicate_of, envelope, payload, content_type, hint)
+                        )
+                        continue
+                    # Hash known but no row (stale prefetch): store normally.
+                raw_ref = get_raw_store().save(envelope.event_id, payload)
+                event = Event(
+                    event_id=envelope.event_id,
+                    environment=environment,
+                    source_id=source_id,
+                    source=resolved_source,
+                    raw=payload,
+                    raw_hash=raw_hash,
+                    raw_ref=raw_ref,
+                )
+                compute_start = time.perf_counter()
+                result = self._compute(
+                    event, payload, resolved_source, mapping_id, output_profile_id, content_type, hint
+                )
+                event.processing_ms = round((time.perf_counter() - compute_start) * 1000, 3)
+                result.update(
+                    {
+                        "envelope": envelope,
+                        "stored_event_id": None,  # backfilled at checkpoint
+                        "mapping_id": self._resolved_mapping_id,
+                        "duplicate": False,
+                    }
+                )
+                pending.append((event, result))
+                first_by_key[key] = (result, event)
+                results.append(result)
+
+                self._publish_live(event)
+                if result["status"] == EventStatus.OUTPUT and result["output"] is not None:
+                    self._deliver(result["output"], event_id=event.event_id, source=resolved_source)
+            except Exception:
+                logger.exception("Batch line failed for source %s", resolved_source)
+                results.append(
+                    {
+                        "detection": None,
+                        "parsed": None,
+                        "normalized": None,
+                        "provenance": None,
+                        "output": None,
+                        "status": "failed",
+                        "duplicate": False,
+                        "envelope": None,
+                        "stored_event_id": None,
+                        "mapping_id": None,
+                    }
+                )
+            if len(pending) >= segment:
+                checkpoint()
+        checkpoint()
+        return results
+
+    def _lookup_duplicate_row(self, raw_hash: str, source: str | None, environment: str) -> Event | None:
+        """Exact stored-row lookup for a prefetch hit (rare path)."""
+        candidates = self.db.execute(
+            select(Event).where(Event.raw_hash == raw_hash, Event.environment == environment)
+        ).scalars().all()
+        for candidate in candidates:
+            if candidate.source == source:
+                return candidate
+        return None
 
     def _package_mapping(self, mapping: MappingModel):
         """Converted package mapping, memoized per engine lifetime."""

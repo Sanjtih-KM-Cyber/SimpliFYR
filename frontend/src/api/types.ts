@@ -253,6 +253,8 @@ export interface BatchRun {
   failed: number
   duration_seconds: number | null
   created_at: string | null
+  live_normalized: number
+  live_held: number
 }
 
 export interface BatchGroup {
