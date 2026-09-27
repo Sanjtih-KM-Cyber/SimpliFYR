@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   batchDeleteEvents,
   batchRetryEvents,
@@ -6,7 +7,9 @@ import {
   exportLogs,
   getEvent,
   ingest,
+  listBatches,
   listConnections,
+  listDrift,
   listEvents,
   listMappings,
   retryEvent,
@@ -17,8 +20,7 @@ import { Code } from '../components/Code'
 import { Spinner } from '../components/Spinner'
 import { StatusBadge } from '../components/Status'
 import { OnboardModal } from '../components/OnboardModal'
-import { EmptyState, PageHeader, TBody, TD, TH, THead, TR, Table } from '../components/ui'
-import { useToast } from '../components/ui'
+import { EmptyState, PageHeader, TBody, TD, TH, THead, TR, Table, useToast } from '../components/ui'
 import { FOCUS_SEARCH_EVENT } from '../hooks/useKeyboardShortcuts'
 import { useAsync } from '../hooks/useAsync'
 import { useLive } from '../hooks/useLive'
@@ -257,7 +259,7 @@ function Detail({
             </h4>
           </summary>
           <div className="opacity-90">
-            <Code value={detail.views.raw} />
+            <Code value={detail.views.raw} truncate maxLines={15} />
           </div>
         </details>
         <section className="surface-inset p-3 lg:border-l lg:border-outline-variant/50">
@@ -339,7 +341,9 @@ function InspectionCard({
   issue,
   hasMapping,
   busy,
+  openDrift,
   onApprove,
+  onReview,
   onPurge,
 }: {
   group: QuarantineGroup
@@ -347,7 +351,9 @@ function InspectionCard({
   issue: string
   hasMapping: boolean
   busy: boolean
+  openDrift: number
   onApprove: () => void
+  onReview: () => void
   onPurge: () => void
 }) {
   return (
@@ -370,6 +376,14 @@ function InspectionCard({
             {busy ? 'Working…' : `Approve all (${group.ids.length})`}
           </button>
           <button
+            onClick={onReview}
+            disabled={busy || !rep}
+            title="Review and edit field assignments (custom semantic fields supported), then normalize all"
+            className="btn-secondary text-label-sm"
+          >
+            Review fields
+          </button>
+          <button
             onClick={onPurge}
             disabled={busy}
             title="Delete every log of this type"
@@ -382,10 +396,21 @@ function InspectionCard({
       <p className="mb-2 text-body-sm text-on-surface-variant">
         <span className="font-semibold uppercase tracking-wider text-warning/80">Issue — </span>
         {issue}
+        {openDrift > 0 && (
+          <>
+            {' '}
+            <Link
+              to="/needs-review"
+              className="font-medium text-primary hover:text-primary/70 hover:underline transition-colors"
+            >
+              {openDrift} open drift proposal{openDrift === 1 ? '' : 's'} — review
+            </Link>
+          </>
+        )}
       </p>
       <div className="surface-inset rounded-xl p-3">
         {rep ? (
-          <Code value={rep.views.raw} />
+          <Code value={rep.views.raw} truncate maxLines={12} />
         ) : (
           <p className="font-mono text-mono-sm text-on-surface-variant/50">Loading representative log…</p>
         )}
@@ -394,14 +419,20 @@ function InspectionCard({
   )
 }
 
-function IndexExport() {
+function IndexExport({ source, batchId, ids }: { source?: string; batchId?: number; ids?: number[] }) {
   const { toast } = useToast()
   const [downloading, setDownloading] = useState<string | null>(null)
 
   async function download(format: 'json' | 'ndjson' | 'csv') {
     setDownloading(format)
     try {
-      const res = await exportLogs({ format, status: 'normalized,output' })
+      const res = await exportLogs({
+        format,
+        status: 'normalized,output',
+        ...(source ? { source } : {}),
+        ...(batchId !== undefined ? { batch_id: batchId } : {}),
+        ...(ids?.length ? { ids } : {}),
+      })
       toast(`Downloaded ${res.total} logs (${res.normalized} normalized)`, 'success')
     } catch (e) {
       toast((e as Error).message, 'error')
@@ -410,10 +441,17 @@ function IndexExport() {
     }
   }
 
+  const label =
+    ids?.length === 1
+      ? 'Download this index normalized'
+      : batchId !== undefined
+        ? `Download batch #${batchId} normalized`
+        : 'Download all normalized'
+
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2 surface-panel rounded-xl px-4 py-3">
       <span className="text-label-sm font-bold uppercase tracking-[0.14em] text-on-surface-variant">
-        Download all normalized
+        {label}
       </span>
       {(['json', 'ndjson', 'csv'] as const).map((fmt) => (
         <button
@@ -434,8 +472,11 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
   const [ingesting, setIngesting] = useState(false)
   const [search, setSearch] = useState('')
   const [vendor, setVendor] = useState('')
+  const [batchId, setBatchId] = useState<number | ''>('')
+  const [clearAllLoading, setClearAllLoading] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const vendors = useAsync(() => listConnections(), [])
+  const batches = useAsync(() => listBatches(), [])
   const source = sourceFilter ?? vendor
   const events = useAsync(
     () => listEvents({ limit: 200, ...(source ? { source } : {}) }),
@@ -451,6 +492,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     [selected],
   )
   const mappings = useAsync(() => listMappings(), [])
+  const driftList = useAsync(() => listDrift(), [])
   const { toast } = useToast()
 
   useEffect(() => {
@@ -494,10 +536,10 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     return () => clearTimeout(timer)
   }, [search, source])
 
-  useLive({ source: source || undefined, onEvent: () => { events.reload(); unsourced.reload() } })
+  useLive({ source: source || undefined, onEvent: () => { events.reload(); unsourced.reload(); driftList.reload(); batches.reload() } })
 
   useEffect(() => {
-    const timer = setInterval(() => { events.reload(); unsourced.reload() }, 30000)
+    const timer = setInterval(() => { events.reload(); unsourced.reload(); driftList.reload(); batches.reload() }, 30000)
     return () => clearInterval(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -534,10 +576,12 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
         : Promise.resolve([] as EventSummary[]),
     [sourceFilter],
   )
+  const inBatch = (e: EventSummary) => batchId === '' || e.batch_id === batchId
   const quarantined = [...all, ...(unsourced.data ?? []).filter((u) => u.source == null)]
     .filter((e, i, arr) => arr.findIndex((x) => x.id === e.id) === i)
     .filter((e) => e.status === 'quarantined')
     .filter(matchesSearch)
+    .filter(inBatch)
     .filter((e) => !scope || (e.source === scope.source && formatLabel(e.detected_format) === formatLabel(scope.detected_format)))
 
   const groups: QuarantineGroup[] = useMemo(() => {
@@ -591,6 +635,48 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     return 'No approved mapping resolves this format yet. Approving establishes one and normalizes every log of this type.'
   }
 
+  /** Truthful outcome: a retried event may re-quarantine on new drift, so
+   *  report post-retry statuses instead of assuming everything normalized.
+   *  Older backends omit `statuses` — then fall back to the retried count. */
+  function reportOutcome(group: QuarantineGroup, res: { retried: number[]; skipped?: Record<string, string>; statuses?: Record<string, string> }) {
+    const skippedCount = res.skipped ? Object.keys(res.skipped).length : 0
+    if (!res.statuses) {
+      toast(
+        res.retried.length > 0
+          ? `Approved — ${res.retried.length} reprocessed${skippedCount > 0 ? ` (${skippedCount} already resolved)` : ''}`
+          : 'Nothing left to approve — all already resolved',
+        'success',
+      )
+      return
+    }
+    const normalized = group.ids.filter((id) => {
+      const outcome = res.statuses?.[String(id)]
+      return outcome === 'normalized' || outcome === 'output'
+    }).length
+    const stillPending = group.ids.filter((id) => {
+      const outcome = res.statuses?.[String(id)]
+      return outcome === 'quarantined' || outcome === 'dlq'
+    }).length
+    if (normalized > 0 && stillPending === 0) {
+      toast(
+        `Approved — ${normalized} normalized${skippedCount > 0 ? ` (${skippedCount} already resolved)` : ''}`,
+        'success',
+      )
+    } else if (normalized > 0) {
+      toast(
+        `Partially approved — ${normalized} normalized, ${stillPending} still need review (new fields not yet mapped)`,
+        'info',
+      )
+    } else if (stillPending > 0) {
+      toast(
+        `${stillPending} still need review — approve a mapping for their new fields first`,
+        'info',
+      )
+    } else {
+      toast('Nothing left to approve — all already resolved', 'success')
+    }
+  }
+
   async function approveGroup(group: QuarantineGroup) {
     const key = `${group.format}::${group.source ?? ''}`
     if (!mappingFor(group.source)) {
@@ -600,14 +686,11 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     setGroupBusy(key)
     try {
       const res = await batchRetryEvents(group.ids)
-      toast(
-        res.retried.length > 0
-          ? `Approved — ${res.retried.length} normalized${res.skipped && Object.keys(res.skipped).length > 0 ? ` (${Object.keys(res.skipped).length} already resolved)` : ''}`
-          : 'Nothing left to approve — all already resolved',
-        'success',
-      )
+      reportOutcome(group, res)
       events.reload()
       unsourced.reload()
+      driftList.reload()
+      batches.reload()
     } catch (e) {
       toast((e as Error).message, 'error')
     } finally {
@@ -621,10 +704,12 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     setGroupBusy(key)
     try {
       const res = await batchRetryEvents(group.ids)
-      toast(`Approved — ${res.retried.length} of ${group.ids.length} normalized`, 'success')
+      reportOutcome(group, res)
       mappings.reload()
       events.reload()
       unsourced.reload()
+      driftList.reload()
+      batches.reload()
     } catch (e) {
       toast((e as Error).message, 'error')
     } finally {
@@ -641,6 +726,8 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
       toast(`Purged ${res.deleted.length} logs`, 'success')
       events.reload()
       unsourced.reload()
+      driftList.reload()
+      batches.reload()
     } catch (e) {
       toast((e as Error).message, 'error')
     } finally {
@@ -648,9 +735,20 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     }
   }
 
+  const openDriftBySource = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const d of driftList.data ?? []) {
+      if (d.status === 'detected' || d.status === 'analyzed' || d.status === 'review') {
+        counts.set(d.source ?? '', (counts.get(d.source ?? '') ?? 0) + 1)
+      }
+    }
+    return counts
+  }, [driftList.data])
+
   const rows = all
     .filter((e: EventSummary) => matchesTab(e.status, tab))
     .filter(matchesSearch)
+    .filter((e: EventSummary) => inBatch(e))
     .filter((e: EventSummary) => {
       if (!scope || tab === 'normalized' || tab === 'index-detail') return true
       return e.source === scope.source && formatLabel(e.detected_format) === formatLabel(scope.detected_format)
@@ -660,6 +758,50 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     setSelected(e.id)
     setScope(e)
     setTab('index-detail')
+  }
+
+  async function handleClearAll() {
+    const statusFilter = tab === 'normalized' ? 'normalized,output' : tab === 'failed' ? 'failed' : ''
+    const confirmed = window.confirm(
+      `Delete ALL events matching current filters?\n\n` +
+      `Scope: ${source ? `source "${source}"` : 'all sources'}` +
+      `${batchId ? `, batch #${batchId}` : ''}` +
+      `${statusFilter ? `, status "${statusFilter}"` : ''}` +
+      `\n\nThis action is IRREVERSIBLE. Events cannot be recovered.`
+    )
+    if (!confirmed) return
+
+    setClearAllLoading(true)
+    try {
+      // Fetch all matching event IDs in chunks and delete
+      let deleted = 0
+      const CHUNK = 2000
+      let offset = 0
+      while (true) {
+        const chunk = await listEvents({
+          limit: CHUNK,
+          offset,
+          ...(source ? { source } : {}),
+          ...(batchId ? { batch_id: batchId } : {}),
+          ...(statusFilter ? { status: statusFilter } : {}),
+        })
+        if (chunk.length === 0) break
+        const ids = chunk.map((e) => e.id)
+        await batchDeleteEvents(ids)
+        deleted += ids.length
+        if (chunk.length < CHUNK) break
+        offset += CHUNK
+      }
+      toast(`Cleared ${deleted} event${deleted === 1 ? '' : 's'}`, 'success')
+      events.reload()
+      unsourced.reload()
+      batches.reload()
+      setSelected(null)
+    } catch (e) {
+      toast((e as Error).message, 'error')
+    } finally {
+      setClearAllLoading(false)
+    }
   }
 
   const siblingCount = useMemo(() => {
@@ -716,15 +858,15 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
             + Ingest Payload
           </button>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-[1em] h-[1em] absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+        <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
+          <div className="relative min-w-64 flex-1 search-primary" role="search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             <input
               ref={searchRef}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={searching ? 'Searching full history…' : 'Search index, id, history…'}
-              className="w-64 input-glass pr-10 text-body-sm text-on-surface"
+              className="w-full input-glass pl-12 pr-4 py-2.5 text-body-sm text-on-surface placeholder:text-on-surface-variant/50"
             />
           </div>
 {!sourceFilter && (
@@ -734,6 +876,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
                 setVendor(v ?? '')
                 setExtra([])
                 setSelected(null)
+                setBatchId('')
               }}
               options={[
                 { value: '', label: 'Global context…' },
@@ -741,9 +884,34 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
               ]}
               placeholder="Global context…"
               searchable
-              className="w-56"
+              className="w-56 shrink-0"
             />
           )}
+          <Dropdown<number>
+            value={batchId === '' ? undefined : batchId}
+            onChange={(v) => setBatchId(v ?? '')}
+            options={(batches.data ?? []).map((b) => ({
+              value: b.id,
+              label: `#${b.id} · ${b.source ?? 'unassigned'} · ${b.total}`,
+            }))}
+            placeholder="All batches…"
+            searchable
+            allowClear
+            className="w-56 shrink-0"
+          />
+          <button
+            onClick={handleClearAll}
+            disabled={clearAllLoading}
+            className="btn-text text-error text-label-sm px-3 py-2"
+            title="Clear all events matching current filters (requires confirmation)"
+          >
+            {clearAllLoading ? <Spinner size="sm" /> : (
+              <>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-4 h-4 mr-1.5" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                Clear all events
+              </>
+            )}
+          </button>
         </div>
       </div>
 
@@ -792,7 +960,9 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
                 issue={issueFor(g)}
                 hasMapping={mappingFor(g.source)}
                 busy={groupBusy === key}
+                openDrift={openDriftBySource.get(g.source ?? '') ?? 0}
                 onApprove={() => approveGroup(g)}
+                onReview={() => setOnboarding(g)}
                 onPurge={() => purgeGroup(g)}
               />
             )
@@ -825,7 +995,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
           )}
           {selected && detail.data ? (
             <>
-              <IndexExport />
+              <IndexExport ids={selected !== null ? [selected] : undefined} />
               <Detail
                 detail={detail.data}
                 siblingCount={siblingCount}

@@ -12,6 +12,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.semantics import register_custom_semantics
 from app.core.sources import ensure_source_version, get_or_create_source
 from app.models import (
     Mapping as MappingModel,
@@ -92,6 +93,8 @@ def publish_mapping_knowledge(
         mapping.fields.append(
             MappingField(input_field=input_field, semantic_field=semantic_field, confidence=1.0)
         )
+    # Human-approved vocabulary accumulates in the shared catalog.
+    register_custom_semantics(db, [semantic for _, semantic in clean_fields])
     db.add(mapping)
     db.flush()
 

@@ -1,11 +1,29 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { getStats, listConnections } from '../api/client'
+import { getStats, listAudit, listConnections, listDestinations, listRecipes } from '../api/client'
+import type { AuditEntry } from '../api/types'
 import { LoadTestPanel } from '../components/LoadTestPanel'
 import { useToast } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
 import { useLive } from '../hooks/useLive'
 import { useTheme } from '../context/ThemeContext'
+
+function timeAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime()
+  if (!Number.isFinite(ms) || ms < 0) return 'just now'
+  const minutes = Math.floor(ms / 60000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 30) return `${days}d ago`
+  return new Date(iso).toLocaleDateString()
+}
+
+function formatAuditAction(entry: AuditEntry): string {
+  return `${entry.action.replace(/_/g, ' ')} · ${entry.entity_type} #${entry.entity_id}`
+}
 
 function TacticalBadge({ text, intent }: { text: string; intent: 'success' | 'warning' | 'neutral' }) {
   const styles = {
@@ -30,6 +48,9 @@ const METRIC_CELL_BORDERS = [
 export default function Dashboard() {
   const stats = useAsync(() => getStats(), [])
   const connections = useAsync(() => listConnections(), [])
+  const recipes = useAsync(() => listRecipes(), [])
+  const destinations = useAsync(() => listDestinations(), [])
+  const audit = useAsync(() => listAudit(), [])
   const { toast } = useToast()
   const { theme, toggleTheme } = useTheme()
   const s = stats.data
@@ -60,7 +81,36 @@ export default function Dashboard() {
     .filter((c) => c.events_processed > 0)
     .sort((a, b) => b.events_processed - a.events_processed)
 
-  const pendingReview = s?.quarantine_pending ?? 0
+  const setupSteps = [
+    {
+      label: 'Connect a source',
+      done: (connections.data ?? []).length > 0,
+      to: '/connections/new',
+      action: 'Add connection',
+    },
+    {
+      label: 'Approve a mapping',
+      done: (s?.mappings ?? 0) > 0,
+      to: '/needs-review',
+      action: 'Open review queue',
+    },
+    {
+      label: 'Bind a profile',
+      done: (recipes.data ?? []).length > 0,
+      to: '/connections',
+      action: 'Open connections',
+    },
+    {
+      label: 'Add a destination',
+      done: (destinations.data ?? []).length > 0,
+      to: '/settings/destinations',
+      action: 'Add destination',
+    },
+  ]
+  const setupIncomplete = setupSteps.some((step) => !step.done)
+  const recentActivity = (audit.data ?? []).slice(0, 6)
+
+  const pendingReview = s?.review_pending ?? 0
   const metrics = [
     {
       label: 'Events processed',
@@ -143,12 +193,50 @@ export default function Dashboard() {
         </div>
       </section>
 
+      {setupIncomplete && (
+        <section aria-label="Getting started" className="surface-panel mb-6 rounded-2xl p-5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant/70">
+            Getting started
+          </p>
+          <div className="mt-3 space-y-2.5">
+            {setupSteps.map((step) => (
+              <div key={step.label} className="flex items-center justify-between gap-4">
+                <span className="flex items-center gap-2.5 text-body-sm">
+                  {step.done ? (
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0 text-success" aria-hidden="true">
+                      <path
+                        fillRule="evenodd"
+                        d="M16.704 5.29a1 1 0 010 1.42l-7.25 7.25a1 1 0 01-1.42 0l-3.25-3.25a1 1 0 011.42-1.42l2.54 2.54 6.54-6.54a1 1 0 011.42 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  ) : (
+                    <span aria-hidden className="inline-block h-2 w-2 shrink-0 rounded-full border border-outline" />
+                  )}
+                  <span className={step.done ? 'text-on-surface-variant' : 'text-on-surface'}>
+                    {step.label}
+                  </span>
+                </span>
+                {!step.done && (
+                  <Link
+                    to={step.to}
+                    className="shrink-0 text-body-sm font-medium text-primary hover:text-primary/70 hover:underline transition-colors"
+                  >
+                    {step.action}
+                  </Link>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <div className="mb-6">
         <LoadTestPanel />
       </div>
 
-      <div className="grid items-start gap-5 lg:grid-cols-2">
-        <section className="surface-panel rounded-2xl p-5">
+      <div className="grid items-stretch gap-5 lg:grid-cols-2">
+        <section className="surface-panel rounded-2xl p-5 min-h-0 flex flex-col">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-label-lg font-semibold uppercase tracking-wide text-on-surface-variant">Connections</h3>
             <Link to="/connections" className="text-body-sm font-medium text-primary hover:text-primary/70 hover:underline transition-colors">
@@ -156,7 +244,7 @@ export default function Dashboard() {
             </Link>
           </div>
 
-          <div className="data-scroll-region max-h-[360px] overflow-x-auto overflow-y-auto">
+          <div className="data-scroll-region flex-1 min-h-0 overflow-x-auto overflow-y-auto">
             <table className="w-full text-left font-mono text-body-sm">
               <thead className="sticky top-0 bg-surface-container text-on-surface-variant">
                 <tr>
@@ -197,7 +285,7 @@ export default function Dashboard() {
           </div>
         </section>
 
-        <section className="surface-panel rounded-2xl border-l-4 border-l-warning p-5">
+        <section className="surface-panel rounded-2xl border-l-4 border-l-warning p-5 min-h-0 flex flex-col">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-label-lg font-semibold uppercase tracking-wide text-warning flex items-center gap-2">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
@@ -210,7 +298,7 @@ export default function Dashboard() {
               <p className="mt-0.5 text-body-sm text-on-surface-variant">No events require review.</p>
             </div>
           ) : (
-            <div className="max-h-[320px] divide-y divide-warning/20 overflow-y-auto">
+            <div className="flex-1 min-h-0 divide-y divide-warning/20 overflow-y-auto">
               {attention.map((c) => {
                 const quarantined = Math.max(0, c.needs_review - (c.open_drift ?? 0))
                 return (
@@ -237,6 +325,40 @@ export default function Dashboard() {
           )}
         </section>
       </div>
+
+      <section aria-label="Recent activity" className="surface-panel mt-6 rounded-2xl p-5">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-on-surface-variant/70">
+          Recent activity
+        </p>
+        {audit.loading ? (
+          <div className="mt-3 space-y-2.5" aria-label="Loading activity">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between gap-4">
+                <div className="h-4 w-48 animate-pulse rounded bg-surface-variant" />
+                <div className="h-4 w-16 animate-pulse rounded bg-surface-variant" />
+              </div>
+            ))}
+          </div>
+        ) : recentActivity.length === 0 ? (
+          <p className="mt-2.5 text-body-sm text-on-surface-variant">No recorded activity yet.</p>
+        ) : (
+          <div className="mt-2.5 space-y-2">
+            {recentActivity.map((entry) => (
+              <div key={entry.id} className="flex items-baseline justify-between gap-4 text-body-sm">
+                <p className="min-w-0 truncate text-on-surface">
+                  {formatAuditAction(entry)}
+                  {entry.actor && (
+                    <span className="text-on-surface-variant"> · {entry.actor}</span>
+                  )}
+                </p>
+                <span className="shrink-0 font-mono text-mono-sm text-on-surface-variant/70">
+                  {timeAgo(entry.created_at)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   )
 }

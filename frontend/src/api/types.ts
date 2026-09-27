@@ -55,6 +55,7 @@ export interface EventSummary {
   source: string | null
   raw_hash: string
   detected_format: string | null
+  batch_id?: number | null
 }
 
 export interface EventDetail extends EventSummary {
@@ -156,6 +157,22 @@ export interface DriftDetail extends DriftSummary {
   resolved_at: string | null
 }
 
+export type SynthesisStatus = 'queued' | 'running' | 'completed' | 'failed'
+
+export interface SynthesisJob {
+  id: number
+  drift_id: number
+  drift_source: string | null
+  status: SynthesisStatus
+  stage: string | null
+  progress: number
+  result_status: string | null
+  confidence: number | null
+  error: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
 export interface Stats {
   total_events: number
   events_by_status: Record<string, number>
@@ -165,6 +182,7 @@ export interface Stats {
   output_profiles: number
   drift_by_status: Record<string, number>
   quarantine_pending: number
+  review_pending: number
 }
 
 export interface AuditEntry {
@@ -205,6 +223,7 @@ export interface BatchItemResult {
   status: string
   detected_format: string
   stored_event_id: number | null
+  duplicate?: boolean
 }
 
 export interface BatchResult {
@@ -219,6 +238,30 @@ export interface BatchResult {
   events_per_second: number
   avg_latency_ms: number
   results: BatchItemResult[]
+  batch_id?: number | null
+}
+
+export interface BatchRun {
+  id: number
+  source: string | null
+  total: number
+  processed: number
+  normalized: number
+  output: number
+  quarantined: number
+  dlq: number
+  failed: number
+  duration_seconds: number | null
+  created_at: string | null
+}
+
+export interface SemanticFieldEntry {
+  id: number
+  name: string
+  data_type: string
+  description: string
+  is_custom: boolean
+  created_at: string | null
 }
 
 export interface OnboardingSuggestion {

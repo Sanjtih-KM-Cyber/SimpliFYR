@@ -129,11 +129,26 @@ export function LoadTestPanel() {
 
   async function downloadSet() {
     if (!result) return
+    // Prefer the server-side batch pin: uncapped and complete (every member
+    // row, any status) — the ids path caps at 10k and would sample big trials.
+    if (result.batch_id != null) {
+      setDownloading(true)
+      try {
+        // Output download: the exact output-profile result per event.
+        const res = await exportLogs({ format: 'json', batch_id: result.batch_id, payload: 'output' })
+        toast(`Downloaded this trial's ${res.total} logs (${res.normalized} normalized)`, 'success')
+      } catch (e) {
+        toast((e as Error).message, 'error')
+      } finally {
+        setDownloading(false)
+      }
+      return
+    }
     const ids = (result.results ?? [])
-      .filter((r) => (r.status === 'normalized' || r.status === 'output') && r.stored_event_id != null)
+      .filter((r) => r.stored_event_id != null)
       .map((r) => r.stored_event_id as number)
     if (ids.length === 0) {
-      toast('This trial produced no normalized rows to download', 'info')
+      toast('This trial produced no stored rows to download', 'info')
       return
     }
     setDownloading(true)
@@ -247,6 +262,12 @@ export function LoadTestPanel() {
       )}
       {result && (
         <div className="surface-inset mt-3 rounded-xl p-3.5 text-body-sm text-on-surface">
+          {result.batch_id != null && (
+            <p className="mb-1">
+              Batch <span className="font-mono font-semibold text-primary">#{result.batch_id}</span>
+              <span className="text-on-surface-variant"> — one index for this set; filter by it under Logs</span>
+            </p>
+          )}
           <p>
             Processed <span className="font-semibold text-on-surface">{result.processed}</span> events
             ({result.normalized} normalized · {result.output} output · {result.quarantined}{' '}

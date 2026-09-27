@@ -83,6 +83,20 @@ def test_batch_retry_normalizes_group_after_onboard(client):
     assert client.get(f"/api/v1/events/{b}").json()["status"] == "normalized"
 
 
+def test_list_events_accepts_comma_statuses(client):
+    # The normalized list view queries status=normalized,output: the list
+    # endpoint must accept comma-separated lists like /export does.
+    _quarantined(client, 31, "Box-CommaStatus")
+    rows = client.get("/api/v1/events", params={"status": "normalized,output"}).json()
+    assert isinstance(rows, list)
+    assert all(r["status"] in ("normalized", "output") for r in rows)
+    single = client.get("/api/v1/events", params={"status": "quarantined", "source": "Box-CommaStatus"}).json()
+    assert len(single) >= 1
+    assert all(r["status"] == "quarantined" for r in single)
+    bad = client.get("/api/v1/events", params={"status": "bogus"})
+    assert bad.status_code == 422
+
+
 def test_batch_delete_purges_group(client):
     a = _quarantined(client, 25, "Box-BatchDelete")
     b = _quarantined(client, 26, "Box-BatchDelete")

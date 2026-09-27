@@ -23,16 +23,18 @@ export function TBody({ children }: { children: ReactNode }) {
 export function TR({
   children,
   onClick,
+  className = '',
 }: {
   children: ReactNode
   onClick?: () => void
+  className?: string
 }) {
   return (
     <tr
       onClick={onClick}
       className={onClick
-        ? 'cursor-pointer transition-colors duration-200 ease-standard hover:bg-primary/5'
-        : 'transition-colors duration-200 ease-standard hover:bg-surface-container-low/50'}
+        ? `cursor-pointer transition-colors duration-200 ease-standard hover:bg-primary/5 ${className}`
+        : `transition-colors duration-200 ease-standard hover:bg-surface-container-low/50 ${className}`}
     >
       {children}
     </tr>

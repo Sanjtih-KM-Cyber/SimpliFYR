@@ -157,6 +157,13 @@ export function OnboardModal({
           className="w-full"
         />
       </div>
+      {!loading &&
+        rows.some((r) => r.input_field.trim() && !r.semantic_field.trim()) && (
+          <p className="mb-4 rounded-xl border border-warning/30 bg-warning-container/10 px-3.5 py-2.5 text-body-sm text-warning">
+            {rows.filter((r) => r.input_field.trim() && !r.semantic_field.trim()).length} observed
+            field(s) left unassigned — events carrying them will quarantine again as drift.
+          </p>
+        )}
       <div className="flex justify-end gap-2">
         <button
           onClick={onClose}

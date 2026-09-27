@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  analyzeDrift,
   approveDrift,
   correctDrift,
+  createSynthesisJob,
   getDrift,
+  getSynthesisJob,
   ignoreDrift,
   listDrift,
+  listSynthesisJobs,
   rejectDrift,
 } from '../api/client'
-import type { DriftDetail } from '../api/types'
+import type { DriftDetail, SynthesisJob } from '../api/types'
 import { Code } from '../components/Code'
 import { SemanticFieldInput } from '../components/SemanticFieldInput'
 import { Spinner } from '../components/Spinner'
@@ -139,15 +141,54 @@ function ReviewCard({
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [correcting, setCorrecting] = useState(false)
+  const [job, setJob] = useState<SynthesisJob | null>(null)
 
   const resolved = detail.status === 'approved' || detail.status === 'rejected' || detail.status === 'ignored'
+  const jobActive = job !== null && (job.status === 'queued' || job.status === 'running')
+
+  // Reconnect: an in-flight synthesis survives navigation because it lives
+  // on the backend — reattach to this drift's active job on mount.
+  useEffect(() => {
+    let cancelled = false
+    listSynthesisJobs()
+      .then((jobs) => {
+        if (cancelled) return
+        const active = jobs.find(
+          (j) => j.drift_id === detail.id && (j.status === 'queued' || j.status === 'running'),
+        )
+        if (active) setJob(active)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [detail.id])
+
+  // Follow the attached job until it reaches a terminal state.
+  useEffect(() => {
+    if (!jobActive || !job) return
+    const timer = setInterval(async () => {
+      try {
+        const next = await getSynthesisJob(job.id)
+        setJob(next)
+        if (next.status === 'completed') onChanged()
+      } catch {
+        /* keep last known state; next tick retries */
+      }
+    }, 2000)
+    return () => clearInterval(timer)
+  }, [jobActive, job?.id, job, onChanged])
 
   async function run(action: 'analyze' | 'approve' | 'reject' | 'ignore') {
     setBusy(action)
     setError(null)
     try {
-      if (action === 'analyze') await analyzeDrift(detail.id)
-      else if (action === 'approve') await approveDrift(detail.id)
+      if (action === 'analyze') {
+        const started = await createSynthesisJob(detail.id)
+        setJob(started)
+        if (started.status === 'completed') onChanged()
+        return
+      } else if (action === 'approve') await approveDrift(detail.id)
       else if (action === 'ignore') await ignoreDrift(detail.id)
       else await rejectDrift(detail.id)
       onChanged()
@@ -219,13 +260,40 @@ function ReviewCard({
 
       {error && <ErrorBanner message={error} />}
 
+      {jobActive && job && (
+        <div className="mb-4 surface-inset rounded-xl border border-primary/30 bg-primary-container/10 p-3">
+          <div className="flex items-center justify-between gap-3 text-label-sm font-bold uppercase tracking-widest text-primary">
+            <span>Synthesis {job.status} · job #{job.id}</span>
+            <span className="font-mono normal-case tracking-normal text-on-surface-variant/70">
+              {job.stage ?? 'working…'}
+            </span>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-variant">
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${Math.max(4, Math.min(100, job.progress))}%` }}
+            />
+          </div>
+          <p className="mt-1.5 text-body-sm text-on-surface-variant/70">
+            Running in the background — safe to navigate away; this card reconnects when you return.
+          </p>
+        </div>
+      )}
+
+      {job?.status === 'failed' && (
+        <div className="mb-4 surface-inset rounded-xl border border-error/30 bg-error-container/10 p-3 text-body-sm">
+          <span className="font-bold uppercase tracking-widest text-error text-label-sm">Synthesis failed</span>
+          <p className="mt-1 text-on-surface-variant">{job.error ?? 'Unknown error.'}</p>
+        </div>
+      )}
+
       <div className="mt-4 flex flex-wrap gap-2 pt-2 border-t border-outline-variant/50">
         <button
           onClick={() => run('analyze')}
-          disabled={busy !== null || resolved}
+          disabled={busy !== null || resolved || jobActive}
           className="btn-outlined text-label-sm"
         >
-          {busy === 'analyze' ? 'Computing…' : 'Synthesize AI'}
+          {busy === 'analyze' ? 'Starting…' : jobActive ? 'Synthesizing…' : job?.status === 'failed' ? 'Retry synthesis' : 'Synthesize AI'}
         </button>
         <button
           onClick={() => run('approve')}
@@ -245,6 +313,7 @@ function ReviewCard({
         <button
           onClick={() => run('ignore')}
           disabled={busy !== null || resolved}
+          title="Dismiss as noise. No mapping change; events stay quarantined. Can still be approved later."
           className="btn-text text-error text-label-sm"
         >
           {busy === 'ignore' ? '…' : 'Ignore'}
@@ -252,6 +321,7 @@ function ReviewCard({
         <button
           onClick={() => run('reject')}
           disabled={busy !== null || resolved}
+          title="Disagree with the proposal and close it terminally. No mapping change; events stay quarantined."
           className="btn-text text-error text-label-sm"
         >
           {busy === 'reject' ? '…' : 'Reject'}
@@ -272,7 +342,7 @@ function ReviewCard({
             <span className="mr-1 inline-block opacity-50 transition-transform group-open:rotate-90">▶</span> Sample Evidence Payload
           </summary>
           <div className="mt-2 border-l border-outline-variant pl-3 opacity-80">
-            <Code value={detail.sample} />
+            <Code value={detail.sample} truncate maxLines={15} />
           </div>
         </details>
       )}

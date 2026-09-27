@@ -607,6 +607,24 @@
            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-dim;
   }
 
+  .search-primary {
+    @apply rounded-xl border border-primary/30 bg-surface-container-low
+           shadow-inner shadow-[0_0_8px_var(--color-primary)/0.08] transition-all duration-300 ease-standard
+           placeholder:text-on-surface-variant/60
+           hover:border-primary/50
+           focus:border-primary focus:ring-2 focus:ring-primary/25 focus:outline-none
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-dim;
+  }
+
+  .search-primary svg {
+    @apply text-primary/60 transition-colors;
+  }
+
+  .search-primary:focus-within svg,
+  .search-primary:hover svg {
+    @apply text-primary;
+  }
+
   /* ========================================================================
      BUTTON SYSTEM — Material 3 variants with expressive motion
      Base styles inlined (no @apply across same-layer utilities)

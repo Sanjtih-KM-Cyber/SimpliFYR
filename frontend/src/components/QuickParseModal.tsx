@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { ingest, listMappings } from '../api/client'
+import { Link } from 'react-router-dom'
+import { exportLogs, ingest, listMappings } from '../api/client'
 import type { IngestResponse } from '../api/types'
 import { latestMappings } from '../api/types'
+import { LOADTEST_SAMPLE_KEY } from './LoadTestPanel'
 import { Code } from './Code'
 import { ErrorBanner } from './Status'
 import { Modal, useToast } from './ui'
@@ -15,6 +17,7 @@ export function QuickParseModal({ onClose }: { onClose: () => void }) {
   const [raw, setRaw] = useState('')
   const [mappingId, setMappingId] = useState<number | ''>('')
   const [busy, setBusy] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<IngestResponse | null>(null)
   const { toast } = useToast()
@@ -70,6 +73,26 @@ export function QuickParseModal({ onClose }: { onClose: () => void }) {
     URL.revokeObjectURL(url)
   }
 
+  function adoptAsMapping() {
+    try {
+      sessionStorage.setItem(LOADTEST_SAMPLE_KEY, raw)
+    } catch {
+      /* storage unavailable — wizard still opens with its default sample */
+    }
+  }
+
+  async function downloadAllNormalized() {
+    setDownloading(true)
+    try {
+      const res = await exportLogs({ format: 'json', status: 'normalized,output' })
+      toast(`Downloaded all ${res.total} logs (${res.normalized} normalized)`, 'success')
+    } catch (e) {
+      toast((e as Error).message, 'error')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   return (
     <Modal open title="Quick parse" onClose={onClose} width="max-w-xl">
       <p className="mb-4 text-body-sm text-on-surface-variant">
@@ -111,7 +134,7 @@ export function QuickParseModal({ onClose }: { onClose: () => void }) {
           Drop a file…
         </label>
       </div>
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         <button
           onClick={parse}
           disabled={busy || !raw.trim() || !mappingId}
@@ -127,6 +150,23 @@ export function QuickParseModal({ onClose }: { onClose: () => void }) {
             Download output
           </button>
         )}
+        <button
+          onClick={downloadAllNormalized}
+          disabled={downloading}
+          title="Every normalized log in the system, uncapped"
+          className="btn-secondary"
+        >
+          {downloading ? <Spinner size="sm" label="Bundling…" /> : 'Download all normalized'}
+        </button>
+        {result?.status === 'quarantined' && (
+          <Link
+            to="/connections/new"
+            onClick={() => { adoptAsMapping(); onClose() }}
+            className="btn-secondary"
+          >
+            Adopt as new mapping
+          </Link>
+        )}
       </div>
       {result && (
         <div>
@@ -137,12 +177,12 @@ export function QuickParseModal({ onClose }: { onClose: () => void }) {
               {result.duplicate ? ' · duplicate' : ''}
             </span>
           </div>
-          <Code value={result.output ?? result.normalized} />
+          <Code value={result.output ?? result.normalized} truncate maxLines={15} />
           {result.provenance && (
             <details className="mt-3 surface-inset rounded-xl p-2.5">
               <summary className="cursor-pointer text-label-sm font-semibold text-on-surface-variant transition-colors hover:text-on-surface">Provenance</summary>
               <div className="mt-2">
-                <Code value={result.provenance} />
+                <Code value={result.provenance} truncate maxLines={10} />
               </div>
             </details>
           )}

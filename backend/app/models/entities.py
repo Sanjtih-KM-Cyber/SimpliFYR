@@ -219,6 +219,7 @@ class Event(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     event_id: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
+    batch_id: Mapped[int | None] = mapped_column(ForeignKey("batch_runs.id"), nullable=True, index=True)
     source_id: Mapped[int | None] = mapped_column(ForeignKey("sources.id"), nullable=True)
     source: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     environment: Mapped[str] = mapped_column(String(64), default="default", index=True)
@@ -287,6 +288,50 @@ class Destination(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class BatchRun(Base):
+    """One batch ingestion run: a set of logs parsed at one time.
+
+    Gives a batch of events a single identity (one index per set) so a
+    trial run, file upload, or paste can be reviewed, filtered, and
+    approved as one unit instead of N disconnected rows.
+    """
+
+    __tablename__ = "batch_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    environment: Mapped[str] = mapped_column(String(64), default="default", index=True)
+    source: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    total: Mapped[int] = mapped_column(Integer, default=0)
+    processed: Mapped[int] = mapped_column(Integer, default=0)
+    normalized: Mapped[int] = mapped_column(Integer, default=0)
+    output: Mapped[int] = mapped_column(Integer, default=0)
+    quarantined: Mapped[int] = mapped_column(Integer, default=0)
+    dlq: Mapped[int] = mapped_column(Integer, default=0)
+    failed: Mapped[int] = mapped_column(Integer, default=0)
+    duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class SemanticField(Base):
+    """Shared semantic vocabulary: the canonical meaning of a normalized field.
+
+    Seeded with the built-in catalog; human-approved custom values are
+    registered here (is_custom=True) so the whole product — pickers,
+    suggestions, and future model training — learns them instead of
+    forgetting them per mapping.
+    """
+
+    __tablename__ = "semantic_fields"
+    __table_args__ = (UniqueConstraint("name", name="uq_semantic_field_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    data_type: Mapped[str] = mapped_column(String(64), default="string")
+    description: Mapped[str] = mapped_column(Text, default="")
+    is_custom: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 
@@ -298,3 +343,25 @@ class AuditLog(Base):
     before: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     after: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class SynthesisJob(Base):
+    """Persistent AI synthesis job: analysis survives navigation.
+
+    Created `queued`, executed by a background worker on its own session,
+    and left in a terminal state (`completed`/`failed`) with progress and
+    outcome — so any page can start a job, leave, and reconnect later.
+    """
+
+    __tablename__ = "synthesis_jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    drift_id: Mapped[int] = mapped_column(ForeignKey("drift_records.id"), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), default="queued", index=True)
+    stage: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    progress: Mapped[int] = mapped_column(Integer, default=0)
+    result_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

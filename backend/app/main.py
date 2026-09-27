@@ -48,8 +48,10 @@ async def lifespan(app: FastAPI):
     with SessionLocal() as db:
         output_profiles.seed_presets(db)
         from app.api import environments
+        from app.core.semantics import seed_catalog
 
         environments.seed_default_environment(db)
+        seed_catalog(db)
 
     tasks = []
     # Spawn workers for the configured pipeline backend (in-memory or Kafka).
@@ -171,7 +173,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         headers=exc.headers,
     )
 
-from app.api import analytics, audit, catalog, connections, destinations, drift, environments, events, export, health, ingest, mappings, metrics, onboarding, output_profiles, process, recipes, stats, system, ws  # noqa: E402,F401
+from app.api import analytics, audit, catalog, connections, destinations, drift, environments, events, export, health, ingest, mappings, metrics, onboarding, output_profiles, process, recipes, semantic_fields, stats, synthesis, system, ws  # noqa: E402,F401
 
 app.include_router(health.router, prefix="/api/v1")
 app.include_router(ingest.router, prefix="/api/v1")
@@ -182,8 +184,10 @@ app.include_router(catalog.router, prefix="/api/v1")
 app.include_router(output_profiles.router, prefix="/api/v1")
 app.include_router(events.router, prefix="/api/v1")
 app.include_router(drift.router, prefix="/api/v1")
+app.include_router(synthesis.router, prefix="/api/v1")
 app.include_router(connections.router, prefix="/api/v1")
 app.include_router(recipes.router, prefix="/api/v1")
+app.include_router(semantic_fields.router, prefix="/api/v1")
 app.include_router(destinations.router, prefix="/api/v1")
 app.include_router(export.router, prefix="/api/v1")
 app.include_router(ws.router, prefix="/api/v1")

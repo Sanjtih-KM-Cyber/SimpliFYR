@@ -1,7 +1,74 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { createPortal } from 'react-dom'
+import { listSemanticFields } from '../api/client'
+import type { SemanticFieldEntry } from '../api/types'
 import { SEMANTIC_FIELDS } from '../api/types'
 
 const CUSTOM = '__custom__'
+
+// Shared across every mounted picker: one fetch per page load, with the
+// static catalog as the offline fallback.
+let catalogPromise: Promise<SemanticFieldEntry[]> | null = null
+
+function getCatalog(): Promise<SemanticFieldEntry[]> {
+  if (!catalogPromise) {
+    catalogPromise = listSemanticFields().catch(() =>
+      SEMANTIC_FIELDS.map((name, i) => ({
+        id: -i - 1,
+        name,
+        data_type: '',
+        description: '',
+        is_custom: false,
+        created_at: null,
+      })),
+    )
+  }
+  return catalogPromise
+}
+
+function normalizeName(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+/** Closest existing catalog name by normalized similarity (spell-check grade). */
+function closestMatch(value: string, names: string[]): string | null {
+  const nv = normalizeName(value)
+  if (!nv) return null
+  let best: string | null = null
+  let bestScore = 0
+  for (const name of names) {
+    if (name === value) continue
+    const nn = normalizeName(name)
+    if (!nn) continue
+    let score = 0
+    if (nn === nv) score = 3
+    else if (nn.includes(nv) || nv.includes(nn)) score = 2
+    else {
+      const known = new Set(nn.split(/(?=[A-Z])|_|\./).filter((t) => t.length > 2))
+      const mine = nv.split(/(?=[A-Z])|_|\./).filter((t) => t.length > 2)
+      if (mine.some((t) => known.has(t))) score = 1
+    }
+    if (score > bestScore || (score === bestScore && best !== null && name.length < best.length)) {
+      bestScore = score
+      best = name
+    }
+  }
+  return bestScore > 0 ? best : null
+}
+
+function groupFor(name: string): string {
+  const dot = name.indexOf('.')
+  if (dot <= 0) return 'Custom'
+  const head = name.slice(0, dot)
+  return head.charAt(0).toUpperCase() + head.slice(1)
+}
+
+interface MenuPosition {
+  top?: number
+  bottom?: number
+  left: number
+  width: number
+}
 
 const FIELD_GROUPS: Record<string, string[]> = {
   Event: ['event.timestamp', 'event.type', 'event.severity', 'event.outcome'],
@@ -25,8 +92,10 @@ export function SemanticFieldInput({
   const [customizing, setCustomizing] = useState(isCustom)
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
+  const [menuPos, setMenuPos] = useState<MenuPosition | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
+  const wrapperRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -37,16 +106,120 @@ export function SemanticFieldInput({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // The menu portals above ancestor clipping (e.g. modal overflow) and
+  // flips upward when there is not enough room below the trigger.
+  const updateMenuPos = useCallback(() => {
+    const el = wrapperRef.current
+    if (!el || typeof window === 'undefined') return
+    const GAP = 8
+    const rect = el.getBoundingClientRect()
+    const width = Math.max(rect.width, 200)
+    const maxLeft = window.innerWidth - width - 8
+    const left = Math.min(rect.left, Math.max(8, maxLeft))
+    const need = 240
+    const spaceBelow = window.innerHeight - rect.bottom
+    const spaceAbove = rect.top
+    if (spaceBelow >= need || spaceAbove <= spaceBelow) {
+      setMenuPos({ top: rect.bottom + GAP, left, width })
+    } else {
+      setMenuPos({ bottom: window.innerHeight - rect.top + GAP, left, width })
+    }
+  }, [])
+
+  useEffect(() => {
+    if (open) {
+      updateMenuPos()
+    } else {
+      setMenuPos(null)
+    }
+  }, [open, updateMenuPos])
+
+  useEffect(() => {
+    if (!open) return
+    window.addEventListener('resize', updateMenuPos)
+    window.addEventListener('scroll', updateMenuPos, true)
+    return () => {
+      window.removeEventListener('resize', updateMenuPos)
+      window.removeEventListener('scroll', updateMenuPos, true)
+    }
+  }, [open, updateMenuPos])
+
+  const [catalog, setCatalog] = useState<SemanticFieldEntry[] | null>(null)
+
+  useEffect(() => {
+    let active = true
+    getCatalog()
+      .then((entries) => {
+        if (active) setCatalog(entries)
+      })
+      .catch(() => {
+        /* fallback below already covers failure */
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  // Registry-backed groups (customs included); static groups until loaded.
+  const allGroups = useMemo(() => {
+    if (!catalog) return FIELD_GROUPS
+    const grouped: Record<string, string[]> = {}
+    const order: string[] = []
+    for (const entry of catalog) {
+      const group = groupFor(entry.name)
+      if (!grouped[group]) {
+        grouped[group] = []
+        order.push(group)
+      }
+      if (!grouped[group].includes(entry.name)) grouped[group].push(entry.name)
+    }
+    const known = Object.keys(FIELD_GROUPS)
+    order.sort((a, b) => {
+      const ai = known.indexOf(a)
+      const bi = known.indexOf(b)
+      if (ai !== -1 && bi !== -1) return ai - bi
+      if (ai !== -1) return -1
+      if (bi !== -1) return 1
+      if (a === 'Custom') return 1
+      if (b === 'Custom') return -1
+      return a.localeCompare(b)
+    })
+    const sorted: Record<string, string[]> = {}
+    for (const group of order) {
+      sorted[group] = [...grouped[group]].sort()
+      // Keep builtin order stable for the known catalog groups.
+      if (FIELD_GROUPS[group]) {
+        sorted[group] = [
+          ...FIELD_GROUPS[group].filter((f) => grouped[group].includes(f)),
+          ...sorted[group].filter((f) => !FIELD_GROUPS[group].includes(f)),
+        ]
+      }
+    }
+    return sorted
+  }, [catalog])
+
+  const allNames = useMemo(() => {
+    if (!catalog) return SEMANTIC_FIELDS
+    return catalog.map((e) => e.name)
+  }, [catalog])
+
   const filteredGroups = useMemo(() => {
-    if (!search) return FIELD_GROUPS
+    if (!search) return allGroups
     const lc = search.toLowerCase()
     const filtered: Record<string, string[]> = {}
-    for (const [group, fields] of Object.entries(FIELD_GROUPS)) {
+    for (const [group, fields] of Object.entries(allGroups)) {
       const matches = fields.filter((f) => f.toLowerCase().includes(lc))
       if (matches.length) filtered[group] = matches
     }
     return filtered
-  }, [search])
+  }, [search, allGroups])
+
+  const hint = useMemo(() => {
+    if (!customizing && !isCustom) return null
+    if (!value.trim()) return null
+    if (allNames.includes(value)) return null
+    return closestMatch(value, allNames)
+  }, [customizing, isCustom, value, allNames])
 
   function onSelect(v: string) {
     if (v === CUSTOM) {
@@ -62,33 +235,48 @@ export function SemanticFieldInput({
 
   if (customizing || isCustom) {
     return (
-      <span className="flex flex-1 gap-2">
-        <input
-          ref={inputRef}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="custom.field (e.g. firewall.rule)"
-          className="flex-1 input-glass px-3 py-2 font-mono text-body-sm text-primary placeholder:text-on-surface-variant/50"
-          onFocus={() => setOpen(false)}
-        />
-        <button
-          onClick={() => {
-            setCustomizing(false)
-            onChange('')
-          }}
-          title="Back to list"
-          className="control-icon h-9 w-9"
-        >
-          <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-            <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-          </svg>
-        </button>
+      <span className="flex flex-1 flex-col gap-1.5">
+        <span className="flex gap-2">
+          <input
+            ref={inputRef}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="custom.field (e.g. firewall.rule)"
+            className="flex-1 input-glass px-3 py-2 font-mono text-body-sm text-primary placeholder:text-on-surface-variant/50"
+            onFocus={() => setOpen(false)}
+          />
+          <button
+            onClick={() => {
+              setCustomizing(false)
+              onChange('')
+            }}
+            title="Back to list"
+            className="control-icon h-9 w-9"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+              <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+            </svg>
+          </button>
+        </span>
+        {hint && (
+          <button
+            type="button"
+            onClick={() => {
+              setCustomizing(false)
+              onChange(hint)
+            }}
+            title="Use the closest existing catalog field instead"
+            className="self-start rounded-lg px-1 py-0.5 text-left font-mono text-mono-sm text-on-surface-variant transition-colors hover:text-primary"
+          >
+            Did you mean <span className="text-primary">{hint}</span>? Use instead
+          </button>
+        )}
       </span>
     )
   }
 
   return (
-    <div className="relative flex-1" onClick={() => setOpen(!open)}>
+    <div ref={wrapperRef} className="relative flex-1" onClick={() => setOpen(!open)}>
       <input
         ref={inputRef}
         type="search"
@@ -112,10 +300,16 @@ export function SemanticFieldInput({
         />
       </svg>
 
-      {open && (
+      {open && menuPos && typeof document !== 'undefined' && createPortal(
         <ul
           ref={listRef}
-          className="absolute z-20 top-full left-0 right-0 mt-2 glass-flyout rounded-2xl border border-glass-strong p-1.5 shadow-e4 max-h-80 overflow-auto animate-menu-in"
+          className="fixed z-50 glass-flyout rounded-2xl border border-glass-strong p-1.5 shadow-e4 max-h-80 overflow-auto animate-menu-in"
+          style={{
+            top: menuPos.top,
+            bottom: menuPos.bottom,
+            left: menuPos.left,
+            width: menuPos.width,
+          }}
           role="listbox"
         >
           {Object.entries(filteredGroups).map(([group, fields]) => (
@@ -156,7 +350,8 @@ export function SemanticFieldInput({
               Custom…
             </button>
           </li>
-        </ul>
+        </ul>,
+        document.body,
       )}
     </div>
   )

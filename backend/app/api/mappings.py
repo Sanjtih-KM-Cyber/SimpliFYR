@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.audit import log_action
@@ -106,6 +106,10 @@ def create_mapping(
                 confidence=field.confidence,
             )
         )
+    # Human-approved vocabulary accumulates in the shared catalog.
+    from app.core.semantics import register_custom_semantics
+
+    register_custom_semantics(db, [field.semantic_field for field in payload.fields])
     db.add(mapping)
     db.commit()
     db.refresh(mapping)
@@ -185,12 +189,33 @@ def delete_mapping(mapping_id: int, db: Session = Depends(get_db)):
     Dependent recipe bindings are removed (the source falls back to
     auto-resolve) and drift rows pointing at the mapping are detached
     (mapping_id NULL) so history survives without dangling FKs.
+
+    Refuses with 409 while open drift items still reference the mapping:
+    approving them would have no baseline to version from.
     """
+    from app.core.drift import _OPEN_DRIFT
     from app.models import DriftRecord, Recipe
 
     mapping = db.get(MappingModel, mapping_id)
     if mapping is None:
         raise HTTPException(status_code=404, detail="Mapping not found")
+    open_refs = (
+        db.execute(
+            select(func.count(DriftRecord.id)).where(
+                DriftRecord.mapping_id == mapping_id,
+                DriftRecord.status.in_(_OPEN_DRIFT),
+            )
+        ).scalar()
+        or 0
+    )
+    if open_refs:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Mapping has {open_refs} open drift item(s); "
+                "resolve or dismiss them first (approve, correct, reject, or ignore)."
+            ),
+        )
     before = {"name": mapping.name, "version": mapping.version, "source": mapping.source}
     for recipe in db.execute(select(Recipe).where(Recipe.mapping_id == mapping_id)).scalars().all():
         db.delete(recipe)

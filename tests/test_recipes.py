@@ -154,7 +154,14 @@ def test_export_json_ndjson_csv(client):
     assert json_body["meta"]["normalized_count"] >= 1
     record = next(e for e in json_body["events"] if e["source"] == MAPPING["source"])
     assert record["normalized"] is not None
-    assert record["raw"].startswith("<134>")
+    # Slim default: normalized payload only, no raw input text travels.
+    assert set(record) >= {"id", "event_id", "source", "status", "received_at", "batch_id", "normalized"}
+    assert "raw" not in record and "parsed" not in record and "output" not in record
+    assert json_body["meta"]["shape"] == "normalized"
+    # shape=full keeps the diagnostic row for debugging.
+    full_body = client.get("/api/v1/export?format=json&shape=full").json()
+    full_record = next(e for e in full_body["events"] if e["source"] == MAPPING["source"])
+    assert full_record["raw"].startswith("<134>")
 
     ndjson = client.get("/api/v1/export?format=ndjson").text.strip().splitlines()
     assert len(ndjson) >= 1
@@ -164,8 +171,10 @@ def test_export_json_ndjson_csv(client):
 
     csv_text = client.get("/api/v1/export?format=csv").text
     lines = csv_text.strip().splitlines()
-    assert lines[0].startswith("id,event_id,status,received_at,source,raw,parsed,normalized")
+    assert lines[0] == "seq,id,event_id,source,status,received_at,batch_id,normalized"
     assert len(lines) >= 2
+    full_csv = client.get("/api/v1/export?format=csv&shape=full").text
+    assert full_csv.strip().splitlines()[0].startswith("id,event_id,status,received_at,source,raw,parsed,normalized")
 
 
 def test_export_filters(client):
@@ -201,9 +210,45 @@ def test_export_uncapped_and_counted(client):
     assert len(body["events"]) == 3
     assert res.headers["X-Export-Total"] == "3"
     # Counts ride in the filename too.
-    assert "3total" in res.headers["content-disposition"]
+    assert "3records" in res.headers["content-disposition"]
 
 
 def test_export_bad_format_and_status(client):
     assert client.get("/api/v1/export?format=xml").status_code == 422
     assert client.get("/api/v1/export?status=bogus").status_code == 422
+
+
+def test_export_streams_past_chunk_boundary(client):
+    """Chunked export must deliver every row (multi-chunk walk, newest-first)."""
+    from app.core.database import SessionLocal
+    from app.models import Event, EventStatus
+
+    total = 2105
+    with SessionLocal() as db:
+        db.add_all(
+            [
+                Event(
+                    event_id=f"chunk-probe-{n:05d}",
+                    raw=f"probe line {n}",
+                    raw_hash=f"{n:064d}",
+                    status=EventStatus.NORMALIZED,
+                )
+                for n in range(total)
+            ]
+        )
+        db.commit()
+
+    res = client.get("/api/v1/export?format=json")
+    assert res.status_code == 200
+    body = res.json()
+    # Module DB is shared: assert consistency plus full coverage of our rows.
+    assert body["meta"]["count"] == len(body["events"])
+    assert res.headers["X-Export-Total"] == str(len(body["events"]))
+    returned_ids = {e["event_id"] for e in body["events"]}
+    assert {f"chunk-probe-{n:05d}" for n in range(total)} <= returned_ids
+    ids = [e["id"] for e in body["events"]]
+    assert ids == sorted(ids, reverse=True)
+    assert len(body["events"]) >= total
+
+    ndjson = client.get("/api/v1/export?format=ndjson").text.strip().splitlines()
+    assert len(ndjson) >= total

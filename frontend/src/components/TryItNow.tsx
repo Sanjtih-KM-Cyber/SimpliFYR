@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   createRecipe,
   deleteRecipe,
+  exportLogs,
   ingest,
   listMappings,
   listOutputProfiles,
@@ -24,6 +25,7 @@ export function TryItNow({ sourceName }: { sourceName: string }) {
   const [profileId, setProfileId] = useState<number | ''>('')
   const [busy, setBusy] = useState(false)
   const [bindBusy, setBindBusy] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<IngestResponse | null>(null)
   const { toast } = useToast()
@@ -121,6 +123,18 @@ export function TryItNow({ sourceName }: { sourceName: string }) {
     URL.revokeObjectURL(url)
   }
 
+  async function downloadAllNormalized() {
+    setDownloading(true)
+    try {
+      const res = await exportLogs({ format: 'json', status: 'normalized,output' })
+      toast(`Downloaded all ${res.total} logs (${res.normalized} normalized)`, 'success')
+    } catch (e) {
+      toast((e as Error).message, 'error')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   return (
     <section id="try-it" className="mb-6 surface-panel rounded-2xl p-5">
       <h3 className="mb-2 text-title-sm font-semibold text-on-surface">Try it now — ingest, see the output, download it</h3>
@@ -192,6 +206,14 @@ export function TryItNow({ sourceName }: { sourceName: string }) {
             Download output
           </button>
         )}
+        <button
+          onClick={downloadAllNormalized}
+          disabled={downloading}
+          title="Every normalized log in the system, uncapped"
+          className="btn-outlined text-label-sm"
+        >
+          {downloading ? <Spinner size="sm" label="Bundling…" /> : 'Download all normalized'}
+        </button>
       </div>
       {result && (
         <div>
@@ -199,7 +221,7 @@ export function TryItNow({ sourceName }: { sourceName: string }) {
             <StatusBadge status={result.status} />
             <span className="text-on-surface-variant">event #{result.stored_event_id}</span>
           </div>
-          <Code value={result.output ?? result.normalized} />
+          <Code value={result.output ?? result.normalized} truncate maxLines={15} />
         </div>
       )}
     </section>

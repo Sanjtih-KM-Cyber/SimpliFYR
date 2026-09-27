@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -48,6 +48,55 @@ def _to_summary(d: DriftRecord) -> DriftSummary:
     )
 
 
+def _sanitize_stored_proposal(data: object) -> dict | None:
+    """Tolerate legacy/malformed stored proposals (history must always render).
+
+    Keeps every salvageable suggestion; drops off-shape entries (e.g. a
+    model-written list value inside renamed_from). Returns None only when
+    the stored value is not a proposal object at all.
+    """
+    if not isinstance(data, dict):
+        return None
+    suggestions = []
+    for entry in data.get("new_field_suggestions", []) or []:
+        if not isinstance(entry, dict):
+            continue
+        input_field = entry.get("input_field")
+        if not isinstance(input_field, str) or not input_field:
+            continue
+        semantic = entry.get("semantic_field", "")
+        try:
+            confidence = float(entry.get("confidence", 0.0))
+        except (TypeError, ValueError):
+            confidence = 0.0
+        reason = entry.get("reason", "")
+        suggestions.append(
+            {
+                "input_field": input_field,
+                "semantic_field": semantic if isinstance(semantic, str) else "",
+                "confidence": confidence,
+                "reason": reason if isinstance(reason, str) else "",
+            }
+        )
+    renamed = data.get("renamed_from", {}) or {}
+    renamed_clean = (
+        {k: v for k, v in renamed.items() if isinstance(k, str) and isinstance(v, str)}
+        if isinstance(renamed, dict)
+        else {}
+    )
+    explanation = data.get("explanation", "")
+    try:
+        overall = float(data.get("confidence", 0.0))
+    except (TypeError, ValueError):
+        overall = 0.0
+    return {
+        "new_field_suggestions": suggestions,
+        "renamed_from": renamed_clean,
+        "explanation": explanation if isinstance(explanation, str) else "",
+        "confidence": overall,
+    }
+
+
 def _to_detail(d: DriftRecord) -> DriftDetail:
     detail = DriftDetail(**_to_summary(d).model_dump())
     detail.mapping_id = d.mapping_id
@@ -55,7 +104,12 @@ def _to_detail(d: DriftRecord) -> DriftDetail:
     detail.event_ids = d.event_ids
     detail.resolved_at = as_utc(d.resolved_at)
     if d.proposal:
-        detail.proposal = DriftProposalSchema(**d.proposal)
+        sanitized = _sanitize_stored_proposal(d.proposal)
+        if sanitized is not None:
+            try:
+                detail.proposal = DriftProposalSchema(**sanitized)
+            except ValidationError:
+                detail.proposal = None
     return detail
 
 
@@ -180,7 +234,18 @@ def approve_drift(drift_id: int, db: Session = Depends(get_db)):
         drift.confidence = proposal.confidence
 
     proposal = _dict_to_proposal(drift.proposal)
-    new_mapping = apply_drift(db, drift, proposal)
+    try:
+        new_mapping = apply_drift(db, drift, proposal)
+    except ValueError:
+        # Baseline mapping was deleted after this drift was recorded. The
+        # record is preserved as history; it can still be dismissed.
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Baseline mapping no longer exists (it was deleted). "
+                "Dismiss this drift item (reject or ignore), or onboard a new mapping for the source."
+            ),
+        )
     reprocessed = reprocess_quarantined(db, drift.source)
 
     drift.status = "approved"
@@ -255,7 +320,18 @@ def correct_drift(drift_id: int, payload: CorrectPayload, db: Session = Depends(
         )
         for f in fields
     ]
-    new_mapping = apply_corrections(db, drift, corrections)
+    try:
+        new_mapping = apply_corrections(db, drift, corrections)
+    except ValueError:
+        # Baseline mapping was deleted after this drift was recorded. The
+        # record is preserved as history; it can still be dismissed.
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Baseline mapping no longer exists (it was deleted). "
+                "Dismiss this drift item (reject or ignore), or onboard a new mapping for the source."
+            ),
+        )
     reprocessed = reprocess_quarantined(db, drift.source)
 
     # Capture the AI proposal BEFORE the backfill below (training honesty:

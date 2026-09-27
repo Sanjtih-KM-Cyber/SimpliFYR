@@ -12,6 +12,7 @@ class StatsResponse(BaseModel):
     output_profiles: int
     drift_by_status: dict[str, int]
     quarantine_pending: int
+    review_pending: int = 0
 
 
 class AuditEntry(BaseModel):

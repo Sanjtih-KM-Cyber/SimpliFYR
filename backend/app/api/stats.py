@@ -10,7 +10,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.environment import get_environment
 
-from app.models import DriftRecord, Event, Mapping, OutputProfile
+from app.models import DriftRecord, Event, EventStatus, Mapping, OutputProfile
 from app.schemas.stats import ConfigResponse, StatsResponse
 
 router = APIRouter(tags=["stats"])
@@ -86,6 +86,37 @@ def get_stats(
     drift_by_status = {status: count for status, count in drift_rows}
     quarantine_pending = db.execute(pending_stmt).scalar() or 0
 
+    # Operator-facing review load: open drift proposals plus quarantined
+    # events not already covered by one. Sourceless arrivals never create
+    # drift records, so quarantine_pending alone undercounts them. Covered
+    # IDs are matched in Python (portable across SQLite/Postgres); the set
+    # is capped so a pathological backlog can't explode the query — items
+    # past the cap count as uncovered (safe direction: never hides work).
+    open_stmt = select(DriftRecord).where(
+        DriftRecord.status.in_(("detected", "analyzed", "review"))
+    )
+    if names:
+        open_stmt = open_stmt.where(DriftRecord.source.is_(None) | DriftRecord.source.in_(names))
+    else:
+        open_stmt = open_stmt.where(DriftRecord.source.is_(None))
+    open_drifts = db.execute(open_stmt).scalars().all()
+    covered: set[str] = set()
+    for record in open_drifts:
+        for event_id in record.event_ids or []:
+            if isinstance(event_id, str):
+                covered.add(event_id)
+            if len(covered) >= 2000:
+                break
+        if len(covered) >= 2000:
+            break
+    uncovered_stmt = select(func.count(Event.id)).where(
+        Event.environment == environment, Event.status == EventStatus.QUARANTINED
+    )
+    if covered:
+        uncovered_stmt = uncovered_stmt.where(Event.event_id.not_in(covered))
+    uncovered_quarantined = db.execute(uncovered_stmt).scalar() or 0
+    review_pending = len(open_drifts) + uncovered_quarantined
+
     return StatsResponse(
         total_events=total_events,
         events_by_status=events_by_status,
@@ -95,6 +126,7 @@ def get_stats(
         output_profiles=profiles,
         drift_by_status=drift_by_status,
         quarantine_pending=quarantine_pending,
+        review_pending=review_pending,
     )
 
 

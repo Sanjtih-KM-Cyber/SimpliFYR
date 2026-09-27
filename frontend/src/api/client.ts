@@ -4,6 +4,7 @@ import type {
   Anomalies,
   AuditEntry,
   BatchResult,
+  BatchRun,
   Config,
   ConnectionDetail,
   ConnectionSummary,
@@ -11,7 +12,6 @@ import type {
   DriftDetail,
   DriftSummary,
   EventDetail,
-  EventStatus,
   EventSummary,
   Format,
   HealthResponse,
@@ -22,7 +22,9 @@ import type {
   OnboardingApproveResult,
   OutputProfile,
   Recipe,
+  SemanticFieldEntry,
   Stats,
+  SynthesisJob,
 } from './types'
 
 /** API root: relative in dev/docker (same-origin / Vite proxy / nginx),
@@ -174,7 +176,7 @@ export function createOutputProfile(payload: OutputProfileInput): Promise<Output
 }
 
 export interface ListEventsParams {
-  status?: EventStatus
+  status?: string
   limit?: number
   offset?: number
   source?: string
@@ -191,8 +193,8 @@ export function listEvents(params: ListEventsParams = {}): Promise<EventSummary[
 }
 
 /** Server-side full-text hunt over raw payloads (trigram-ranked on Postgres). */
-export function searchEventsRaw(query: string, source?: string): Promise<EventSummary[]> {
-  const qs = new URLSearchParams({ q: query })
+export function searchEventsRaw(query: string, source?: string, limit = 500): Promise<EventSummary[]> {
+  const qs = new URLSearchParams({ q: query, limit: String(limit) })
   if (source) qs.set('source', source)
   return request(`${BASE}/events/search?${qs.toString()}`)
 }
@@ -212,6 +214,8 @@ export function retryEvent(id: number): Promise<EventDetail> {
 export interface BatchRetryResult {
   retried: number[]
   skipped: Record<string, string>
+  /** Post-retry outcome per retried id. Absent on older backends. */
+  statuses?: Record<string, string>
 }
 
 export function batchRetryEvents(ids: number[]): Promise<BatchRetryResult> {
@@ -356,8 +360,10 @@ export interface ExportParams {
   format: 'json' | 'ndjson' | 'csv'
   status?: string
   source?: string
+  batch_id?: number
   limit?: number
   ids?: number[]
+  payload?: 'normalized' | 'output'
 }
 
 export interface ExportResult {
@@ -370,6 +376,8 @@ export async function exportLogs(params: ExportParams): Promise<ExportResult> {
   const qs = new URLSearchParams({ format: params.format })
   if (params.status) qs.set('status', params.status)
   if (params.source) qs.set('source', params.source)
+  if (params.batch_id !== undefined) qs.set('batch_id', String(params.batch_id))
+  if (params.payload) qs.set('payload', params.payload)
   if (params.limit) qs.set('limit', String(params.limit))
   if (params.ids?.length) qs.set('ids', params.ids.join(','))
   const res = await fetch(`${BASE}/export?${qs.toString()}`)
@@ -407,6 +415,24 @@ export function getConfig(): Promise<Config> {
   return request(`${BASE}/config`)
 }
 
+export interface PipelinePressure {
+  queue_depth: number
+  dropped_total: number
+}
+
+/** Live pipeline pressure from the Prometheus text endpoint (no backend change). */
+export async function getPipelinePressure(): Promise<PipelinePressure> {
+  const res = await fetch(`${BASE}/metrics`)
+  if (!res.ok) throw new Error(`Metrics unavailable: ${res.status}`)
+  const text = await res.text()
+  const depth = text.match(/^simplifyr_queue_depth\s+([0-9.]+)/m)
+  const dropped = text.match(/^simplifyr_queue_dropped_total\s+([0-9.]+)/m)
+  return {
+    queue_depth: depth ? Number(depth[1]) : 0,
+    dropped_total: dropped ? Number(dropped[1]) : 0,
+  }
+}
+
 export interface BatchInput {
   raw: string
   source?: string
@@ -421,6 +447,22 @@ export function processBatch(input: BatchInput): Promise<BatchResult> {
   if (input.mappingId) body.append('mapping_id', String(input.mappingId))
   if (input.outputProfileId) body.append('output_profile_id', String(input.outputProfileId))
   return request(`${BASE}/process/batch`, { method: 'POST', body })
+}
+
+export function listBatches(limit = 50): Promise<BatchRun[]> {
+  return request(`${BASE}/process/batches?limit=${limit}`)
+}
+
+export function listSemanticFields(): Promise<SemanticFieldEntry[]> {
+  return request(`${BASE}/semantic-fields`)
+}
+
+export function proposeSemanticField(name: string): Promise<SemanticFieldEntry> {
+  return request(`${BASE}/semantic-fields`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
 }
 
 export function listAudit(): Promise<AuditEntry[]> {
@@ -445,6 +487,22 @@ export function getDrift(id: number): Promise<DriftDetail> {
 
 export function analyzeDrift(id: number): Promise<DriftDetail> {
   return request(`${BASE}/drift/${id}/analyze`, { method: 'POST' })
+}
+
+export function createSynthesisJob(drift_id: number): Promise<SynthesisJob> {
+  return request(`${BASE}/synthesis`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ drift_id }),
+  })
+}
+
+export function getSynthesisJob(id: number): Promise<SynthesisJob> {
+  return request(`${BASE}/synthesis/${id}`)
+}
+
+export function listSynthesisJobs(): Promise<SynthesisJob[]> {
+  return request(`${BASE}/synthesis`)
 }
 
 export interface ApproveResult {

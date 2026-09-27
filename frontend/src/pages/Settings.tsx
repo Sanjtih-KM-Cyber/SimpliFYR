@@ -1,7 +1,9 @@
+import { useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
-import { getConfig, getHealth, getStats } from '../api/client'
+import { getConfig, getHealth, getPipelinePressure, getStats, listDestinations, listRecipes } from '../api/client'
 import { TabBar } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
+import { useLive } from '../hooks/useLive'
 
 /* ============================================================================
    Value formatting — human-readable labels, technically precise values.
@@ -209,6 +211,7 @@ function CardSkeleton({ rows = 3 }: { rows?: number }) {
 
 export default function Settings() {
   const health = useAsync(() => getHealth(), [])
+  const live = useLive({ enabled: true })
   const h = health.data
   const operational = h != null && h.status === 'ok' && h.database === 'ok'
 
@@ -230,6 +233,13 @@ export default function Settings() {
             <StatusPill tone="ok">Operational</StatusPill>
           ) : (
             <StatusPill tone="warn">Degraded</StatusPill>
+          )}
+          {live.connected ? (
+            <StatusPill tone="ok">Live</StatusPill>
+          ) : live.dead ? (
+            <StatusPill tone="muted">Live offline</StatusPill>
+          ) : (
+            <StatusPill tone="muted">Live…</StatusPill>
           )}
           <span className="inline-flex items-center rounded-full border border-outline-variant bg-surface-variant px-2.5 py-1 font-mono text-label-sm text-on-surface-variant">
             v{h?.version ?? '—'}
@@ -258,6 +268,15 @@ export function SettingsGeneral() {
   const health = useAsync(() => getHealth(), [])
   const stats = useAsync(() => getStats(), [])
   const config = useAsync(() => getConfig(), [])
+  const pressure = useAsync(() => getPipelinePressure(), [])
+  const recipes = useAsync(() => listRecipes(), [])
+  const destinations = useAsync(() => listDestinations(), [])
+
+  useEffect(() => {
+    const timer = setInterval(() => pressure.reload(), 15000)
+    return () => clearInterval(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const h = health.data
   const s = stats.data
@@ -267,8 +286,17 @@ export function SettingsGeneral() {
   const healthKnown = h != null
   const apiOk = h?.status === 'ok'
   const dbOk = h?.database === 'ok'
-  const pendingReview = s?.quarantine_pending ?? 0
+  const pendingReview = s?.review_pending ?? 0
   const retention = formatRetention(c)
+  const live = useLive({ enabled: true })
+  // Prefer live heartbeat values; fall back to the polled metrics snapshot
+  // when the socket is down. No visual change either way.
+  const livePressure = live.connected && live.lastPing ? live.lastPing : null
+  const queueDepth = livePressure ? livePressure.queue_depth : pressure.data?.queue_depth
+  const droppedTotal = livePressure ? livePressure.queue_dropped_total : pressure.data?.dropped_total
+  const pressureSource = livePressure
+    ? 'Live via WebSocket heartbeat'
+    : 'Snapshot via metrics API'
 
   return (
     <div className="max-w-[1400px] space-y-5">
@@ -335,12 +363,93 @@ export function SettingsGeneral() {
               tone={pendingReview > 0 ? 'warn' : 'default'}
             />
           </div>
+          {!stats.loading && s != null && (
+            <div className="mt-4 space-y-2 border-t border-outline-variant/50 pt-3 text-[12px]">
+              <div className="flex flex-wrap gap-x-5 gap-y-1">
+                <span className="text-on-surface-variant">
+                  Normalized <span className="ml-1 font-mono text-on-surface">{s.events_by_status?.normalized ?? 0}</span>
+                </span>
+                <span className="text-on-surface-variant">
+                  Output <span className="ml-1 font-mono text-on-surface">{s.events_by_status?.output ?? 0}</span>
+                </span>
+                <span className="text-on-surface-variant">
+                  Quarantined <span className="ml-1 font-mono text-on-surface">{s.events_by_status?.quarantined ?? 0}</span>
+                </span>
+                <span className="text-on-surface-variant">
+                  DLQ{' '}
+                  <span
+                    className={`ml-1 font-mono ${(s.events_by_status?.dlq ?? 0) > 0 ? 'text-error' : 'text-on-surface'}`}
+                  >
+                    {s.events_by_status?.dlq ?? 0}
+                  </span>
+                </span>
+              </div>
+              <div
+                className="flex flex-wrap gap-x-5 gap-y-1"
+                title={pressureSource}
+              >
+                <span className="text-on-surface-variant">
+                  Queue depth{' '}
+                  <span className="ml-1 font-mono text-on-surface">
+                    {queueDepth == null ? '—' : queueDepth.toLocaleString()}
+                  </span>
+                </span>
+                <span className="text-on-surface-variant">
+                  Dropped{' '}
+                  <span
+                    className={`ml-1 font-mono ${
+                      (droppedTotal ?? 0) > 0 ? 'text-warning' : 'text-on-surface'
+                    }`}
+                  >
+                    {droppedTotal == null ? '—' : droppedTotal.toLocaleString()}
+                  </span>
+                </span>
+              </div>
+            </div>
+          )}
         </section>
       </div>
 
       {/* Infrastructure & configuration — one panel per concern, each sized to its content */}
       <div className="grid items-start gap-5 sm:grid-cols-2">
         <section className="surface-panel animate-slide-up rounded-2xl p-5" style={{ animationDelay: '100ms' }}>
+          <Group title="Ingestion">
+            {config.loading || c == null ? (
+              <CardSkeleton rows={4} />
+            ) : (
+              <>
+                <FieldRow
+                  label="Syslog (UDP)"
+                  value={c.syslog_enabled ? `${c.syslog_udp_host}:${c.syslog_udp_port}` : 'Disabled'}
+                  mono={c.syslog_enabled}
+                  muted={!c.syslog_enabled}
+                  status={c.syslog_enabled ? 'ok' : null}
+                />
+                <FieldRow
+                  label="Syslog (TCP)"
+                  value={c.syslog_tcp_enabled ? `:${c.syslog_tcp_port}` : 'Disabled'}
+                  mono={c.syslog_tcp_enabled}
+                  muted={!c.syslog_tcp_enabled}
+                  status={c.syslog_tcp_enabled ? 'ok' : null}
+                />
+                <FieldRow
+                  label="File watch"
+                  value={c.file_watch_enabled ? 'Enabled' : 'Disabled'}
+                  muted={!c.file_watch_enabled}
+                  status={c.file_watch_enabled ? 'ok' : null}
+                />
+                <FieldRow
+                  label="Kafka ingress"
+                  value={c.kafka_ingress_enabled ? 'Enabled' : 'Disabled'}
+                  muted={!c.kafka_ingress_enabled}
+                  status={c.kafka_ingress_enabled ? 'ok' : null}
+                />
+              </>
+            )}
+          </Group>
+        </section>
+
+        <section className="surface-panel animate-slide-up rounded-2xl p-5" style={{ animationDelay: '150ms' }}>
           <Group title="Infrastructure">
             {config.loading || c == null ? (
               <CardSkeleton rows={4} />
@@ -362,7 +471,7 @@ export function SettingsGeneral() {
           </Group>
         </section>
 
-        <section className="surface-panel animate-slide-up rounded-2xl p-5" style={{ animationDelay: '150ms' }}>
+        <section className="surface-panel animate-slide-up rounded-2xl p-5" style={{ animationDelay: '200ms' }}>
           <Group title="AI processing">
             {config.loading || c == null ? (
               <CardSkeleton rows={2} />
@@ -375,7 +484,7 @@ export function SettingsGeneral() {
           </Group>
         </section>
 
-        <section className="surface-panel animate-slide-up rounded-2xl p-5" style={{ animationDelay: '200ms' }}>
+        <section className="surface-panel animate-slide-up rounded-2xl p-5" style={{ animationDelay: '250ms' }}>
           <Group title="Delivery">
             {config.loading || c == null ? (
               <CardSkeleton rows={1} />
@@ -394,7 +503,7 @@ export function SettingsGeneral() {
           </Group>
         </section>
 
-        <section className="surface-panel animate-slide-up rounded-2xl p-5" style={{ animationDelay: '250ms' }}>
+        <section className="surface-panel animate-slide-up rounded-2xl p-5" style={{ animationDelay: '300ms' }}>
           <Group title="Retention & logging">
             {config.loading || c == null ? (
               <CardSkeleton rows={5} />
@@ -434,6 +543,42 @@ export function SettingsGeneral() {
                   label="Kafka ingress"
                   value={formatFlag(c.kafka_ingress_enabled)}
                   muted={!c.kafka_ingress_enabled}
+                />
+              </>
+            )}
+          </Group>
+        </section>
+
+        <section className="surface-panel animate-slide-up rounded-2xl p-5" style={{ animationDelay: '350ms' }}>
+          <Group title="Inventory">
+            {stats.loading && recipes.loading && destinations.loading ? (
+              <CardSkeleton rows={5} />
+            ) : (
+              <>
+                <FieldRow
+                  label="Connections"
+                  value={(s?.sources ?? 0).toLocaleString()}
+                  mono
+                />
+                <FieldRow
+                  label="Mappings"
+                  value={(s?.mappings ?? 0).toLocaleString()}
+                  mono
+                />
+                <FieldRow
+                  label="Output profiles"
+                  value={(s?.output_profiles ?? 0).toLocaleString()}
+                  mono
+                />
+                <FieldRow
+                  label="Recipes"
+                  value={(recipes.data ?? []).length.toLocaleString()}
+                  mono
+                />
+                <FieldRow
+                  label="Destinations"
+                  value={(destinations.data ?? []).length.toLocaleString()}
+                  mono
                 />
               </>
             )}

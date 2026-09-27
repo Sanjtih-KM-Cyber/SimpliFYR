@@ -34,6 +34,7 @@ def _to_summary(event: Event) -> EventSummary:
         source=event.source,
         raw_hash=event.raw_hash,
         detected_format=event.detected_format,
+        batch_id=event.batch_id,
     )
 
 
@@ -48,7 +49,7 @@ def _load_raw(event: Event) -> str:
 
 @router.get("", response_model=list[EventSummary])
 def list_events(
-    status: EventStatus | None = None,
+    status: str | None = None,
     source_id: int | None = None,
     source: str | None = None,
     limit: int = Query(default=50, ge=1, le=500),
@@ -57,8 +58,13 @@ def list_events(
     db: Session = Depends(get_db),
 ):
     stmt = select(Event).where(Event.environment == environment).order_by(Event.id.desc())
-    if status is not None:
-        stmt = stmt.where(Event.status == status)
+    if status:
+        try:
+            statuses = [EventStatus(part.strip()) for part in status.split(",") if part.strip()]
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"Unsupported status: {status}")
+        if statuses:
+            stmt = stmt.where(Event.status.in_(statuses))
     if source_id is not None:
         stmt = stmt.where(Event.source_id == source_id)
     if source:
@@ -342,6 +348,10 @@ class EventBatchRequest(BaseModel):
 class EventBatchRetryResponse(BaseModel):
     retried: list[int]
     skipped: dict[int, str]
+    # Post-retry outcome per retried id ("normalized", "output", "quarantined",
+    # "dlq"). Lets callers report truthfully instead of assuming every retry
+    # normalized — reprocessing can legitimately re-quarantine on new drift.
+    statuses: dict[int, str] = {}
 
 
 class EventBatchDeleteResponse(BaseModel):
@@ -358,6 +368,7 @@ def batch_retry_events(payload: EventBatchRequest, db: Session = Depends(get_db)
     engine = ProcessingEngine(db)
     retried: list[int] = []
     skipped: dict[int, str] = {}
+    statuses: dict[int, str] = {}
     for event_id in dict.fromkeys(payload.ids):
         event = db.get(Event, event_id)
         if event is None:
@@ -366,9 +377,11 @@ def batch_retry_events(payload: EventBatchRequest, db: Session = Depends(get_db)
         if event.status not in _RETRYABLE:
             skipped[event_id] = f"status={event.status}"
             continue
-        engine.reprocess(event)
+        result = engine.reprocess(event)
         retried.append(event_id)
-    return EventBatchRetryResponse(retried=retried, skipped=skipped)
+        outcome = (result or {}).get("status", event.status)
+        statuses[event_id] = outcome.value if isinstance(outcome, EventStatus) else str(outcome)
+    return EventBatchRetryResponse(retried=retried, skipped=skipped, statuses=statuses)
 
 
 @router.post("/batch-delete", response_model=EventBatchDeleteResponse)

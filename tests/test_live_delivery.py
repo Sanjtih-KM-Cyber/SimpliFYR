@@ -185,7 +185,8 @@ def test_export_ndjson_payload_shape(client):
     client.post("/api/v1/ingest", data={"raw": RAW, "source": MAPPING["source"]})
     lines = client.get("/api/v1/export?format=ndjson").text.strip().splitlines()
     record = jsonlib.loads(lines[0])
-    assert set(record) >= {"id", "event_id", "status", "received_at", "source", "raw"}
+    assert set(record) >= {"id", "event_id", "status", "received_at", "source", "normalized"}
+    assert "raw" not in record  # slim default carries no raw input text
 
 
 def test_reprocess_redelivers_output(client):

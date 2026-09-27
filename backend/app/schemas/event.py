@@ -14,6 +14,7 @@ class EventSummary(BaseModel):
     source: str | None = None
     raw_hash: str
     detected_format: str | None = None
+    batch_id: int | None = None
 
 
 class EventViews(BaseModel):

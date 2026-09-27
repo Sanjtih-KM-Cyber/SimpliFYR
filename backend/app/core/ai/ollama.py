@@ -128,6 +128,13 @@ def _validate_response(data: dict) -> dict:
     renamed = data.get("renamed_from", {})
     if renamed is not None and not isinstance(renamed, dict):
         raise ValueError("Model renamed_from is not an object")
+    if isinstance(renamed, dict) and any(
+        not isinstance(k, str) or not isinstance(v, str) for k, v in renamed.items()
+    ):
+        # A non-string entry (e.g. a list value) would pass storage and then
+        # 500 every future read of the drift detail. Reject it here so the
+        # caller falls back to the heuristic provider instead.
+        raise ValueError("Model renamed_from entries must be string pairs")
     if not isinstance(data.get("explanation", ""), str):
         raise ValueError("Model explanation is not a string")
     return data

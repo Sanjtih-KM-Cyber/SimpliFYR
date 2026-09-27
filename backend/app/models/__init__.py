@@ -2,6 +2,7 @@ from app.models.entities import (
     Approval,
     ApprovalStatus,
     AuditLog,
+    BatchRun,
     Destination,
     DriftRecord,
     Environment,
@@ -17,9 +18,11 @@ from app.models.entities import (
     OutputProfile,
     Product,
     Recipe,
+    SemanticField,
     Source,
     SourceStatus,
     SourceVersion,
+    SynthesisJob,
     Vendor,
 )
 
@@ -27,6 +30,7 @@ __all__ = [
     "Approval",
     "ApprovalStatus",
     "AuditLog",
+    "BatchRun",
     "Destination",
     "DriftRecord",
     "Environment",
@@ -42,8 +46,10 @@ __all__ = [
     "OutputProfile",
     "Product",
     "Recipe",
+    "SemanticField",
     "Source",
     "SourceStatus",
     "SourceVersion",
+    "SynthesisJob",
     "Vendor",
 ]

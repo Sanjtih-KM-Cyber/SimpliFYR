@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.ai.base import AIDriftProposal, FieldSuggestion
 from app.core.config import settings
+from app.core.semantics import register_custom_semantics
 from app.models import DriftRecord, Event, EventStatus, Mapping as MappingModel
 from app.models import MappingField, MappingStatus
 
@@ -152,6 +153,8 @@ def _create_versioned_mapping(
         )
         applied.add(s.input_field)
 
+    # Human-approved vocabulary accumulates in the shared catalog.
+    register_custom_semantics(db, [s.semantic_field for s in suggestions])
     db.add(new_mapping)
     db.commit()
     db.refresh(new_mapping)

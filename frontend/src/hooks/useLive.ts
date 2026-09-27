@@ -9,6 +9,12 @@ export interface LiveEvent {
   environment: string
 }
 
+export interface LivePing {
+  type: 'ping'
+  queue_depth: number
+  queue_dropped_total: number
+}
+
 interface UseLiveOptions {
   source?: string
   enabled?: boolean
@@ -32,6 +38,7 @@ function wsUrl(source?: string): string {
 export function useLive({ source, enabled = true, onEvent, maxRetries = 8 }: UseLiveOptions) {
   const [connected, setConnected] = useState(false)
   const [lastEvent, setLastEvent] = useState<LiveEvent | null>(null)
+  const [lastPing, setLastPing] = useState<LivePing | null>(null)
   const [dead, setDead] = useState(false)
   const handler = useRef(onEvent)
   useEffect(() => {
@@ -68,7 +75,14 @@ export function useLive({ source, enabled = true, onEvent, maxRetries = 8 }: Use
       socket.onmessage = (ev) => {
         try {
           const msg = JSON.parse(ev.data)
-          if (msg?.type === 'ping') return
+          if (msg?.type === 'ping') {
+            // Heartbeat doubles as the pipeline-pressure channel. Older
+            // backends send a bare ping without counters — ignore those.
+            if (typeof msg.queue_depth === 'number' && typeof msg.queue_dropped_total === 'number') {
+              setLastPing(msg as LivePing)
+            }
+            return
+          }
           if (msg?.event_id) {
             setLastEvent(msg as LiveEvent)
             handler.current?.(msg as LiveEvent)
@@ -124,5 +138,5 @@ export function useLive({ source, enabled = true, onEvent, maxRetries = 8 }: Use
     }
   }, [source, enabled, maxRetries])
 
-  return { connected, lastEvent, dead }
+  return { connected, lastEvent, lastPing, dead }
 }

@@ -14,6 +14,85 @@ interface Row {
   semantic_field: string
 }
 
+function FieldRows({ fields, limit }: { fields: Mapping['fields']; limit: number }) {
+  const [expanded, setExpanded] = useState(false)
+  const shown = expanded ? fields : fields.slice(0, limit)
+  return (
+    <div className="surface-inset rounded-xl max-h-48 overflow-auto font-mono text-mono-sm">
+      {shown.map((f, i) => (
+        <div key={i} className="flex items-center gap-2 py-0.5 text-on-surface-variant">
+          <span className="text-warning/80">{f.input_field}</span>
+          <Arrow variant="mapping" size="sm" />
+          <span className="text-primary">{f.semantic_field}</span>
+          {f.transformation && (
+            <span className="text-on-surface-variant/60 text-mono-xs">({JSON.stringify(f.transformation)})</span>
+          )}
+        </div>
+      ))}
+      {fields.length > limit && (
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          title={expanded ? 'Collapse field list' : 'Show all fields'}
+          className="py-0.5 text-on-surface-variant/60 transition-colors hover:text-primary hover:underline"
+        >
+          {expanded ? 'Show less' : `+${fields.length - limit} more fields…`}
+        </button>
+      )}
+    </div>
+  )
+}
+
+function VersionCard({
+  mapping,
+  deleting,
+  onDelete,
+  isCurrentVersion,
+  totalVersions,
+  versionIndex,
+}: {
+  mapping: Mapping
+  deleting: number | string | null
+  onDelete: () => void
+  isCurrentVersion: boolean
+  totalVersions: number
+  versionIndex: number
+}) {
+  return (
+    <article className="glass-card rounded-xl p-5 animate-slide-up" aria-label={`Mapping ${mapping.name} v${mapping.version}`}>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <h3 className="flex min-w-0 flex-wrap items-center gap-2 text-label-lg font-semibold text-on-surface">
+          <span className="truncate">{mapping.name}</span>
+          <span className="surface-inset rounded px-1.5 py-0.5 font-mono text-label-sm font-bold text-primary">
+            v{mapping.version}
+          </span>
+          <StatusBadge status={mapping.status} />
+          {isCurrentVersion && (
+            <span className="rounded bg-primary-container/20 px-1.5 py-0.5 text-label-sm font-semibold text-primary">
+              current
+            </span>
+          )}
+        </h3>
+      </div>
+      <p className="mb-3 text-body-sm text-on-surface-variant">
+        {mapping.source ?? 'No source'} · {mapping.event_family}
+        {totalVersions > 1 && ` · version ${versionIndex + 1} of ${totalVersions}`}
+        {mapping.created_at ? ` · saved ${new Date(mapping.created_at).toLocaleDateString()}` : ''}
+      </p>
+      <FieldRows fields={mapping.fields} limit={5} />
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button
+          onClick={onDelete}
+          disabled={deleting === mapping.id}
+          title={`Delete "${mapping.name}" v${mapping.version}`}
+          className="ml-auto btn-text text-error text-label-sm"
+        >
+          {deleting === mapping.id ? '…' : 'Delete version'}
+        </button>
+      </div>
+    </article>
+  )
+}
+
 export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
   const mappings = useAsync(() => listMappings(), [])
   const [showForm, setShowForm] = useState(false)
@@ -61,29 +140,41 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
     (m: Mapping) => !sourceFilter || m.source === sourceFilter,
   )
 
-  const groups = useMemo(() => {
-    const byKey = new Map<string, Mapping[]>()
-    for (const m of rows_) {
-      const key = normalizeMappingName(m.name)
-      const g = byKey.get(key)
-      if (g) g.push(m)
-      else byKey.set(key, [m])
-    }
-    return [...byKey.values()].map((versions) => {
-      const sorted = [...versions].sort((a, b) => b.version - a.version || b.id - a.id)
-      return { key: normalizeMappingName(sorted[0].name), latest: sorted[0], versions: sorted }
+  // Sort by name, then version descending (newest first), then id descending
+  const sortedMappings = useMemo(() => {
+    return [...rows_].sort((a, b) => {
+      const nameA = normalizeMappingName(a.name).localeCompare(normalizeMappingName(b.name))
+      if (nameA !== 0) return nameA
+      return b.version - a.version || b.id - a.id
     })
   }, [rows_])
 
+  // Compute version indices per mapping name group for display
+  const versionIndices = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const m of sortedMappings) {
+      const key = normalizeMappingName(m.name)
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+    const seen = new Map<string, number>()
+    const result = new Map<number, { index: number; total: number }>()
+    for (const m of sortedMappings) {
+      const key = normalizeMappingName(m.name)
+      const current = seen.get(key) ?? 0
+      seen.set(key, current + 1)
+      result.set(m.id, { index: current, total: counts.get(key) ?? 1 })
+    }
+    return result
+  }, [sortedMappings])
+
   const { toast } = useToast()
   const [deleting, setDeleting] = useState<number | string | null>(null)
-  const [expanded, setExpanded] = useState<string | null>(null)
 
-  async function deleteVersions(key: string | number, ids: number[], label: string) {
+  async function deleteVersion(id: number, label: string) {
     if (!window.confirm(`Delete ${label}? Bound recipes unbind; drift history detaches.`)) return
-    setDeleting(key)
+    setDeleting(id)
     try {
-      for (const id of ids) await deleteMapping(id)
+      await deleteMapping(id)
       toast(`Deleted ${label}`, 'success')
       mappings.reload()
     } catch (e) {
@@ -184,105 +275,27 @@ export default function Mappings({ sourceFilter }: { sourceFilter?: string }) {
         {mappings.loading && <Spinner />}
         {mappings.error && <p className="text-body-sm text-error">{mappings.error}</p>}
 
-        {!mappings.loading && !mappings.error && groups.length === 0 && (
+        {!mappings.loading && !mappings.error && sortedMappings.length === 0 && (
           <EmptyState
             title={sourceFilter ? 'No mappings for this connection' : 'No mappings yet'}
             description="Create one to start normalizing."
           />
         )}
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          {groups.map((g) => {
-            const m = g.latest
-            const key = g.key
-            const open = expanded === key
+        <div className="grid items-start gap-4 lg:grid-cols-2">
+          {sortedMappings.map((mapping) => {
+            const vInfo = versionIndices.get(mapping.id) ?? { index: 0, total: 1 }
+            const isCurrentVersion = vInfo.index === 0
             return (
-              <div key={key} className="glass-card rounded-xl p-5 animate-slide-up">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <h3 className="flex items-center gap-2 text-label-lg font-semibold text-on-surface">
-                    {m.name}
-                    <span className="surface-inset rounded px-1.5 py-0.5 font-mono text-label-sm font-bold text-primary">
-                      v{m.version}
-                    </span>
-                    {g.versions.length > 1 && (
-                      <button
-                        onClick={() => setExpanded(open ? null : key)}
-                        title={open ? 'Hide version history' : 'Show all versions'}
-                        className="surface-inset rounded-full border border-outline-variant/50 px-2 py-0.5 font-mono text-label-sm text-on-surface-variant hover:border-primary/30 hover:text-primary"
-                      >
-                        {g.versions.length} versions {open ? '▾' : '▸'}
-                      </button>
-                    )}
-                  </h3>
-                  <span className="flex items-center gap-2">
-                    <StatusBadge status={m.status} />
-                    <button
-                      onClick={() =>
-                        deleteVersions(key, g.versions.map((v) => v.id), `mapping "${m.name}" and all ${g.versions.length} version(s)`)
-                      }
-                      disabled={deleting === key}
-                      title={`Delete "${m.name}" and all its versions`}
-                      className="btn-text text-error text-label-sm"
-                    >
-                      {deleting === key ? '…' : 'Delete'}
-                    </button>
-                  </span>
-                </div>
-                <p className="mb-3 text-body-sm text-on-surface-variant">
-                  {m.source ?? 'No source'} · v{m.version} · {m.event_family}
-                </p>
-                <div className="surface-inset rounded-xl max-h-48 overflow-auto font-mono text-mono-sm">
-                    {m.fields.map((f, i) => (
-                      <div key={i} className="flex items-center gap-2 py-0.5 text-on-surface-variant">
-                        <span className="text-warning/80">{f.input_field}</span>
-                        <Arrow variant="mapping" size="sm" />
-                        <span className="text-primary">{f.semantic_field}</span>
-                        {f.transformation && (
-                          <span className="text-on-surface-variant/60 text-mono-xs">({JSON.stringify(f.transformation)})</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                {open && (
-                  <div className="mt-3 space-y-2 border-t border-outline-variant/50 pt-3">
-                    {g.versions.map((v) => (
-                      <details key={v.id} className="surface-inset rounded-xl p-3 animate-slide-up">
-                        <summary className="flex cursor-pointer select-none items-center gap-2 text-body-sm">
-                          <span className="mr-1 inline-block opacity-50 transition-transform group-open:rotate-90">▶</span>
-                          <span className="font-mono font-bold text-on-surface">{v.name}</span>
-                          <span className="surface-inset rounded px-1 py-0.5 font-mono text-label-sm font-bold text-primary">
-                            v{v.version}
-                          </span>
-                          <StatusBadge status={v.status} />
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault()
-                              deleteVersions(v.id, [v.id], `"${v.name}" (v${v.version})`)
-                            }}
-                            disabled={deleting === v.id}
-                            title={`Delete "${v.name}" only`}
-                            className="ml-auto btn-text text-error text-label-sm"
-                          >
-                            {deleting === v.id ? '…' : 'Delete this version'}
-                          </button>
-                        </summary>
-                        <div className="mt-2 surface-inset rounded-xl max-h-40 overflow-auto border-l border-outline-variant/50 pl-3 font-mono text-mono-sm">
-                      {v.fields.map((f, i) => (
-                        <div key={i} className="flex items-center gap-2 py-0.5 text-on-surface-variant">
-                          <span className="text-warning/80">{f.input_field}</span>
-                          <Arrow variant="mapping" size="sm" />
-                          <span className="text-primary">{f.semantic_field}</span>
-                          {f.transformation && (
-                            <span className="text-on-surface-variant/60 text-mono-xs">({JSON.stringify(f.transformation)})</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                      </details>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <VersionCard
+                key={mapping.id}
+                mapping={mapping}
+                deleting={deleting}
+                onDelete={() => deleteVersion(mapping.id, `"${mapping.name}" v${mapping.version}`)}
+                isCurrentVersion={isCurrentVersion}
+                totalVersions={vInfo.total}
+                versionIndex={vInfo.index}
+              />
             )
           })}
         </div>
