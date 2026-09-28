@@ -7,6 +7,7 @@
 ![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
 ![Ollama](https://img.shields.io/badge/Ollama-local_LLM-000000?style=for-the-badge&logo=ollama&logoColor=white)
+[![Hugging Face](https://img.shields.io/badge/Hugging_Face-Simplifyr1.5b-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black)](https://huggingface.co/Sking0123/Simplifyr1.5b)
 ![Docker](https://img.shields.io/badge/Docker-compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![Tests](https://img.shields.io/badge/tests-274_passing-brightgreen?style=for-the-badge)
 
