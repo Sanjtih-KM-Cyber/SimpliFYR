@@ -12,14 +12,16 @@ COPY backend/requirements.txt backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
 # Install the shared packages (they are part of the product, not the internet).
+# NOTE: ./ prefixes are load-bearing — bare names make pip search PyPI
+# instead of the local folders (fails the Docker build).
 COPY packages packages
 RUN pip install --no-cache-dir \
-    packages/event-model \
-    packages/semantic-model \
-    packages/mappings \
-    packages/output-profiles
+    ./packages/event-model \
+    ./packages/semantic-model \
+    ./packages/mappings \
+    ./packages/output-profiles
 COPY parsers parsers
-RUN pip install --no-cache-dir parsers
+RUN pip install --no-cache-dir ./parsers
 
 COPY backend backend
 
