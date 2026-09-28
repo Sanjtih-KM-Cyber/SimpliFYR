@@ -51,6 +51,49 @@ raw log ──▶ DETECT ──▶ PARSE ──▶ NORMALIZE ──▶ OUTPUT �
 | 📤 **Export** | JSON / NDJSON / CSV, uncapped, counts baked into file + filename — whole system or one trial's exact rows |
 | 🤖 **Local AI** | Heuristic baseline built in; fine-tuned **Qwen2.5-1.5B** (`simplifyr:1.5b`) serves suggestions offline via Ollama — no API keys, ever |
 
+## 🖥️ Application
+
+<p align="center">
+  <img src="docs/screenshots/Home.png" alt="Simplifyr Dashboard" width="92%">
+</p>
+
+<p align="center"><em>Dashboard — operational overview of sources, processing and system activity.</em></p>
+
+### Connect and onboard
+
+<p align="center">
+  <img src="docs/screenshots/NewConnectionWizard.png" alt="Simplifyr Connection Wizard" width="48%">
+  <img src="docs/screenshots/IndetailConnectionInfo.png" alt="Simplifyr Connection Overview" width="48%">
+</p>
+
+<p align="center"><em>Source onboarding and detailed connection configuration.</em></p>
+
+### Mappings and adaptive knowledge
+
+<p align="center">
+  <img src="docs/screenshots/MappingVersions.png" alt="Simplifyr Mapping Versions" width="48%">
+  <img src="docs/screenshots/AIKnowledge.png" alt="Simplifyr AI Knowledge" width="48%">
+</p>
+
+<p align="center"><em>Versioned mappings and the knowledge layer used to support adaptive processing.</em></p>
+
+### Inspect and analyze events
+
+<p align="center">
+  <img src="docs/screenshots/RawLogs.png" alt="Simplifyr Raw Logs" width="48%">
+  <img src="docs/screenshots/LogAnalytics.png" alt="Simplifyr Log Analytics" width="48%">
+</p>
+
+<p align="center"><em>Raw event inspection and analytics for processed telemetry.</em></p>
+
+### Configure outputs
+
+<p align="center">
+  <img src="docs/screenshots/OutputProfiles%20Settings.png" alt="Simplifyr Output Profiles" width="70%">
+</p>
+
+<p align="center"><em>Output profiles for controlling the shape of normalized events delivered downstream.</em></p>
+
 ## 🤖 The AI story (all-local, RTX 3050-friendly)
 
 No cloud, no keys. Two providers, one switch (`AI_PROVIDER`):
@@ -123,6 +166,6 @@ parsers/            Format detection + parsers (syslog, JSON, XML, CSV, CEF, LEE
 packages/           Shared domain libs (event/semantic/mapping/output-profile models)
 training/           Fine-tune pipeline (data, scripts, Modelfile, runbook)
 tests/              274 tests incl. golden AI gate + migration-chain pin
-scripts/            Dev utilities (firehose log generator…)
+scripts/             Dev utilities (firehose log generator…)
 sample-data/        Golden fixtures · docs/  design notes
 ```
