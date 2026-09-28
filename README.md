@@ -66,7 +66,7 @@ No cloud, no keys. Two providers, one switch (`AI_PROVIDER`):
 - The eval gate (`tests/golden/`, `run_eval()`) fails any provider change that
   scores below baseline. Full runbook: [`training/README.md`](training/README.md).
 - Serve it: `AI_PROVIDER=ollama OLLAMA_MODEL=simplifyr:1.5b` (or `backend/.env`),
-  or `ollama pull hf.co/YOURNAME/simplifyr-1.5b` on any machine.
+  or `hf.co/Sking0123/Simplifyr1.5b` on any machine.
 
 ## 🧰 Tech stack
 
@@ -93,7 +93,7 @@ npm run dev        # → http://localhost:5173 (proxies /api → :8000)
 ```powershell
 # or everything at once
 docker compose up -d
-docker compose exec ollama ollama pull hf.co/YOURNAME/simplifyr-1.5b
+docker compose exec ollama ollama pull hf.co/Sking0123/Simplifyr1.5b
 ```
 
 ```powershell
