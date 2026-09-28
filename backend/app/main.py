@@ -151,6 +151,21 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Split deploy (UI on Vercel, API on Render): browsers block cross-origin
+# calls without this. Same-origin setups send no origins and behave exactly
+# as before.
+_cors_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+if _cors_origins:
+    from fastapi.middleware.cors import CORSMiddleware
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["*"],
+    )
+
 
 @app.exception_handler(MultiPartException)
 async def multipart_exception_handler(request: Request, exc: MultiPartException):

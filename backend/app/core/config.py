@@ -87,6 +87,11 @@ class Settings(BaseSettings):
     sink_s3_prefix: str = "output/"
     sink_kafka_topic: str = "simplifyr.output"
 
+    # --- Cross-origin frontend (split deploy: UI on Vercel, API on Render) ---
+    # Comma-separated origins allowed to call the API, e.g.
+    # "https://simplifyr.vercel.app". Empty = same-origin only.
+    cors_origins: str = ""
+
     # --- Limits (no user accounts: single-user tool, API is open) ---
     rate_limit_per_minute: int = 0  # 0 = unlimited (applies to ingest)
     trust_proxy_headers: bool = False  # honor X-Forwarded-For only behind a known proxy
