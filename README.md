@@ -66,7 +66,19 @@ No cloud, no keys. Two providers, one switch (`AI_PROVIDER`):
 - The eval gate (`tests/golden/`, `run_eval()`) fails any provider change that
   scores below baseline. Full runbook: [`training/README.md`](training/README.md).
 - Serve it: `AI_PROVIDER=ollama OLLAMA_MODEL=simplifyr:1.5b` (or `backend/.env`),
-  or `hf.co/Sking0123/Simplifyr1.5b` on any machine.
+  or `ollama pull hf.co/Sking0123/Simplifyr1.5b` on any machine.
+
+### 🤗 Fine-tuned model on Hugging Face
+
+[![Model on HF](https://img.shields.io/badge/🤗_Model-Sking0123/Simplifyr1.5b-FFD21E?style=for-the-badge)](https://huggingface.co/Sking0123/Simplifyr1.5b)
+[![Mapping F1](https://img.shields.io/badge/Mapping_F1-1.0-brightgreen?style=for-the-badge)](https://huggingface.co/Sking0123/Simplifyr1.5b)
+[![Drift](https://img.shields.io/badge/Drift-1.0-brightgreen?style=for-the-badge)](https://huggingface.co/Sking0123/Simplifyr1.5b)
+[![Abstain](https://img.shields.io/badge/Abstain-1.0-brightgreen?style=for-the-badge)](https://huggingface.co/Sking0123/Simplifyr1.5b)
+[![GGUF + safetensors](https://img.shields.io/badge/GGUF_+_safetensors-Ollama_·_Transformers-blue?style=for-the-badge)](https://huggingface.co/Sking0123/Simplifyr1.5b)
+
+> **Sking0123/Simplifyr1.5b** — our Qwen2.5-1.5B fine-tune for log-field → semantic
+> mapping, with GGUF (Ollama) + fp16 safetensors (Transformers), training details,
+> eval scores, and one-line pull instructions. Star it if it helps your SOC. ⭐
 
 ## 🧰 Tech stack
 
