@@ -1,9 +1,9 @@
 @import 'tailwindcss';
 
 /* ============================================================================
-   SIMPLIFYR DESIGN SYSTEM — Material 3 (Material You) × Apple Liquid Glass
+   SIMPLIFYR DESIGN SYSTEM - Material 3 (Material You) × Apple Liquid Glass
    ============================================================================
-   PHASE 1 — DESIGN TOKENS (the foundation every later phase consumes)
+   PHASE 1 - DESIGN TOKENS (the foundation every later phase consumes)
 
    Structure of this file:
      1. Runtime semantic tokens  → :root (dark scheme, app default) + .light
@@ -17,7 +17,7 @@
    Material philosophy:
      · Surface = solid tonal layer for dense data (tables, logs, code).
      · Glass   = translucent material reserved for overlays, navigation and
-                 focal surfaces — a material, never a gimmick.
+                 focal surfaces - a material, never a gimmick.
      · Motion  = purposeful; orients the user, respects reduced-motion.
    ========================================================================= */
 
@@ -25,7 +25,7 @@
 @custom-variant light (&:where(.light, .light *));
 
 /* ============================================================================
-   1. RUNTIME SEMANTIC TOKENS — DARK SCHEME (default)
+   1. RUNTIME SEMANTIC TOKENS - DARK SCHEME (default)
    A calm, coordinated tonal family around the Simplifyr brand cyan.
    ========================================================================= */
 :root {
@@ -126,7 +126,7 @@
 }
 
 /* ============================================================================
-   1b. RUNTIME SEMANTIC TOKENS — LIGHT SCHEME (opt-in via .light on <html>)
+   1b. RUNTIME SEMANTIC TOKENS - LIGHT SCHEME (opt-in via .light on <html>)
    ========================================================================= */
 .light {
   color-scheme: light;
@@ -222,7 +222,7 @@
 }
 
 /* ============================================================================
-   2. TAILWIND THEME — INLINE MAPPINGS
+   2. TAILWIND THEME - INLINE MAPPINGS
    Utilities that track the runtime scheme: bg-primary, text-on-surface-variant,
    border-outline-variant, shadow-e3, scrim… Opacity modifiers
    (bg-primary/20) compose via color-mix, so every shade below stays harmonious.
@@ -309,19 +309,19 @@
 }
 
 /* ============================================================================
-   3. TAILWIND THEME — STATIC TOKENS
+   3. TAILWIND THEME - STATIC TOKENS
    Type scale, shape scale, motion, fonts, spacing. These do not flip with the
    scheme; they define the physical language of the product.
    ========================================================================= */
 @theme {
   /* --- Base grid ----------------------------------------------------------- */
-  --spacing: 0.25rem; /* 4px grid — the M3 spacing foundation */
+  --spacing: 0.25rem; /* 4px grid - the M3 spacing foundation */
 
   /* --- Typography ---------------------------------------------------------- */
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI Variable', 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', monospace;
 
-  /* M3 type scale — display through label, plus a mono companion scale */
+  /* M3 type scale - display through label, plus a mono companion scale */
   --text-display-lg: 3.55rem;
   --text-display-lg--line-height: 4rem;
   --text-display-lg--letter-spacing: -0.02em;
@@ -358,9 +358,9 @@
   --text-body-md: 0.875rem;
   --text-body-md--line-height: 1.375rem;
   --text-body-md--letter-spacing: 0.01em;
-  --text-body-sm: 0.75rem;
-  --text-body-sm--line-height: 1rem;
-  --text-body-sm--letter-spacing: 0.02em;
+  --text-body-sm: 0.8125rem;
+  --text-body-sm--line-height: 1.25rem;
+  --text-body-sm--letter-spacing: 0.015em;
 
   --text-label-lg: 0.875rem;
   --text-label-lg--line-height: 1.25rem;
@@ -371,26 +371,26 @@
   --text-label-md--letter-spacing: 0.03em;
   --text-label-md--font-weight: 500;
   --text-label-sm: 0.6875rem;
-  --text-label-sm--line-height: 0.875rem;
-  --text-label-sm--letter-spacing: 0.04em;
+  --text-label-sm--line-height: 1rem;
+  --text-label-sm--letter-spacing: 0.035em;
   --text-label-sm--font-weight: 600;
 
   --text-mono-lg: 0.875rem;
   --text-mono-lg--line-height: 1.375rem;
   --text-mono-md: 0.8125rem;
   --text-mono-md--line-height: 1.25rem;
-  --text-mono-sm: 0.6875rem;
-  --text-mono-sm--line-height: 1rem;
+  --text-mono-sm: 0.75rem;
+  --text-mono-sm--line-height: 1.125rem;
 
-  /* --- Shape scale (Material You — generous, friendly rounding) ------------- */
-  --radius-xs: 0.375rem;   /* 6px  — kbd, tiny chips */
-  --radius-sm: 0.5rem;     /* 8px  — small controls */
-  --radius-md: 0.75rem;   /* 12px — inputs, menu items */
-  --radius-lg: 1rem;      /* 16px — cards, panels */
-  --radius-xl: 1.25rem;   /* 20px — feature cards */
-  --radius-2xl: 1.5rem;   /* 24px — large cards, surfaces */
-  --radius-3xl: 1.75rem;  /* 28px — dialogs, sheets (M3 extra-large) */
-  --radius-4xl: 2rem;     /* 32px — hero surfaces */
+  /* --- Shape scale (Material You - generous, friendly rounding) ------------- */
+  --radius-xs: 0.375rem;   /* 6px  - kbd, tiny chips */
+  --radius-sm: 0.5rem;     /* 8px  - small controls */
+  --radius-md: 0.75rem;   /* 12px - inputs, menu items */
+  --radius-lg: 1rem;      /* 16px - cards, panels */
+  --radius-xl: 1.25rem;   /* 20px - feature cards */
+  --radius-2xl: 1.5rem;   /* 24px - large cards, surfaces */
+  --radius-3xl: 1.75rem;  /* 28px - dialogs, sheets (M3 extra-large) */
+  --radius-4xl: 2rem;     /* 32px - hero surfaces */
 
   /* --- Motion: M3 easing curves -------------------------------------------- */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
@@ -451,7 +451,7 @@
 }
 
 /* ============================================================================
-   4. BASE LAYER — token-driven document defaults
+   4. BASE LAYER - token-driven document defaults
    ========================================================================= */
 @layer base {
   :root {
@@ -472,6 +472,9 @@
     color: var(--m3-on-surface);
     min-width: 320px;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   ::selection {
@@ -516,7 +519,7 @@
 
 @layer utilities {
   /* ========================================================================
-     SURFACE SYSTEM — solid tonal layers for dense data (tables, logs, code)
+     SURFACE SYSTEM - solid tonal layers for dense data (tables, logs, code)
      ======================================================================= */
   .surface-canvas {
     @apply bg-surface-dim;
@@ -539,7 +542,7 @@
     @apply border border-outline-variant bg-surface-container/70 shadow-e3;
   }
 
-  /* Elevated card — level 3, interactive lift on hover. */
+  /* Elevated card - level 3, interactive lift on hover. */
   .glass-card {
     @apply border border-outline-variant bg-surface-container shadow-e3
            transition-all duration-300 ease-emphasized
@@ -547,7 +550,7 @@
   }
 
   /* ========================================================================
-     LIQUID GLASS — translucent material for overlays, nav, focal surfaces
+     LIQUID GLASS - translucent material for overlays, nav, focal surfaces
      ======================================================================= */
   .glass-flyout {
     @apply border-glass-strong border bg-glass-strong shadow-glass;
@@ -626,11 +629,11 @@
   }
 
   /* ========================================================================
-     BUTTON SYSTEM — Material 3 variants with expressive motion
+     BUTTON SYSTEM - Material 3 variants with expressive motion
      Base styles inlined (no @apply across same-layer utilities)
      ======================================================================= */
 
-  /* Filled (primary) — highest emphasis */
+  /* Filled (primary) - highest emphasis */
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 rounded-full
            bg-primary text-on-primary px-4 py-2 text-label-lg font-semibold shadow-e3
@@ -641,7 +644,7 @@
            hover:bg-primary/90 hover:shadow-e4;
   }
 
-  /* Tonal (secondary) — medium emphasis */
+  /* Tonal (secondary) - medium emphasis */
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-2 rounded-full
            bg-secondary-container text-on-secondary-container px-4 py-2 text-label-lg font-semibold shadow-e1
@@ -652,7 +655,7 @@
            hover:bg-secondary-container/90 hover:shadow-e2;
   }
 
-  /* Outlined — medium-low emphasis */
+  /* Outlined - medium-low emphasis */
   .btn-outlined {
     @apply inline-flex items-center justify-center gap-2 rounded-full
            border border-outline bg-transparent text-primary px-4 py-2 text-label-lg font-semibold
@@ -663,7 +666,7 @@
            hover:bg-primary/10 hover:border-primary;
   }
 
-  /* Text (tertiary) — lowest emphasis */
+  /* Text (tertiary) - lowest emphasis */
   .btn-text {
     @apply inline-flex items-center justify-center gap-2 rounded-full
            text-primary px-3 py-2 text-label-lg font-semibold

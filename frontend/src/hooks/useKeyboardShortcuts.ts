@@ -40,7 +40,7 @@ export function useKeyboardShortcuts(onToggleShortcuts: () => void) {
 
       // Single-key shortcuts fire ONLY from a neutral page surface. Focus on
       // any control (buttons, links, menus, dialogs, pickers) means the user
-      // is working — never teleport them mid-task for pressing 'r' or '2'.
+      // is working - never teleport them mid-task.
       if (e.target instanceof HTMLElement) {
         if (e.target.closest('button, a, input, textarea, select, [role="listbox"], [role="dialog"], [role="menu"]'))
           return
@@ -54,19 +54,12 @@ export function useKeyboardShortcuts(onToggleShortcuts: () => void) {
           navigate('/connections')
           break
         case '3':
-          navigate('/analytics')
-          break
-        case '4':
           navigate('/settings')
           break
         case 'n':
         case 'N':
           navigate('/connections/new')
           break
-      case 'r':
-      case 'R':
-        navigate('/logs?tab=review')
-        break
       case '?':
           onToggleShortcuts()
           break

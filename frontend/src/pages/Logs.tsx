@@ -127,7 +127,7 @@ function Detail({
     try {
       if (action === 'retry') {
         const updated = await retryEvent(detail.id)
-        toast(`Reprocessed — now ${updated.status}`, 'success')
+        toast(`Reprocessed - now ${updated.status}`, 'success')
       } else {
         await deleteEvent(detail.id)
         toast(`Deleted event #${detail.id}`, 'success')
@@ -511,7 +511,7 @@ function InspectionCard({
             />
           </div>
           <p className="mt-1.5 text-body-sm text-on-surface-variant/70">
-            Running in the background — safe to navigate away; this card reconnects when you return.
+            Running in the background - safe to navigate away; this card reconnects when you return.
           </p>
         </div>
       )}
@@ -537,7 +537,7 @@ function InspectionCard({
           disabled={busy}
           title={
             group.truncated
-              ? 'Group exceeds 10k — approves the first 10k, repeat for the rest'
+              ? 'Group exceeds 10k - approves the first 10k, repeat for the rest'
               : drift
                 ? 'Authorize the schema decision and drain these logs'
                 : hasMapping ? 'Retry all with the existing mapping' : 'Establish a mapping, then normalize all'
@@ -850,7 +850,7 @@ function UploadsSection({
                       </button>
                       <span className="font-mono text-mono-sm text-on-surface-variant">{g.format}</span>
                       <span className="min-w-0 flex-1 truncate font-mono text-mono-sm text-on-surface-variant/70" title={g.fields.join(', ')}>
-                        {g.fields.join(', ') || '—'}
+                        {g.fields.join(', ') || '-'}
                       </span>
                       <span className="font-mono text-body-sm text-on-surface">{g.count.toLocaleString()}</span>
                       {g.held > 0 && (
@@ -1099,21 +1099,21 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
 
   function issueFor(group: QuarantineGroup): string {
     if (mappingFor(group.source)) {
-      return 'Schema drift — these fields no longer match the approved mapping. Approving retries every log of this type through it.'
+      return 'Schema drift - these fields no longer match the approved mapping. Approving retries every log of this type through it.'
     }
     return 'No approved mapping resolves this format yet. Approving establishes one and normalizes every log of this type.'
   }
 
   /** Truthful outcome: a retried event may re-quarantine on new drift, so
    *  report post-retry statuses instead of assuming everything normalized.
-   *  Older backends omit `statuses` — then fall back to the retried count. */
+   *  Older backends omit `statuses` - then fall back to the retried count. */
   function reportOutcome(group: QuarantineGroup, res: { retried: number[]; skipped?: Record<string, string>; statuses?: Record<string, string> }) {
     const skippedCount = res.skipped ? Object.keys(res.skipped).length : 0
     if (!res.statuses) {
       toast(
         res.retried.length > 0
-          ? `Approved — ${res.retried.length} reprocessed${skippedCount > 0 ? ` (${skippedCount} already resolved)` : ''}`
-          : 'Nothing left to approve — all already resolved',
+          ? `Approved - ${res.retried.length} reprocessed${skippedCount > 0 ? ` (${skippedCount} already resolved)` : ''}`
+          : 'Nothing left to approve - all already resolved',
         'success',
       )
       return
@@ -1128,21 +1128,21 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     }).length
     if (normalized > 0 && stillPending === 0) {
       toast(
-        `Approved — ${normalized} normalized${skippedCount > 0 ? ` (${skippedCount} already resolved)` : ''}`,
+        `Approved - ${normalized} normalized${skippedCount > 0 ? ` (${skippedCount} already resolved)` : ''}`,
         'success',
       )
     } else if (normalized > 0) {
       toast(
-        `Partially approved — ${normalized} normalized, ${stillPending} still need review (new fields not yet mapped)`,
+        `Partially approved - ${normalized} normalized, ${stillPending} still need review (new fields not yet mapped)`,
         'info',
       )
     } else if (stillPending > 0) {
       toast(
-        `${stillPending} still need review — approve a mapping for their new fields first`,
+        `${stillPending} still need review - approve a mapping for their new fields first`,
         'info',
       )
     } else {
-      toast('Nothing left to approve — all already resolved', 'success')
+      toast('Nothing left to approve - all already resolved', 'success')
     }
   }
 
@@ -1167,7 +1167,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
       setGroupBusy(key)
       try {
         const res = await approveDrift(drift.id)
-        toast(`Approved — mapping v${res.new_mapping_version}, ${res.reprocessed_events} logs reprocessed`, 'success')
+        toast(`Approved - mapping v${res.new_mapping_version}, ${res.reprocessed_events} logs reprocessed`, 'success')
         mappings.reload()
         events.reload()
         serverGroups.reload()
@@ -1415,7 +1415,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
     <div className="flex h-full flex-col">
       <PageHeader
         title={sourceFilter ? `Logs · ${sourceFilter}` : 'Telemetry Data'}
-        subtitle="The unified indexing interface — query, inspect, and trace live stream payloads."
+        subtitle="The unified indexing interface - query, inspect, and trace live stream payloads."
       />
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-outline-variant/50 pb-4">
@@ -1628,7 +1628,7 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
         <div className="mt-8">
           <EmptyState
             title="Telemetry Empty"
-            description="Awaiting telemetry ingestion. Upload a file via Event processing — each upload becomes one index."
+            description="Awaiting telemetry ingestion. Upload a file via Event processing - each upload becomes one index."
           />
         </div>
       )}
@@ -1783,9 +1783,9 @@ export default function Logs({ sourceFilter }: { sourceFilter?: string }) {
             {loadingMore ? (
               <span className="inline-flex items-center gap-2"><Spinner size="sm" /> Loading older logs…</span>
             ) : exhausted ? (
-              <span>{all.length} indexed — full history</span>
+              <span>{all.length} indexed - full history</span>
             ) : (
-              <span>{all.length} indexed — scroll for older logs</span>
+              <span>{all.length} indexed - scroll for older logs</span>
             )}
           </p>
         </div>

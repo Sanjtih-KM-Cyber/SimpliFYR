@@ -43,6 +43,7 @@ def search(
     filter: list[str] = Query(default=[]),
     status: EventStatus | None = None,
     limit: int = Query(default=50, ge=1, le=500),
+    source: str | None = Query(default=None, description="Connection name: hunt only its logs"),
     environment: str = Depends(get_environment),
     db: Session = Depends(get_db),
 ):
@@ -53,28 +54,30 @@ def search(
             key, _, value = item.partition("=")
             if value:
                 filters[key] = value
-    return engine.search_events(db, filters, status=status, limit=limit, environment=environment)
+    return engine.search_events(db, filters, status=status, limit=limit, environment=environment, source=source)
 
 
 @router.get("/aggregate", response_model=list[AggregateRow])
 def aggregate(
     group_by: str = Query(default="source.ip"),
     limit: int = Query(default=10, ge=1, le=100),
+    source: str | None = Query(default=None, description="Connection name: aggregate only its logs"),
     environment: str = Depends(get_environment),
     db: Session = Depends(get_db),
 ):
     if group_by not in _GROUPABLE:
         raise HTTPException(status_code=422, detail=f"Unsupported group_by: {group_by}")
-    return engine.aggregate(db, group_by, limit=limit, environment=environment)
+    return engine.aggregate(db, group_by, limit=limit, environment=environment, source=source)
 
 
 @router.get("/anomalies", response_model=AnomaliesResponse)
 def anomalies(
     threshold: int = Query(default=5, ge=1),
+    source: str | None = Query(default=None, description="Connection name: detect only on its logs"),
     environment: str = Depends(get_environment),
     db: Session = Depends(get_db),
 ):
-    result = engine.detect_anomalies(db, threshold=threshold, environment=environment)
+    result = engine.detect_anomalies(db, threshold=threshold, environment=environment, source=source)
     return AnomaliesResponse(
         high_volume=[AnomalyHighVolume(**r) for r in result["high_volume"]],
         scanners=[AnomalyScanner(**r) for r in result["scanners"]],
@@ -85,11 +88,12 @@ def anomalies(
 def correlations(
     rule: str = Query(default="port_scan"),
     threshold: int = Query(default=5, ge=1),
+    source: str | None = Query(default=None, description="Connection name: correlate only its logs"),
     environment: str = Depends(get_environment),
     db: Session = Depends(get_db),
 ):
     try:
-        return engine.correlate(db, rule, threshold=threshold, environment=environment)
+        return engine.correlate(db, rule, threshold=threshold, environment=environment, source=source)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 

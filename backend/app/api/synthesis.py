@@ -82,7 +82,7 @@ def _reap_stale(db: Session) -> None:
             job,
             status="failed",
             stage="interrupted",
-            error="Worker interrupted before finishing (process restart?) — start a new synthesis.",
+            error="Worker interrupted before finishing (process restart?) - start a new synthesis.",
         )
 
 
@@ -100,7 +100,7 @@ def _run_job_sync(job_id: int) -> None:
             if drift is None:
                 raise RuntimeError("Drift record no longer exists")
             if drift.status in _RESOLVED_DRIFT:
-                raise RuntimeError(f"Drift already {drift.status} — nothing to synthesize")
+                raise RuntimeError(f"Drift already {drift.status} - nothing to synthesize")
             _touch(db, job, stage="analyzing with AI provider", progress=35)
             _analyze_and_decide(db, drift)
             _touch(db, job, stage="recording decision", progress=80)

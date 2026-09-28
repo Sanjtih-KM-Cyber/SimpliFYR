@@ -5,11 +5,10 @@ import { KeyboardShortcutsPanel } from './components/KeyboardShortcutsPanel'
 import { ToastProvider } from './components/ui'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import AddConnection from './pages/AddConnection'
-import Analytics from './pages/Analytics'
 import ConnectionLayout from './pages/ConnectionLayout'
 import ConnectionLive from './pages/ConnectionLive'
 import ConnectionOverview from './pages/ConnectionOverview'
-import { ConnectionLearning, ConnectionLogs, ConnectionMappings } from './pages/ConnectionTabs'
+import { ConnectionAnalytics, ConnectionLearning, ConnectionLogs, ConnectionMappings } from './pages/ConnectionTabs'
 import Connections from './pages/Connections'
 import Dashboard from './pages/Dashboard'
 import Destinations from './pages/Destinations'
@@ -20,7 +19,6 @@ import Settings, { SettingsGeneral } from './pages/Settings'
 const NAV = [
   { to: '/', label: 'Home' },
   { to: '/connections', label: 'Connections' },
-  { to: '/analytics', label: 'Analytics' },
   { to: '/settings', label: 'Settings' },
 ]
 
@@ -120,10 +118,10 @@ function Shell() {
               <Route index element={<ConnectionOverview />} />
               <Route path="mappings" element={<ConnectionMappings />} />
               <Route path="learning" element={<ConnectionLearning />} />
+              <Route path="analytics" element={<ConnectionAnalytics />} />
               <Route path="logs" element={<ConnectionLogs />} />
               <Route path="live" element={<ConnectionLive />} />
             </Route>
-            <Route path="/analytics" element={<Analytics />} />
             <Route path="/logs" element={<Logs />} />
             <Route path="/settings" element={<Settings />}>
               <Route index element={<SettingsGeneral />} />

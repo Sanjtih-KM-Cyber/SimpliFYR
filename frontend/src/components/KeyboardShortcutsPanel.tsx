@@ -3,10 +3,8 @@ import { Modal } from './ui/Modal'
 const SHORTCUTS: { keys: string[]; action: string }[] = [
   { keys: ['1'], action: 'Home' },
   { keys: ['2'], action: 'Connections' },
-  { keys: ['3'], action: 'Analytics' },
-  { keys: ['4'], action: 'Settings' },
+  { keys: ['3'], action: 'Settings' },
   { keys: ['N'], action: 'New Connection' },
-  { keys: ['R'], action: 'Review' },
   { keys: ['Esc'], action: 'Close / Back' },
   { keys: ['Ctrl', 'I'], action: 'Toggle this panel' },
 ]
@@ -45,7 +43,7 @@ export function KeyboardShortcutsPanel({
       </div>
       <div className="mt-5 surface-inset rounded-2xl p-3.5">
         <p className="text-body-sm leading-relaxed text-on-surface-variant">
-          <strong className="font-semibold text-primary">Note:</strong> Single-key shortcuts fire only from a neutral page surface — never while typing, picking, or working in a dialog. Press <Kbd label="Ctrl" /> + <Kbd label="I" /> or <Kbd label="?" /> anytime to view this panel.
+          <strong className="font-semibold text-primary">Note:</strong> Single-key shortcuts fire only from a neutral page surface - never while typing, picking, or working in a dialog. Press <Kbd label="Ctrl" /> + <Kbd label="I" /> or <Kbd label="?" /> anytime to view this panel.
         </p>
       </div>
     </Modal>

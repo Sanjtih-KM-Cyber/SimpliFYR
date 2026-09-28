@@ -14,7 +14,7 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 }
 
 function formatTime(iso: string | null): string {
-  if (!iso) return '—'
+  if (!iso) return '-'
   return new Date(iso).toLocaleString()
 }
 
@@ -29,7 +29,7 @@ export default function ConnectionOverview() {
         <Stat label="Needs Review" value={c.needs_review} />
         <Stat
           label="Avg Latency"
-          value={c.avg_latency_ms > 0 ? `${c.avg_latency_ms.toFixed(1)} ms` : '—'}
+          value={c.avg_latency_ms > 0 ? `${c.avg_latency_ms.toFixed(1)} ms` : '-'}
         />
       </section>
 
@@ -47,7 +47,7 @@ export default function ConnectionOverview() {
           ) : (
             <div className="surface-inset rounded-xl p-3 leading-relaxed border-l-4 border-warning">
               <p className="text-body-sm text-warning/90">
-                No active schema established — telemetry quarantined until structural context provided.
+                No active schema established - telemetry quarantined until structural context provided.
               </p>
             </div>
           )}
@@ -91,7 +91,7 @@ export default function ConnectionOverview() {
                 <div key={d.id} className="flex items-center justify-between border-l-2 border-warning pl-3">
                   <span className="text-label-sm font-mono text-warning/80">
                     <span className="uppercase tracking-widest text-warning/50 font-sans mr-2 text-label-sm">delta_fields:</span>
-                    {d.new_fields.join(', ') || '—'}
+                    {d.new_fields.join(', ') || '-'}
                   </span>
                   <StatusBadge status={d.status} />
                 </div>

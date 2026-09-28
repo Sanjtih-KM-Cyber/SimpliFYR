@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 
 export function Table({ children }: { children: ReactNode }) {
   // overflow-y-clip (never auto): a tall table must never become a vertical
-  // scroll container — the wheel always chains to the page. Horizontal scroll
+  // scroll container - the wheel always chains to the page. Horizontal scroll
   // for narrow screens is preserved via overflow-x.
   return (
     <div className="overflow-x-auto overflow-y-clip rounded-2xl border border-outline-variant bg-surface-container/60 shadow-e3">

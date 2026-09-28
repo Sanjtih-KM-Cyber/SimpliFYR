@@ -6,11 +6,11 @@ import { useAsync } from '../hooks/useAsync'
 import { useLive } from '../hooks/useLive'
 
 /* ============================================================================
-   Value formatting — human-readable labels, technically precise values.
+   Value formatting - human-readable labels, technically precise values.
    ========================================================================= */
 
 function humanizeBackend(value: string | null | undefined): string {
-  if (!value) return '—'
+  if (!value) return '-'
   const known: Record<string, string> = {
     inmemory: 'In-memory',
     filesystem: 'Filesystem',
@@ -25,7 +25,7 @@ function humanizeBackend(value: string | null | undefined): string {
 }
 
 function formatWorkers(count: number | null | undefined): string {
-  if (count == null) return '—'
+  if (count == null) return '-'
   return `${count.toLocaleString()} worker${count === 1 ? '' : 's'}`
 }
 
@@ -40,7 +40,7 @@ function formatRetention(c: {
   audit_retention_days?: number | null
   retention_days?: number | null
 } | null | undefined): { value: string; caption: string | null } {
-  if (!c) return { value: '—', caption: null }
+  if (!c) return { value: '-', caption: null }
   if (c.raw_retention_days || c.normalized_retention_days || c.audit_retention_days) {
     return {
       value: `${c.raw_retention_days ?? 0}d / ${c.normalized_retention_days ?? 0}d / ${c.audit_retention_days ?? 0}d`,
@@ -57,7 +57,7 @@ function formatSyslogUdp(c: {
   syslog_udp_port?: number | null
 } | null | undefined): string {
   if (!c?.syslog_enabled) return 'Disabled'
-  return `${c.syslog_udp_host ?? '—'}:${c.syslog_udp_port ?? '—'}`
+  return `${c.syslog_udp_host ?? '-'}:${c.syslog_udp_port ?? '-'}`
 }
 
 function formatSyslogTcp(c: {
@@ -65,7 +65,7 @@ function formatSyslogTcp(c: {
   syslog_tcp_port?: number | null
 } | null | undefined): string {
   if (!c?.syslog_tcp_enabled) return 'Disabled'
-  return `TCP :${c.syslog_tcp_port ?? '—'}`
+  return `TCP :${c.syslog_tcp_port ?? '-'}`
 }
 
 function formatFlag(enabled: boolean | null | undefined): string {
@@ -73,7 +73,7 @@ function formatFlag(enabled: boolean | null | undefined): string {
 }
 
 /* ============================================================================
-   Presentational pieces — all theme-driven, no new data.
+   Presentational pieces - all theme-driven, no new data.
    ========================================================================= */
 
 type Tone = 'ok' | 'warn' | 'muted'
@@ -206,7 +206,7 @@ function CardSkeleton({ rows = 3 }: { rows?: number }) {
 }
 
 /* ============================================================================
-   Page shell — header establishes context, tabs stay secondary.
+   Page shell - header establishes context, tabs stay secondary.
    ========================================================================= */
 
 export default function Settings() {
@@ -242,7 +242,7 @@ export default function Settings() {
             <StatusPill tone="muted">Live…</StatusPill>
           )}
           <span className="inline-flex items-center rounded-full border border-outline-variant bg-surface-variant px-2.5 py-1 font-mono text-label-sm text-on-surface-variant">
-            v{h?.version ?? '—'}
+            v{h?.version ?? '-'}
           </span>
         </div>
       </header>
@@ -261,7 +261,7 @@ export default function Settings() {
 }
 
 /* ============================================================================
-   General — health overview, pipeline activity, infrastructure detail.
+   General - health overview, pipeline activity, infrastructure detail.
    ========================================================================= */
 
 export function SettingsGeneral() {
@@ -300,7 +300,7 @@ export function SettingsGeneral() {
 
   return (
     <div className="max-w-[1400px] space-y-5">
-      <div className="grid items-start gap-5 lg:grid-cols-2">
+      <div className="grid items-stretch gap-5 lg:grid-cols-2">
         {/* System health */}
         <section className="surface-panel animate-slide-up rounded-2xl p-5">
           <SectionLabel>System health</SectionLabel>
@@ -315,20 +315,20 @@ export function SettingsGeneral() {
                     {operational ? 'Operational' : 'Degraded'}
                   </p>
                   <p className="mt-0.5 text-body-sm text-on-surface-variant">
-                    {h?.app ?? 'Simplifyr'} · v{h?.version ?? '—'}
+                    {h?.app ?? 'Simplifyr'} · v{h?.version ?? '-'}
                   </p>
                 </div>
               </div>
               <dl className="mt-3 space-y-2.5">
                 <FieldRow
                   label="API"
-                  value={apiOk ? 'Operational' : (h?.status ?? '—')}
+                  value={apiOk ? 'Operational' : (h?.status ?? '-')}
                   status={apiOk ? 'ok' : 'warn'}
                   muted={!apiOk && h?.status == null}
                 />
                 <FieldRow
                   label="Database"
-                  value={dbOk ? 'Operational' : (h?.database ?? '—')}
+                  value={dbOk ? 'Operational' : (h?.database ?? '-')}
                   status={dbOk ? 'ok' : 'warn'}
                   muted={!dbOk && h?.database == null}
                 />
@@ -348,7 +348,7 @@ export function SettingsGeneral() {
             />
             <Metric
               label="Throughput"
-              value={s != null ? `${s.events_per_second.toLocaleString()} / sec` : '—'}
+              value={s != null ? `${s.events_per_second.toLocaleString()} / sec` : '-'}
               loading={stats.loading}
             />
             <Metric
@@ -391,7 +391,7 @@ export function SettingsGeneral() {
                 <span className="text-on-surface-variant">
                   Queue depth{' '}
                   <span className="ml-1 font-mono text-on-surface">
-                    {queueDepth == null ? '—' : queueDepth.toLocaleString()}
+                    {queueDepth == null ? '-' : queueDepth.toLocaleString()}
                   </span>
                 </span>
                 <span className="text-on-surface-variant">
@@ -401,7 +401,7 @@ export function SettingsGeneral() {
                       (droppedTotal ?? 0) > 0 ? 'text-warning' : 'text-on-surface'
                     }`}
                   >
-                    {droppedTotal == null ? '—' : droppedTotal.toLocaleString()}
+                    {droppedTotal == null ? '-' : droppedTotal.toLocaleString()}
                   </span>
                 </span>
               </div>
@@ -410,8 +410,8 @@ export function SettingsGeneral() {
         </section>
       </div>
 
-      {/* Infrastructure & configuration — one panel per concern, each sized to its content */}
-      <div className="grid items-start gap-5 sm:grid-cols-2">
+      {/* Infrastructure & configuration - one panel per concern, rows share height */}
+      <div className="grid items-stretch gap-5 sm:grid-cols-2">
         <section className="surface-panel animate-slide-up rounded-2xl p-5" style={{ animationDelay: '100ms' }}>
           <Group title="Ingestion">
             {config.loading || c == null ? (
@@ -477,7 +477,7 @@ export function SettingsGeneral() {
               <CardSkeleton rows={2} />
             ) : (
               <>
-                <FieldRow label="AI provider" value={c.ai_provider ?? '—'} mono />
+                <FieldRow label="AI provider" value={c.ai_provider ?? '-'} mono />
                 <FieldRow label="Rate limit" value={formatRateLimit(c.rate_limit_per_minute)} mono />
               </>
             )}

@@ -1,21 +1,41 @@
 import { useState } from 'react'
 import {
   aggregateEvents,
-  dedupLogs,
   getAnomalies,
   getCorrelations,
   searchEvents,
 } from '../api/client'
 import type { AggregateRow, Anomalies, AnalyticsEvent } from '../api/types'
-import type { DedupResponse } from '../api/client'
-import { Arrow } from '../components/Arrow'
 import { Code, Empty } from '../components/Code'
 import { Spinner } from '../components/Spinner'
 import { ErrorBanner } from '../components/Status'
-import { useToast } from '../components/ui'
 import { Dropdown } from '../components/Dropdown'
+import { SemanticFieldInput } from '../components/SemanticFieldInput'
 
-const GROUP_OPTIONS = ['source.ip', 'destination.ip', 'network.protocol', 'network.action', 'event.type']
+const GROUP_OPTIONS = [
+  'source.ip',
+  'source.port',
+  'destination.ip',
+  'destination.port',
+  'network.protocol',
+  'network.action',
+  'event.type',
+  'event.severity',
+  'identity.user',
+]
+
+const THRESHOLD_OPTIONS = [3, 5, 10, 20]
+
+const CORR_RULES = [
+  { value: 'port_scan', label: 'Port Scan' },
+  { value: 'beaconing', label: 'Beaconing' },
+  { value: 'deny_flood', label: 'Deny Flood' },
+]
+
+interface FilterRow {
+  field: string
+  value: string
+}
 
 function formatTime(iso: string) {
   try {
@@ -25,9 +45,11 @@ function formatTime(iso: string) {
   }
 }
 
-export default function Analytics() {
-  const [sourceIp, setSourceIp] = useState('')
-  const [action, setAction] = useState('')
+export default function Analytics({ sourceFilter }: { sourceFilter?: string }) {
+  const [filters, setFilters] = useState<FilterRow[]>([
+    { field: 'source.ip', value: '' },
+    { field: 'network.action', value: '' },
+  ])
   const [results, setResults] = useState<AnalyticsEvent[] | null>(null)
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -36,22 +58,27 @@ export default function Analytics() {
   const [aggregation, setAggregation] = useState<AggregateRow[] | null>(null)
   const [aggregating, setAggregating] = useState(false)
 
+  const [threshold, setThreshold] = useState(5)
   const [anomalies, setAnomalies] = useState<Anomalies | null>(null)
   const [loadingAnomalies, setLoadingAnomalies] = useState(false)
   const [correlations, setCorrelations] = useState<Record<string, unknown>[] | null>(null)
   const [loadingCorrelations, setLoadingCorrelations] = useState(false)
   const [corrRule, setCorrRule] = useState('port_scan')
+  const [corrThreshold, setCorrThreshold] = useState(5)
 
-  const [dedupRaw, setDedupRaw] = useState('')
-  const [dedup, setDedup] = useState<DedupResponse | null>(null)
-  const [deduping, setDeduping] = useState(false)
-  const { toast } = useToast()
+  function updateFilter(index: number, patch: Partial<FilterRow>) {
+    setFilters((prev) => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)))
+  }
 
   async function runSearch() {
     setSearching(true)
     setError(null)
     try {
-      setResults(await searchEvents({ 'source.ip': sourceIp, 'network.action': action }))
+      const picked: Record<string, string> = {}
+      for (const r of filters) {
+        if (r.field.trim() && r.value.trim()) picked[r.field.trim()] = r.value.trim()
+      }
+      setResults(await searchEvents(picked, sourceFilter))
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -63,7 +90,7 @@ export default function Analytics() {
     setAggregating(true)
     setError(null)
     try {
-      setAggregation(await aggregateEvents(groupBy))
+      setAggregation(await aggregateEvents(groupBy, sourceFilter))
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -75,7 +102,7 @@ export default function Analytics() {
     setLoadingAnomalies(true)
     setError(null)
     try {
-      setAnomalies(await getAnomalies())
+      setAnomalies(await getAnomalies(threshold, sourceFilter))
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -87,7 +114,7 @@ export default function Analytics() {
     setLoadingCorrelations(true)
     setError(null)
     try {
-      setCorrelations(await getCorrelations(corrRule))
+      setCorrelations(await getCorrelations(corrRule, corrThreshold, sourceFilter))
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -95,52 +122,16 @@ export default function Analytics() {
     }
   }
 
-  async function runDedup() {
-    if (!dedupRaw.trim()) {
-      setError('Paste logs or drop a file first')
-      return
-    }
-    setDeduping(true)
-    setError(null)
-    try {
-      setDedup(await dedupLogs(dedupRaw))
-    } catch (e) {
-      setError((e as Error).message)
-    } finally {
-      setDeduping(false)
-    }
-  }
-
-  function onDedupFile(file: File | undefined) {
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => setDedupRaw(String(reader.result ?? ''))
-    reader.onerror = () => setError('Could not read file')
-    reader.readAsText(file)
-  }
-
-  function downloadDeduped() {
-    if (!dedup) return
-    const blob = new Blob([dedup.patterns.map((p) => p.sample).join('\n')], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = `simplifyr-deduped-${dedup.patterns.length}patterns.txt`
-    document.body.appendChild(anchor)
-    anchor.click()
-    anchor.remove()
-    URL.revokeObjectURL(url)
-    toast(`Downloaded ${dedup.patterns.length} pattern representatives`, 'success')
-  }
-
   return (
     <div>
-      <header className="mb-7 border-b border-outline-variant/50 pb-5">
-        <h2 className="text-headline-sm font-semibold tracking-tight text-on-surface">Analytics</h2>
-        <p className="text-body-md text-on-surface-variant">
-          Threat hunting, aggregation, anomaly detection, and correlation.
-        </p>
-      </header>
+      {!sourceFilter && (
+        <header className="mb-7 border-b border-outline-variant/50 pb-5">
+          <h2 className="text-headline-sm font-semibold tracking-tight text-on-surface">Analytics</h2>
+          <p className="text-body-md text-on-surface-variant">
+            Threat hunting, aggregation, anomaly detection, and correlation.
+          </p>
+        </header>
+      )}
 
       {error && <ErrorBanner message={error} />}
 
@@ -148,19 +139,42 @@ export default function Analytics() {
         {/* Search */}
         <section className="glass-card rounded-xl p-5 animate-slide-up">
           <h3 className="mb-3 text-label-lg font-semibold text-on-surface">Hunt / Search</h3>
+          <div className="mb-3 space-y-2">
+            {filters.map((row, i) => (
+              <div key={i} className="flex flex-wrap items-center gap-2">
+                <div className="min-w-[180px] flex-1">
+                  <SemanticFieldInput
+                    value={row.field}
+                    onChange={(v) => updateFilter(i, { field: v })}
+                  />
+                </div>
+                <input
+                  value={row.value}
+                  onChange={(e) => updateFilter(i, { value: e.target.value })}
+                  placeholder="value (e.g. 10.0.0.1)"
+                  className="input-glass w-40 px-3.5 py-2.5 text-body-sm text-on-surface"
+                />
+                {filters.length > 1 && (
+                  <button
+                    onClick={() => setFilters((prev) => prev.filter((_, j) => j !== i))}
+                    title="Remove filter"
+                    className="control-icon h-9 w-9 shrink-0"
+                  >
+                    <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                      <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
           <div className="mb-3 flex flex-wrap gap-2">
-            <input
-              value={sourceIp}
-              onChange={(e) => setSourceIp(e.target.value)}
-              placeholder="Source IP (e.g. 10.0.0.1)"
-              className="input-glass w-48 px-3.5 py-2.5 text-body-sm text-on-surface"
-            />
-            <input
-              value={action}
-              onChange={(e) => setAction(e.target.value)}
-              placeholder="Action (deny/allow)"
-              className="input-glass w-40 px-3.5 py-2.5 text-body-sm text-on-surface"
-            />
+            <button
+              onClick={() => setFilters((prev) => [...prev, { field: '', value: '' }])}
+              className="btn-outlined text-label-sm"
+            >
+              + Filter
+            </button>
             <button
               onClick={runSearch}
               disabled={searching}
@@ -196,6 +210,7 @@ export default function Analytics() {
               }}
               options={GROUP_OPTIONS.map((g) => ({ value: g, label: g }))}
               placeholder="Group by…"
+              searchable
               className="flex-1"
             />
             <button
@@ -220,15 +235,25 @@ export default function Analytics() {
 
         {/* Anomalies */}
         <section className="glass-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '100ms' }}>
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex items-center justify-between gap-2">
             <h3 className="text-label-lg font-semibold text-on-surface">Anomalies</h3>
-            <button
-              onClick={runAnomalies}
-              disabled={loadingAnomalies}
-              className="btn-warning"
-            >
-              {loadingAnomalies ? <Spinner size="sm" /> : 'Detect'}
-            </button>
+            <div className="flex items-center gap-2">
+              <Dropdown<number>
+                value={threshold}
+                onChange={(v) => {
+                  if (v !== undefined) setThreshold(v)
+                }}
+                options={THRESHOLD_OPTIONS.map((n) => ({ value: n, label: `≥ ${n}` }))}
+                className="w-28"
+              />
+              <button
+                onClick={runAnomalies}
+                disabled={loadingAnomalies}
+                className="btn-warning"
+              >
+                {loadingAnomalies ? <Spinner size="sm" /> : 'Detect'}
+              </button>
+            </div>
           </div>
           {anomalies && (
             <div className="space-y-3 text-body-sm">
@@ -264,7 +289,7 @@ export default function Analytics() {
 
         {/* Correlations */}
         <section className="glass-card rounded-xl p-5 animate-slide-up" style={{ animationDelay: '150ms' }}>
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex items-center justify-between gap-2">
             <h3 className="text-label-lg font-semibold text-on-surface">Correlations</h3>
             <button
               onClick={runCorrelations}
@@ -274,18 +299,25 @@ export default function Analytics() {
               {loadingCorrelations ? <Spinner size="sm" /> : 'Run'}
             </button>
           </div>
+          <div className="mb-3 flex gap-2">
             <Dropdown
               value={corrRule}
               onChange={(v) => {
                 if (v !== undefined) setCorrRule(v)
               }}
-            options={[
-              { value: 'port_scan', label: 'Port Scan' },
-              { value: 'beaconing', label: 'Beaconing' },
-            ]}
-            placeholder="Rule…"
-            className="w-48"
-          />
+              options={CORR_RULES.map((r) => ({ value: r.value, label: r.label }))}
+              placeholder="Rule…"
+              className="w-48"
+            />
+            <Dropdown<number>
+              value={corrThreshold}
+              onChange={(v) => {
+                if (v !== undefined) setCorrThreshold(v)
+              }}
+              options={THRESHOLD_OPTIONS.map((n) => ({ value: n, label: `≥ ${n}` }))}
+              className="w-28"
+            />
+          </div>
           {correlations && (
             <div className="space-y-1 text-body-sm">
               {correlations.length === 0 ? (
@@ -297,72 +329,6 @@ export default function Analytics() {
                   </div>
                 ))
               )}
-            </div>
-          )}
-        </section>
-
-        {/* Deduplicate Logs */}
-        <section className="glass-card rounded-xl p-5 animate-slide-up xl:col-span-2" style={{ animationDelay: '200ms' }}>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h3 className="text-label-lg font-semibold text-on-surface">Deduplicate Logs</h3>
-              <p className="mt-0.5 text-body-sm text-on-surface-variant">
-                Paste or drop raw logs — collapses pattern-wise, first log per pattern kept. Nothing is stored.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <label className="btn-secondary cursor-pointer px-3.5 py-2.5 text-body-sm">
-                Drop a file…
-                <input type="file" className="hidden" onChange={(e) => onDedupFile(e.target.files?.[0])} />
-              </label>
-              <button
-                onClick={runDedup}
-                disabled={deduping || !dedupRaw.trim()}
-                className="btn-primary"
-              >
-                {deduping ? <Spinner size="sm" /> : 'Deduplicate'}
-              </button>
-            </div>
-          </div>
-          <textarea
-            value={dedupRaw}
-            onChange={(e) => setDedupRaw(e.target.value)}
-            rows={4}
-            placeholder="<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 action=deny"
-            className="input-glass mb-3 w-full px-3.5 py-2.5 font-mono text-mono-sm text-on-surface"
-          />
-          {deduping && <Spinner />}
-          {dedup && (
-            <div>
-              <div className="mb-3 flex flex-wrap items-center gap-3">
-                <p className="text-body-sm text-on-surface-variant">
-                  <span className="font-semibold text-on-surface">{dedup.total}</span> lines <Arrow variant="inline" size="sm" /> <span className="font-semibold text-on-surface">{dedup.patterns.length}</span> patterns
-                </p>
-                <button
-                  onClick={downloadDeduped}
-                  className="btn-secondary text-label-sm"
-                >
-                  Download deduped
-                </button>
-              </div>
-              <div className="space-y-2">
-                {dedup.patterns.map((p, i) => (
-                  <div key={i} className="surface-inset rounded-xl p-3 text-body-sm">
-                    <div className="mb-1 flex flex-wrap items-center gap-2">
-                      <span className="surface-inset rounded px-1.5 py-0.5 font-mono font-bold uppercase text-warning border border-warning/20">
-                        {p.format}
-                      </span>
-                      <span className="surface-inset rounded-full border border-outline-variant/50 px-2 py-0.5 font-mono text-on-surface-variant">
-                        × {p.count}
-                      </span>
-                      {p.fields.length > 0 && (
-                        <span className="font-mono text-on-surface-variant/70">{p.fields.join(', ')}</span>
-                      )}
-                    </div>
-                    <Code value={p.sample} />
-                  </div>
-                ))}
-              </div>
             </div>
           )}
         </section>

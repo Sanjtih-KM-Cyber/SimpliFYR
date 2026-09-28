@@ -589,7 +589,7 @@ def _run_export(
             else:
                 for row in materialized:
                     row["nested"] = nested_view(row)
-            label = f"Simplifyr export — {scope} ({total} events)"
+            label = f"Simplifyr export - {scope} ({total} events)"
             yield render_markdown_sections(materialized, scope_label=label)
             return
         if slim:

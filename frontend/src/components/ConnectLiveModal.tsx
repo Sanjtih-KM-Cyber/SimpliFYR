@@ -11,7 +11,7 @@ export function ConnectLiveModal({ open, onClose }: { open: boolean; onClose: ()
     navigator.clipboard.writeText(text)
   }
 
-  // 0.0.0.0 means "listen on every interface" — you dial 127.0.0.1 from here.
+  // 0.0.0.0 means "listen on every interface" - you dial 127.0.0.1 from here.
   const dialHost = !c?.syslog_udp_host || c.syslog_udp_host === '0.0.0.0' ? '127.0.0.1' : c.syslog_udp_host
   const udpTest = `$u = New-Object Net.Sockets.UdpClient; $b = [Text.Encoding]::UTF8.GetBytes('<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 action=deny'); $u.Send($b, $b.Length, '${dialHost}', ${c?.syslog_udp_port ?? 5514}); $u.Close()`
   const tcpTest = `$t = New-Object Net.Sockets.TcpClient('${dialHost}', ${c?.syslog_tcp_port ?? 5515}); $s = $t.GetStream(); $b = [Text.Encoding]::UTF8.GetBytes("<134>Sep 15 10:31:44 fw01 srcip=10.1.1.5 action=deny\`n"); $s.Write($b, 0, $b.Length); $t.Close()`
@@ -20,7 +20,7 @@ export function ConnectLiveModal({ open, onClose }: { open: boolean; onClose: ()
   return (
     <Modal open={open} title="Live Log Ingestion" onClose={onClose} width="max-w-2xl">
       <p className="mb-5 text-body-md leading-relaxed text-on-surface-variant">
-        Point a device or script at these doors. Every arrival normalizes on the spot through your mappings —
+        Point a device or script at these doors. Every arrival normalizes on the spot through your mappings -
         unknown shapes park under Review, tagged senders land under their connection.
       </p>
 

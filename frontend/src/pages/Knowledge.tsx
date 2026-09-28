@@ -27,7 +27,7 @@ function LearningCurve({
       <div className="glass-card rounded-xl p-5">
         <p className="text-label-sm font-semibold uppercase tracking-wide text-on-surface-variant">Last Learning</p>
         <p className="mt-2 text-body-md font-semibold text-on-surface">
-          {lastLearningAt ? new Date(lastLearningAt).toLocaleString() : '—'}
+          {lastLearningAt ? new Date(lastLearningAt).toLocaleString() : '-'}
         </p>
       </div>
       <div className="glass-card rounded-xl p-5">

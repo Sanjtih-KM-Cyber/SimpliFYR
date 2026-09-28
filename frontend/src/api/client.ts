@@ -65,7 +65,7 @@ function storeValue(key: string, value: string | null) {
     if (value) localStorage.setItem(key, value);
     else localStorage.removeItem(key);
   } catch {
-    /* storage unavailable (private mode, SSR) — keep in-memory only */
+    /* storage unavailable (private mode, SSR) - keep in-memory only */
   }
 }
 
@@ -605,25 +605,32 @@ export function approveOnboarding(id: number, input: OnboardingApproveInput): Pr
   })
 }
 
-export function searchEvents(filters: Record<string, string>): Promise<AnalyticsEvent[]> {
+export function searchEvents(filters: Record<string, string>, source?: string): Promise<AnalyticsEvent[]> {
   const params = new URLSearchParams()
   for (const [k, v] of Object.entries(filters)) {
     if (v) params.append('filter', `${k}=${v}`)
   }
+  if (source) params.set('source', source)
   const qs = params.toString()
   return request(`${BASE}/analytics/search${qs ? `?${qs}` : ''}`)
 }
 
-export function aggregateEvents(groupBy: string): Promise<AggregateRow[]> {
-  return request(`${BASE}/analytics/aggregate?group_by=${encodeURIComponent(groupBy)}`)
+export function aggregateEvents(groupBy: string, source?: string): Promise<AggregateRow[]> {
+  const qs = new URLSearchParams({ group_by: groupBy })
+  if (source) qs.set('source', source)
+  return request(`${BASE}/analytics/aggregate?${qs.toString()}`)
 }
 
-export function getAnomalies(threshold = 3): Promise<Anomalies> {
-  return request(`${BASE}/analytics/anomalies?threshold=${threshold}`)
+export function getAnomalies(threshold = 3, source?: string): Promise<Anomalies> {
+  const qs = new URLSearchParams({ threshold: String(threshold) })
+  if (source) qs.set('source', source)
+  return request(`${BASE}/analytics/anomalies?${qs.toString()}`)
 }
 
-export function getCorrelations(rule: string, threshold = 5): Promise<Record<string, unknown>[]> {
-  return request(`${BASE}/analytics/correlations?rule=${rule}&threshold=${threshold}`)
+export function getCorrelations(rule: string, threshold = 5, source?: string): Promise<Record<string, unknown>[]> {
+  const qs = new URLSearchParams({ rule, threshold: String(threshold) })
+  if (source) qs.set('source', source)
+  return request(`${BASE}/analytics/correlations?${qs.toString()}`)
 }
 
 export interface DedupPattern {

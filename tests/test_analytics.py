@@ -139,3 +139,44 @@ def test_dedup_groups_by_pattern_keep_first(client):
 
 def test_dedup_rejects_empty(client):
     assert client.post("/api/v1/analytics/dedup", json={"raw": "   \n  "}).status_code == 422
+def test_analytics_scoped_to_source(client):
+    _setup(client, "Scope-Vendor-F")
+    _setup(client, "Scope-Vendor-G")
+    _ingest(client, "<134>Sep 15 10:00:00 fw srcip=10.9.0.1 dstip=8.8.8.8 dport=443 action=deny", "Scope-Vendor-F")
+    _ingest(client, "<134>Sep 15 10:00:01 fw srcip=10.9.0.2 dstip=8.8.8.8 dport=80 action=allow", "Scope-Vendor-G")
+
+    hits = client.get(
+        "/api/v1/analytics/search",
+        params=[("filter", "source.ip=10.9.0.1"), ("source", "Scope-Vendor-F")],
+    ).json()
+    assert len(hits) == 1
+    scoped_out = client.get(
+        "/api/v1/analytics/search",
+        params=[("filter", "source.ip=10.9.0.1"), ("source", "Scope-Vendor-G")],
+    ).json()
+    assert scoped_out == []
+
+    rows = client.get(
+        "/api/v1/analytics/aggregate", params={"group_by": "network.action", "source": "Scope-Vendor-G"}
+    ).json()
+    assert {r["value"] for r in rows} == {"allow"}
+
+
+def test_correlations_deny_flood(client):
+    src = "DenyFlood-Vendor-H"
+    _setup(client, src)
+    for i in range(4):
+        _ingest(client, f"<134>Sep 15 10:00:0{i} fw srcip=10.8.0.1 dstip=8.8.8.8 dport=80 action=deny", src)
+    _ingest(client, "<134>Sep 15 10:00:05 fw srcip=10.8.0.2 dstip=8.8.8.8 dport=80 action=allow", src)
+
+    res = client.get(
+        "/api/v1/analytics/correlations", params={"rule": "deny_flood", "threshold": 3}
+    ).json()
+    assert any(f["source_ip"] == "10.8.0.1" and f["deny_count"] >= 3 for f in res)
+    assert all(f["source_ip"] != "10.8.0.2" for f in res)
+
+    scoped = client.get(
+        "/api/v1/analytics/correlations",
+        params={"rule": "deny_flood", "threshold": 3, "source": "No-Such-Vendor"},
+    ).json()
+    assert scoped == []

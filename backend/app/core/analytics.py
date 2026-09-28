@@ -19,12 +19,19 @@ def _get_path(data: dict, path: str):
     return value
 
 
-def _normalized_events(db: Session, environment: str = "default", status: EventStatus | None = None):
+def _normalized_events(
+    db: Session,
+    environment: str = "default",
+    status: EventStatus | None = None,
+    source: str | None = None,
+):
     stmt = select(Event).where(
         Event.status.in_(_NORMALIZED), Event.environment == environment
     )
     if status is not None:
         stmt = stmt.where(Event.status == status)
+    if source:
+        stmt = stmt.where(Event.source == source)
     for event in db.execute(stmt).scalars().all():
         if event.normalized:
             yield event
@@ -36,10 +43,11 @@ def search_events(
     status: EventStatus | None = None,
     limit: int = 50,
     environment: str = "default",
+    source: str | None = None,
 ) -> list[dict]:
     """Hunt over normalized events by semantic field filters (e.g. source.ip=10.1.1.5)."""
     results = []
-    for event in _normalized_events(db, environment=environment, status=status):
+    for event in _normalized_events(db, environment=environment, status=status, source=source):
         matched = True
         for path, expected in filters.items():
             value = _get_path(event.normalized, path)
@@ -54,22 +62,28 @@ def search_events(
 
 
 def aggregate(
-    db: Session, group_by: str, limit: int = 10, environment: str = "default"
+    db: Session,
+    group_by: str,
+    limit: int = 10,
+    environment: str = "default",
+    source: str | None = None,
 ) -> list[dict]:
     """Count normalized events grouped by a semantic field value (top N)."""
     counts: Counter = Counter()
-    for event in _normalized_events(db, environment=environment):
+    for event in _normalized_events(db, environment=environment, source=source):
         value = _get_path(event.normalized, group_by)
         if value is not None:
             counts[str(value)] += 1
     return [{"value": value, "count": count} for value, count in counts.most_common(limit)]
 
 
-def detect_anomalies(db: Session, threshold: int = 5, environment: str = "default") -> dict:
+def detect_anomalies(
+    db: Session, threshold: int = 5, environment: str = "default", source: str | None = None
+) -> dict:
     """Flag sources with abnormally high volume or a wide fan-out (scanner-like)."""
     volume: Counter = Counter()
     fan_out: dict[str, set] = defaultdict(set)
-    for event in _normalized_events(db, environment=environment):
+    for event in _normalized_events(db, environment=environment, source=source):
         src = _get_path(event.normalized, "source.ip")
         dst = _get_path(event.normalized, "destination.ip")
         if src is not None:
@@ -92,12 +106,14 @@ def detect_anomalies(db: Session, threshold: int = 5, environment: str = "defaul
     return {"high_volume": high_volume, "scanners": scanners}
 
 
-def correlate(db: Session, rule: str, threshold: int = 5, environment: str = "default") -> list[dict]:
+def correlate(
+    db: Session, rule: str, threshold: int = 5, environment: str = "default", source: str | None = None
+) -> list[dict]:
     """Run a detection rule over normalized events."""
     if rule == "port_scan":
         # A source touching many distinct destination ports.
         ports: dict[str, set] = defaultdict(set)
-        for event in _normalized_events(db, environment=environment):
+        for event in _normalized_events(db, environment=environment, source=source):
             src = _get_path(event.normalized, "source.ip")
             port = _get_path(event.normalized, "destination.port")
             if src is not None and port is not None:
@@ -113,7 +129,7 @@ def correlate(db: Session, rule: str, threshold: int = 5, environment: str = "de
     if rule == "beaconing":
         # A source repeatedly contacting a single destination (beacon-like).
         pairs: Counter = Counter()
-        for event in _normalized_events(db, environment=environment):
+        for event in _normalized_events(db, environment=environment, source=source):
             src = _get_path(event.normalized, "source.ip")
             dst = _get_path(event.normalized, "destination.ip")
             if src is not None and dst is not None:
@@ -124,6 +140,26 @@ def correlate(db: Session, rule: str, threshold: int = 5, environment: str = "de
             if count >= threshold
         ]
         findings.sort(key=lambda x: x["count"], reverse=True)
+        return findings
+
+    if rule == "deny_flood":
+        # A source piling up denies/blocks — brute-force or policy storm.
+        denies: Counter = Counter()
+        for event in _normalized_events(db, environment=environment, source=source):
+            src = _get_path(event.normalized, "source.ip")
+            act = _get_path(event.normalized, "network.action")
+            if (
+                src is not None
+                and act is not None
+                and str(act).lower() in ("deny", "denied", "block", "blocked", "drop", "dropped", "reject", "rejected")
+            ):
+                denies[str(src)] += 1
+        findings = [
+            {"source_ip": src, "deny_count": count}
+            for src, count in denies.items()
+            if count >= threshold
+        ]
+        findings.sort(key=lambda x: x["deny_count"], reverse=True)
         return findings
 
     raise ValueError(f"Unknown correlation rule: {rule}")

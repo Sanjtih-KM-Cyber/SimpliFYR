@@ -92,7 +92,7 @@ export interface Mapping {
 }
 
 /** Canonical mapping identity: versions are iterations, and editors often
- *  save "Name v3" next to "Name" — both are the same mapping. */
+ *  save "Name v3" next to "Name" - both are the same mapping. */
 export function normalizeMappingName(name: string): string {
   return name
     .toLowerCase()

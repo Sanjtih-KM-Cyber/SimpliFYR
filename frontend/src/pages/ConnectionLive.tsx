@@ -68,7 +68,7 @@ export default function ConnectionLive() {
         <div className="animate-slide-up flex h-full flex-col">
           <PageHeader
             title="Live Telemetry Sink"
-            subtitle={`${connected ? '● Live' : '○ Connecting'} — streaming ${c.name} as it arrives`}
+            subtitle={`${connected ? '● Live' : '○ Connecting'} - streaming ${c.name} as it arrives`}
             actions={
               <span className="flex gap-2">
                 <button
@@ -94,7 +94,7 @@ export default function ConnectionLive() {
 
           {connected && !paused && rows.length > 0 && now - new Date(rows[0].received_at).getTime() > 5 * 60 * 1000 && (
             <p className="mb-3 surface-inset rounded-xl border border-outline-variant/50 px-4 py-2 text-body-sm text-on-surface-variant">
-              Quiet for 5+ min — the stream may have stopped. Anything held back waits under Review.
+              Quiet for 5+ min - the stream may have stopped. Anything held back waits under Review.
             </p>
           )}
 
@@ -104,7 +104,7 @@ export default function ConnectionLive() {
                 title={connected ? 'Listening for transmissions...' : 'Establishing Tunnel...'}
                 description={
                   connected
-                    ? `No events for ${c.name} yet — point a device at Connect Server or paste into Trial Run.`
+                    ? `No events for ${c.name} yet - point a device at Connect Server or paste into Trial Run.`
                     : 'Attempting to open WebSocket interface.'
                 }
               />

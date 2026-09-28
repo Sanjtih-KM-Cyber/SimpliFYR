@@ -326,7 +326,7 @@ export function SemanticFieldInput({
         onFocus={() => { setSearch(''); setOpen(true) }}
         placeholder={value ? value : 'Semantic field… (type to filter)'}
         autoComplete="off"
-        className="input-glass flex-1 pr-10"
+        className="input-glass flex-1 py-2.5 pl-3.5 pr-10 text-body-sm text-on-surface"
       />
       <svg
         viewBox="0 0 20 20"

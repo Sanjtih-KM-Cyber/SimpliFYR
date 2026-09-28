@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { getStats, listAudit, listConnections, listDestinations, listRecipes } from '../api/client'
 import type { AuditEntry } from '../api/types'
+import { DedupPanel } from '../components/DedupPanel'
 import { LoadTestPanel } from '../components/LoadTestPanel'
 import { useToast } from '../components/ui'
 import { useAsync } from '../hooks/useAsync'
@@ -60,7 +61,7 @@ export default function Dashboard() {
       stats.reload()
       connections.reload()
       if (msg.status === 'quarantined') {
-        toast(`Quarantined event from ${msg.source ?? 'unknown source'} — review needed`, 'info')
+        toast(`Quarantined event from ${msg.source ?? 'unknown source'} - review needed`, 'info')
       } else if (msg.status === 'dlq') {
         toast(`Malformed event from ${msg.source ?? 'unknown source'} moved to DLQ`, 'error')
       }
@@ -114,19 +115,19 @@ export default function Dashboard() {
   const metrics = [
     {
       label: 'Events processed',
-      value: s != null ? s.total_events.toLocaleString() : '—',
+      value: s != null ? s.total_events.toLocaleString() : '-',
       loading: stats.loading,
       tone: 'default' as const,
     },
     {
       label: 'Throughput',
-      value: s != null ? s.events_per_second.toLocaleString() : '—',
+      value: s != null ? s.events_per_second.toLocaleString() : '-',
       loading: stats.loading,
       tone: 'default' as const,
     },
     {
       label: 'Active sources',
-      value: connections.data != null ? connections.data.length.toLocaleString() : '—',
+      value: connections.data != null ? connections.data.length.toLocaleString() : '-',
       loading: connections.loading,
       tone: 'default' as const,
     },
@@ -235,6 +236,10 @@ export default function Dashboard() {
         <LoadTestPanel />
       </div>
 
+      <div className="mb-6">
+        <DedupPanel />
+      </div>
+
       <div className="grid items-stretch gap-5 lg:grid-cols-2">
         <section className="surface-panel rounded-2xl p-5 min-h-0 flex flex-col">
           <div className="mb-3 flex items-center justify-between">
@@ -278,7 +283,7 @@ export default function Dashboard() {
                   </tr>
                 ))}
                 {allConnections.length === 0 && !connections.loading && (
-                  <tr><td colSpan={4} className="py-6 text-center text-body-md text-on-surface-variant/70">No connections yet — add one to begin.</td></tr>
+                  <tr><td colSpan={4} className="py-6 text-center text-body-md text-on-surface-variant/70">No connections yet - add one to begin.</td></tr>
                 )}
               </tbody>
             </table>

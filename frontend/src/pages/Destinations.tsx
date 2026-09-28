@@ -11,9 +11,9 @@ const TYPES = ['console', 'http', 's3', 'kafka'] as const
 
 function configSummary(d: Destination): string {
   const c = d.config ?? {}
-  if (d.type === 'http') return String(c.url ?? '—')
-  if (d.type === 's3') return `${c.bucket ?? '—'} / ${c.prefix ?? 'output/'}`
-  if (d.type === 'kafka') return String(c.topic ?? '—')
+  if (d.type === 'http') return String(c.url ?? '-')
+  if (d.type === 's3') return `${c.bucket ?? '-'} / ${c.prefix ?? 'output/'}`
+  if (d.type === 'kafka') return String(c.topic ?? '-')
   return 'stdout'
 }
 

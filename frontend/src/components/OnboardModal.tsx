@@ -80,7 +80,7 @@ export function OnboardModal({
         outputProfileId: profileId ? Number(profileId) : undefined,
         fields,
       })
-      toast(`Mapped to ${connection.trim()} (v${res.mapping_version}) — event ${res.event_status}`, 'success')
+      toast(`Mapped to ${connection.trim()} (v${res.mapping_version}) - event ${res.event_status}`, 'success')
       onDone()
       onClose()
     } catch (e) {
@@ -93,7 +93,7 @@ export function OnboardModal({
   return (
     <Modal open title={`Onboard event #${event.id}`} onClose={onClose} width="max-w-xl">
       <p className="mb-4 text-body-sm text-on-surface-variant">
-        Name its connection — an existing one creates a new mapping version, a new
+        Name its connection - an existing one creates a new mapping version, a new
         name onboards a new vendor/source. The event is reprocessed immediately.
       </p>
       {error && <ErrorBanner message={error} />}
@@ -161,7 +161,7 @@ export function OnboardModal({
         rows.some((r) => r.input_field.trim() && !r.semantic_field.trim()) && (
           <p className="mb-4 rounded-xl border border-warning/30 bg-warning-container/10 px-3.5 py-2.5 text-body-sm text-warning">
             {rows.filter((r) => r.input_field.trim() && !r.semantic_field.trim()).length} observed
-            field(s) left unassigned — events carrying them will quarantine again as drift.
+            field(s) left unassigned - events carrying them will quarantine again as drift.
           </p>
         )}
       <div className="flex justify-end gap-2">

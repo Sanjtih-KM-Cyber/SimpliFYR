@@ -66,7 +66,7 @@ export default function AddConnection() {
         return adopted
       }
     } catch {
-      /* storage unavailable — fall through to the default sample */
+      /* storage unavailable - fall through to the default sample */
     }
     return SAMPLE
   })
@@ -102,7 +102,7 @@ export default function AddConnection() {
   }
 
   // Multi-shape samples: every pasted line belongs to exactly one shape, and
-  // the wizard maps them all — one section per shape, one union publish.
+  // the wizard maps them all - one section per shape, one union publish.
   // Single-line samples keep the original one-section path.
   function firstLine(text: string): string {
     const line = text.split('\n').find((ln) => ln.trim().length > 0)
@@ -206,7 +206,7 @@ export default function AddConnection() {
       return
     }
     if (connectionName.trim().toLowerCase() === 'new') {
-      setError('“new” is a reserved word (it clashes with the wizard address) — pick another connection name')
+      setError('“new” is a reserved word (it clashes with the wizard address) - pick another connection name')
       return
     }
     setPreviewing(true)
@@ -305,11 +305,11 @@ export default function AddConnection() {
             return (
               <p className="mt-2 rounded-xl border border-warning/30 bg-warning-container/10 px-3.5 py-2 text-body-sm text-warning">
                 {clashConnection
-                  ? `“${clashConnection.name}” already exists — publishing adds a new version under it instead of a new card.`
+                  ? `“${clashConnection.name}” already exists - publishing adds a new version under it instead of a new card.`
                   : ''}
                 {clashConnection && clashMapping ? ' ' : ''}
                 {clashMapping
-                  ? `Mapping name “${clashMapping.name}” already exists (v${clashMapping.version}) — publishing versions it up.`
+                  ? `Mapping name “${clashMapping.name}” already exists (v${clashMapping.version}) - publishing versions it up.`
                   : ''}
               </p>
             )
@@ -329,7 +329,7 @@ export default function AddConnection() {
           />
           {pastedLines > 1 && sections.length > 1 && (
             <p className="mt-1.5 text-label-sm text-on-surface-variant/70">
-              {pastedLines} lines pasted — {sections.length} shapes found; one publish covers them all.
+              {pastedLines} lines pasted - {sections.length} shapes found; one publish covers them all.
             </p>
           )}
           <div className="mt-4 flex items-center justify-end gap-2">
@@ -490,7 +490,7 @@ export default function AddConnection() {
               <p className="mt-2 text-body-md text-on-surface">
                 Whole file ingested here: {batchSummary.processed}/{batchSummary.total} lines
                 ({batchSummary.normalized + batchSummary.output} normalized · {batchSummary.quarantined} held · {batchSummary.dlq} dlq)
-                in {batchSummary.duration_seconds}s{batchSummary.batch_id != null ? ` — batch #${batchSummary.batch_id}` : ''}.
+                in {batchSummary.duration_seconds}s{batchSummary.batch_id != null ? ` - batch #${batchSummary.batch_id}` : ''}.
               </p>
             )}
             <div className="mt-4 flex flex-wrap gap-3">

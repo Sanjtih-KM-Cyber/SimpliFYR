@@ -126,7 +126,7 @@ export function TryItNow({ sourceName }: { sourceName: string }) {
       if (nonEmpty.length > 1) {
         // Multi-line input: one log per line, each with its own format.
         // A single /ingest call would detect+parse the whole blob as one
-        // event and drop lines — route through the batch pipeline so
+        // event and drop lines - route through the batch pipeline so
         // syslog/CEF/JSON/raw lines each survive with their own format.
         const res = await processBatch({
           raw,
@@ -220,7 +220,7 @@ export function TryItNow({ sourceName }: { sourceName: string }) {
 
   return (
     <section id="try-it" className="mb-6 surface-panel rounded-2xl p-5">
-      <h3 className="mb-2 text-title-sm font-semibold text-on-surface">Try it now — ingest, see the output, download it</h3>
+      <h3 className="mb-2 text-title-sm font-semibold text-on-surface">Try it now - ingest, see the output, download it</h3>
       {binding && (
         <p className="mb-3 flex flex-wrap items-center gap-2 text-body-sm text-on-surface-variant">
           <span>
@@ -264,7 +264,7 @@ export function TryItNow({ sourceName }: { sourceName: string }) {
           title={
             connectionMapping
               ? `Bind ${connectionMapping.name} → selected profile`
-              : 'This connection has no mapping yet — create one first'
+              : 'This connection has no mapping yet - create one first'
           }
           className="btn-outlined text-label-sm"
         >
@@ -313,20 +313,20 @@ export function TryItNow({ sourceName }: { sourceName: string }) {
             Processed <span className="font-semibold">{batchResult.processed}/{batchResult.total}</span> lines
             ({batchResult.normalized} normalized · {batchResult.output} output · {batchResult.quarantined} held · {batchResult.dlq} dlq)
             {batchResult.batch_id != null && (
-              <span className="text-on-surface-variant"> — batch <span className="font-mono font-semibold text-primary">#{batchResult.batch_id}</span></span>
+              <span className="text-on-surface-variant"> - batch <span className="font-mono font-semibold text-primary">#{batchResult.batch_id}</span></span>
             )}
           </p>
           <div className="mt-3 space-y-1.5">
             {batchGroups(batchResult).map((g) => (
               <p key={g.key} className="font-mono text-mono-sm">
                 <span className="font-semibold text-on-surface">{g.title}</span>
-                <span className="text-on-surface-variant"> — {g.count} line{g.count === 1 ? '' : 's'} ({g.key})</span>
+                <span className="text-on-surface-variant"> - {g.count} line{g.count === 1 ? '' : 's'} ({g.key})</span>
               </p>
             ))}
           </div>
           {batchResult.quarantined + batchResult.dlq > 0 && (
             <p className="mt-2 text-warning">
-              Held lines are preserved (never dropped) — open Review Queue to approve their fields (e.g. ruleid → rule.id, threatlvl → threat.level, sessionbytes → network.bytes), or download the segregated set below.
+              Held lines are preserved (never dropped) - open Review Queue to approve their fields (e.g. ruleid → rule.id, threatlvl → threat.level, sessionbytes → network.bytes), or download the segregated set below.
             </p>
           )}
           <div className="mt-3 flex flex-wrap gap-2">

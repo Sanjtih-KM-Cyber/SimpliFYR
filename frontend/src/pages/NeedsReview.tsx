@@ -88,7 +88,7 @@ function CorrectModal({
   }
 
   return (
-    <Modal open title="Teach Pattern — Manual Correction" onClose={onClose} width="max-w-xl">
+    <Modal open title="Teach Pattern - Manual Correction" onClose={onClose} width="max-w-xl">
       <p className="mb-4 text-body-sm text-on-surface-variant">
         Your correction becomes a newly published mapping version. Future telemetry from{' '}
         <span className="font-mono text-primary">{detail.source ?? 'this sequence'}</span> will automatically inherit these properties.
@@ -144,7 +144,7 @@ function ReviewCard({
   const jobActive = job !== null && (job.status === 'queued' || job.status === 'running')
 
   // Reconnect: an in-flight synthesis survives navigation because it lives
-  // on the backend — reattach to this drift's active job on mount.
+  // on the backend - reattach to this drift's active job on mount.
   useEffect(() => {
     let cancelled = false
     listSynthesisJobs()
@@ -214,10 +214,10 @@ function ReviewCard({
 
       <div className="mb-4 flex flex-wrap gap-4 surface-inset rounded-xl border border-outline-variant/50 p-2">
         <span className="text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-          New Fields: <span className="font-mono text-warning/80 bg-warning-container/15 px-1 rounded ml-1 lowercase">{detail.new_fields.join(', ') || '—'}</span>
+          New Fields: <span className="font-mono text-warning/80 bg-warning-container/15 px-1 rounded ml-1 lowercase">{detail.new_fields.join(', ') || '-'}</span>
         </span>
         <span className="text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">
-          Missing: <span className="font-mono text-error bg-error-container/15 px-1 rounded ml-1 lowercase">{detail.missing_fields.join(', ') || '—'}</span>
+          Missing: <span className="font-mono text-error bg-error-container/15 px-1 rounded ml-1 lowercase">{detail.missing_fields.join(', ') || '-'}</span>
         </span>
       </div>
 
@@ -271,7 +271,7 @@ function ReviewCard({
             />
           </div>
           <p className="mt-1.5 text-body-sm text-on-surface-variant/70">
-            Running in the background — safe to navigate away; this card reconnects when you return.
+            Running in the background - safe to navigate away; this card reconnects when you return.
           </p>
         </div>
       )}

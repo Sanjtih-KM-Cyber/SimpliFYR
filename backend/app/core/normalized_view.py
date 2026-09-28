@@ -249,7 +249,7 @@ def render_markdown_sections(records: list[dict], *, scope_label: str = "Simplif
             import json as _json
 
             payload = nested_view(record)
-            lines.append(f"### {title} — event {seq + 1} (id {record.get('id')})")
+            lines.append(f"### {title} - event {seq + 1} (id {record.get('id')})")
             lines.append("")
             lines.append("```json")
             lines.append(_json.dumps(payload, indent=2, default=str))

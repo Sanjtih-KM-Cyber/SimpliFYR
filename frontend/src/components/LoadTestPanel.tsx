@@ -55,7 +55,7 @@ export function LoadTestPanel() {
       const sug = await suggestEventMapping(rep.stored_event_id)
       const named = sug.filter((s) => s.input_field.trim() && s.semantic_field.trim())
       if (named.length === 0) {
-        setError('AI could not name these fields — adopt as a new mapping instead')
+        setError('AI could not name these fields - adopt as a new mapping instead')
         return
       }
       const minConf = Math.min(...named.map((s) => s.confidence))
@@ -73,8 +73,8 @@ export function LoadTestPanel() {
       if (!best || bestCover < 0.9 || minConf < 0.8) {
         setError(
           best
-            ? `Closest is ${best.name} at ${Math.round(bestCover * 100)}% — below the auto-file bar, adopt or correct it instead`
-            : 'No existing mapping covers these fields — adopt as a new mapping instead',
+            ? `Closest is ${best.name} at ${Math.round(bestCover * 100)}% - below the auto-file bar, adopt or correct it instead`
+            : 'No existing mapping covers these fields - adopt as a new mapping instead',
         )
         return
       }
@@ -110,7 +110,7 @@ export function LoadTestPanel() {
 
   function onFile(file: File | undefined) {
     if (!file) return
-    // Same race as TryItNow: FileReader is async — hold the Run button
+    // Same race as TryItNow: FileReader is async - hold the Run button
     // until the dropped file actually lands in the input.
     setBusy(true)
     const reader = new FileReader()
@@ -147,7 +147,7 @@ export function LoadTestPanel() {
   async function downloadSet() {
     if (!result) return
     // Prefer the server-side batch pin: uncapped and complete (every member
-    // row, any status) — the ids path caps at 10k and would sample big trials.
+    // row, any status) - the ids path caps at 10k and would sample big trials.
     if (result.batch_id != null) {
       setDownloading(true)
       try {
@@ -195,7 +195,7 @@ export function LoadTestPanel() {
     try {
       sessionStorage.setItem(LOADTEST_SAMPLE_KEY, batch)
     } catch {
-      /* storage unavailable — wizard still opens with its default sample */
+      /* storage unavailable - wizard still opens with its default sample */
     }
   }
 
@@ -279,7 +279,7 @@ export function LoadTestPanel() {
       </div>
       {chosen && (
         <p className="mt-2 text-body-sm text-on-surface-variant">
-          Running through <span className="font-semibold text-on-surface">{chosen.name}</span> — lines it
+          Running through <span className="font-semibold text-on-surface">{chosen.name}</span> - lines it
           covers normalize; the rest quarantines for adoption below.
         </p>
       )}
@@ -288,7 +288,7 @@ export function LoadTestPanel() {
           {result.batch_id != null && (
             <p className="mb-1">
               Batch <span className="font-mono font-semibold text-primary">#{result.batch_id}</span>
-              <span className="text-on-surface-variant"> — one index for this set; filter by it under Logs</span>
+              <span className="text-on-surface-variant"> - one index for this set; filter by it under Logs</span>
             </p>
           )}
           <p>
@@ -303,12 +303,12 @@ export function LoadTestPanel() {
           </p>
           {result.normalized + result.output > 0 && (
             <p className="mt-1 text-success">
-              {result.normalized + result.output} lines matched an existing mapping — auto-normalized.
+              {result.normalized + result.output} lines matched an existing mapping - auto-normalized.
             </p>
           )}
           {result.quarantined > 0 && (
             <p className="mt-1 text-warning">
-              {result.quarantined} lines are new — adopt them as a mapping or download the set.
+              {result.quarantined} lines are new - adopt them as a mapping or download the set.
             </p>
           )}
           {result.quarantined > 0 && !filing && (

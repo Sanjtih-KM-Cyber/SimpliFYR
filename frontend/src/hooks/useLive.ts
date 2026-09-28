@@ -77,7 +77,7 @@ export function useLive({ source, enabled = true, onEvent, maxRetries = 8 }: Use
           const msg = JSON.parse(ev.data)
           if (msg?.type === 'ping') {
             // Heartbeat doubles as the pipeline-pressure channel. Older
-            // backends send a bare ping without counters — ignore those.
+            // backends send a bare ping without counters - ignore those.
             if (typeof msg.queue_depth === 'number' && typeof msg.queue_dropped_total === 'number') {
               setLastPing(msg as LivePing)
             }
@@ -97,7 +97,7 @@ export function useLive({ source, enabled = true, onEvent, maxRetries = 8 }: Use
       }
       socket.onerror = () => {
         // Handshake failures already surface as onclose; just ensure cleanup.
-        // (Deliberately no console noise here — DevTools logs the network
+        // (Deliberately no console noise here - DevTools logs the network
         // error itself, and schedule() caps the retries.)
         try {
           socket?.close()
@@ -118,7 +118,7 @@ export function useLive({ source, enabled = true, onEvent, maxRetries = 8 }: Use
     }
 
     // Health-gate: when the backend is down there is no handshake to
-    // attempt — skip socket creation entirely (zero console errors) and
+    // attempt - skip socket creation entirely (zero console errors) and
     // report dead. Polling fallbacks keep data fresh; remounting retries.
     getHealth()
       .then(() => {
