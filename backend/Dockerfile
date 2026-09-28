@@ -26,4 +26,6 @@ RUN pip install --no-cache-dir ./parsers
 COPY backend backend
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Render (and most PaaS) assigns the public port via $PORT — a fixed 8000
+# would leave the service unreachable after a healthy boot.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
