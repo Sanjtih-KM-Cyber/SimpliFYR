@@ -46,7 +46,16 @@ async def lifespan(app: FastAPI):
     print("simplifyr: lifespan starting", flush=True)
 
     print(f"simplifyr: running migrations ({settings.database_url.split('@')[-1]})", flush=True)
-    init_db()
+    try:
+        init_db()
+    except BaseException as exc:  # noqa: BLE001
+        # Render swallows lifespan tracebacks: print it ourselves so the
+        # killer names itself in the deploy log, then re-raise.
+        import traceback
+
+        print(f"simplifyr: MIGRATION FAILED: {type(exc).__name__}: {exc}", flush=True)
+        traceback.print_exc()
+        raise
     print("simplifyr: migrations complete, seeding", flush=True)
     with SessionLocal() as db:
         output_profiles.seed_presets(db)
