@@ -43,8 +43,11 @@ async def lifespan(app: FastAPI):
     from app.core.live import hub
 
     hub.set_loop(asyncio.get_running_loop())
+    print("simplifyr: lifespan starting", flush=True)
 
+    print(f"simplifyr: running migrations ({settings.database_url.split('@')[-1]})", flush=True)
     init_db()
+    print("simplifyr: migrations complete, seeding", flush=True)
     with SessionLocal() as db:
         output_profiles.seed_presets(db)
         from app.api import environments
@@ -52,11 +55,13 @@ async def lifespan(app: FastAPI):
 
         environments.seed_default_environment(db)
         seed_catalog(db)
+    print("simplifyr: seed complete, starting workers", flush=True)
 
     tasks = []
     # Spawn workers for the configured pipeline backend (in-memory or Kafka).
     for i, factory in enumerate(pipeline.worker_factories()):
         tasks.append(asyncio.create_task(factory(), name=f"pipeline-worker-{i}"))
+    print("simplifyr: startup complete, serving", flush=True)
 
     if (
         settings.retention_days > 0
