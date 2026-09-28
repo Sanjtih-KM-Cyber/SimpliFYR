@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from app.core.ai.cloud import GeminiProvider, GroqProvider
 from app.core.ai.heuristic import HeuristicAIProvider
-from app.core.ai.keypool import KeyPool
 from app.core.ai.ollama import OllamaAIProvider
 from app.core.config import settings
 
@@ -14,7 +12,12 @@ _provider = None
 
 
 def get_ai_provider():
-    """Return the configured intelligence provider, with safe fallback."""
+    """Return the configured intelligence provider, with safe fallback.
+
+    Air-gapped by design: only local providers exist (heuristic, ollama).
+    Anything else configured falls back to the heuristic with a warning —
+    no network call is ever attempted.
+    """
     global _provider
     if _provider is not None:
         return _provider
@@ -27,18 +30,8 @@ def get_ai_provider():
         except Exception as exc:  # noqa: BLE001
             logger.warning("Ollama provider unavailable (%s); using heuristic", exc)
 
-    if settings.ai_provider in ("groq", "gemini"):
-        try:
-            if settings.ai_provider == "groq":
-                pool = KeyPool(settings.groq_api_keys.split(","))
-                _provider = GroqProvider(pool, settings.groq_model)
-            else:
-                pool = KeyPool(settings.gemini_api_keys.split(","))
-                _provider = GeminiProvider(pool, settings.gemini_model)
-            logger.info("AI provider: %s (%d keys)", settings.ai_provider, len(pool))
-            return _provider
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("%s provider unavailable (%s); using heuristic", settings.ai_provider, exc)
+    if settings.ai_provider not in ("heuristic", "ollama"):
+        logger.warning("Unknown AI provider %r; using heuristic", settings.ai_provider)
 
     _provider = HeuristicAIProvider()
     logger.info("AI provider: heuristic")
