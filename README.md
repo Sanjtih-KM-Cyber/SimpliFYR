@@ -22,6 +22,10 @@ the original event** and **without you hand-writing parsers**.
 
 ## ⚙️ How it works
 
+## 🎥 Demo Video
+
+[![Watch Demo](https://img.shields.io/badge/▶_Watch_Demo-Google_Drive-4285F4?style=for-the-badge&logo=google-drive&logoColor=white)](https://drive.google.com/file/d/19NJiCJb9eSOgWFk-ofpo5eyFZ0_P1zTD/view?usp=sharing)
+
 ```
 raw log ──▶ DETECT ──▶ PARSE ──▶ NORMALIZE ──▶ OUTPUT ──▶ your SIEM / lake / webhook
   (syslog,      (format)    (fields)   (semantic      (your
